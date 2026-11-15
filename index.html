@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Multiplayer Game Template</title>
+    <link rel="stylesheet" href="/src/client/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <!-- In-game overlay. Filled and updated by src/client/ui/hud.ts -->
+    <div id="hud" class="hidden">
+      <div id="crosshair"></div>
+      <div id="damage-flash"></div>
+      <div id="top-bar">
+        <span id="score"></span>
+        <span id="timer"></span>
+      </div>
+      <div id="enemy-panel">
+        <div class="label" id="enemy-name">Opponent</div>
+        <div class="bar"><div class="fill enemy" id="enemy-hp"></div></div>
+      </div>
+      <div id="player-panel">
+        <div class="label">HP</div>
+        <div class="bar"><div class="fill" id="player-hp"></div></div>
+        <div class="label">Dash</div>
+        <div class="bar small"><div class="fill dash" id="dash-bar"></div></div>
+      </div>
+      <div id="message"></div>
+      <div id="hint">Click to play · WASD move · Space jump · Shift dash · Left click / J attack · Right click / F parry · F3 debug</div>
+      <div id="room-panel">
+        Room <b id="room-code"></b>
+        <button id="leave-button">Leave</button>
+      </div>
+      <pre id="debug" class="hidden"></pre>
+    </div>
+
+    <!-- Start screen. Handled by src/client/ui/lobbyUi.ts -->
+    <div id="lobby">
+      <div class="card">
+        <h1>Multiplayer Game Template</h1>
+        <label>Name <input id="name-input" maxlength="16" placeholder="Player" /></label>
+        <button id="create-button">Create room</button>
+        <div class="row">
+          <input id="code-input" maxlength="4" placeholder="CODE" />
+          <button id="join-button">Join room</button>
+        </div>
+        <button id="quick-button">Quick match</button>
+        <p id="lobby-status"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>

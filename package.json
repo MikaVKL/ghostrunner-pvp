@@ -1,0 +1,37 @@
+{
+  "name": "multiplayer-game-template",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable authoritative-server multiplayer browser game template (TypeScript, Three.js, WebSockets).",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch src/server/main.ts",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "tsx src/server/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && vitest run",
+    "test:watch": "vitest",
+    "bots": "tsx src/bots/cli.ts live",
+    "bots:sim": "tsx src/bots/cli.ts sim",
+    "check": "npm test && npm run bots:sim"
+  },
+  "dependencies": {
+    "three": "^0.187.0",
+    "tsx": "^4.23.15",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "@types/ws": "^8.18.2",
+    "concurrently": "^10.0.7",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}
