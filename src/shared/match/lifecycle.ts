@@ -23,7 +23,15 @@ export function startRound(world: WorldState, ctx: SimContext, round: number): v
 export function startMatch(world: WorldState, ctx: SimContext): void {
   world.match.scores = [0, 0];
   world.match.matchWinner = -1;
+  world.match.rematchVotes = [false, false];
   startRound(world, ctx, 1);
+}
+
+/** A player asks for a rematch. Only counts after the match has ended. Returns true if noted. */
+export function voteRematch(world: WorldState, slot: number): boolean {
+  if (world.match.phase !== 'matchEnd' || world.match.rematchVotes[slot] !== false) return false;
+  world.match.rematchVotes[slot] = true;
+  return true;
 }
 
 /** Go back to free practice mode. Called when a player leaves. */
@@ -35,6 +43,7 @@ export function enterWaiting(world: WorldState, ctx: SimContext): void {
   world.match.scores = [0, 0];
   world.match.roundWinner = -1;
   world.match.matchWinner = -1;
+  world.match.rematchVotes = [false, false];
 }
 
 /** End the current round with the given winner slot (-1 = draw). */

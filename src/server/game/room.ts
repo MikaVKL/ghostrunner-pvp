@@ -4,7 +4,7 @@
  */
 import { MAX_PLAYERS_PER_ROOM, SNAPSHOT_EVERY_TICKS } from '../../shared/config';
 import type { InputCmd } from '../../shared/input';
-import { enterWaiting, startMatch } from '../../shared/match/lifecycle';
+import { enterWaiting, startMatch, voteRematch } from '../../shared/match/lifecycle';
 import { encodeMessage } from '../../shared/protocol/codec';
 import type { RoomPlayerInfo, SnapshotMessage } from '../../shared/protocol/messages';
 import type { GameEvent } from '../../shared/sim/events';
@@ -81,6 +81,12 @@ export class Room {
 
   handleInput(session: Session, cmd: InputCmd): void {
     this.seats.find((s) => s.session === session)?.inputs.push(cmd);
+  }
+
+  /** A player asks for a rematch after the match has ended. */
+  handleRematch(session: Session): void {
+    const seat = this.seats.find((s) => s.session === session);
+    if (seat && voteRematch(this.world, seat.slot)) this.markAllDisturbed();
   }
 
   /** Advance the room by one simulation tick. Called by the server's tick loop. */

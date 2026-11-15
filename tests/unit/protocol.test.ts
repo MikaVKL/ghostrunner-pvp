@@ -50,6 +50,7 @@ describe('parseClientMessage', () => {
       name: 'X',
     });
     expect(parseClientMessage('{"type":"leaveRoom"}')).toEqual({ type: 'leaveRoom' });
+    expect(parseClientMessage('{"type":"rematch"}')).toEqual({ type: 'rematch' });
     expect(parseClientMessage('{"type":"ping","t":12}')).toEqual({ type: 'ping', t: 12 });
     const inputMessage = { type: 'input' as const, cmd: { seq: 1, moveX: 0, moveZ: 1, yaw: 0, pitch: 0, buttons: 0 } };
     expect(parseClientMessage(encodeMessage(inputMessage))).toEqual(inputMessage);

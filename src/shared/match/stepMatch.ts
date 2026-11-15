@@ -60,6 +60,16 @@ function stepRoundEnd(world: WorldState, ctx: SimContext, events: GameEvent[]): 
   events.push({ type: 'matchEnd', winner: match.matchWinner });
 }
 
+/** A rematch starts when every player voted for it, or automatically if the config says so. */
+function stepMatchEnd(world: WorldState, ctx: SimContext): void {
+  const match = world.match;
+  const everyoneVoted = world.players.every((p) => match.rematchVotes[p.slot] === true);
+  if (everyoneVoted) return startMatch(world, ctx);
+  if (ctx.matchConfig.matchEndTicks <= 0) return;
+  match.phaseTicksLeft--;
+  if (match.phaseTicksLeft <= 0) startMatch(world, ctx);
+}
+
 /** In practice mode a fall just puts the player back on the spawn. */
 function stepWaiting(world: WorldState, ctx: SimContext): void {
   for (const p of world.players) {
@@ -89,8 +99,7 @@ export function stepMatch(world: WorldState, ctx: SimContext, events: GameEvent[
       if (match.phaseTicksLeft <= 0) stepRoundEnd(world, ctx, events);
       return;
     case 'matchEnd':
-      match.phaseTicksLeft--;
-      if (match.phaseTicksLeft <= 0) startMatch(world, ctx);
+      stepMatchEnd(world, ctx);
       return;
     default:
       assertNever(match.phase);

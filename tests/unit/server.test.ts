@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SNAPSHOT_EVERY_TICKS, TICK_DT } from '../../src/shared/config';
 import { MOVE } from '../../src/shared/movement/movementConfig';
+import { GameServer } from '../../src/server/gameServer';
+import { FAST_MATCH_CONFIG } from '../../src/shared/match/matchConfig';
 import { createMatch, createTestServer, TestClient, tickUntilPlaying } from '../serverHelpers';
 
 describe('authoritative server', () => {
@@ -54,6 +56,27 @@ describe('authoritative server', () => {
     const client = new TestClient(createTestServer());
     client.send({ type: 'ping', t: 123 });
     expect(client.last('pong')).toEqual({ type: 'pong', t: 123 });
+  });
+});
+
+describe('rematch over the network', () => {
+  it('both clients must send "rematch" before a new match starts', () => {
+    const server = new GameServer({ matchConfig: { ...FAST_MATCH_CONFIG, matchEndTicks: 0 }, mapId: 'arena' });
+    const { a, b } = createMatch(server);
+    const room = server.lobby.getRoom(a.roomCode)!;
+    // Force the end of the match (the rules themselves are tested in match.test.ts).
+    room.world.match.phase = 'matchEnd';
+    room.world.match.matchWinner = 0;
+
+    a.send({ type: 'rematch' });
+    for (let i = 0; i < 10; i++) server.tick();
+    expect(a.snapshot!.match.phase).toBe('matchEnd');
+    expect(b.snapshot!.match.rematchVotes).toEqual([true, false]);
+
+    b.send({ type: 'rematch' });
+    for (let i = 0; i < 2; i++) server.tick();
+    expect(a.snapshot!.match.phase).toBe('countdown');
+    expect(a.snapshot!.match.round).toBe(1);
   });
 });
 

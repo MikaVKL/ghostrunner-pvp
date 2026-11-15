@@ -50,6 +50,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
     }
     case 'leaveRoom':
       return { type: 'leaveRoom' };
+    case 'rematch':
+      return { type: 'rematch' };
     case 'input': {
       const cmd = sanitizeInput(msg.cmd);
       return cmd ? { type: 'input', cmd } : null;

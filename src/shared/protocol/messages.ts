@@ -15,6 +15,7 @@ export type ClientMessage =
   | { type: 'joinRoom'; code: string; name: string }
   | { type: 'quickMatch'; name: string }
   | { type: 'leaveRoom' }
+  | { type: 'rematch' }
   | { type: 'input'; cmd: InputCmd }
   | { type: 'ping'; t: number };
 

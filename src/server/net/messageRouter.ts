@@ -24,6 +24,9 @@ export function routeMessage(lobby: Lobby, session: Session, message: ClientMess
     case 'leaveRoom':
       lobby.leave(session);
       return;
+    case 'rematch':
+      session.room?.handleRematch(session);
+      return;
     case 'input':
       session.room?.handleInput(session, message.cmd);
       return;

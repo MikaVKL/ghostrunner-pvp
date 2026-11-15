@@ -11,7 +11,11 @@ export interface MatchConfig {
   roundTicks: number;
   /** Pause after a round before the next one starts. */
   roundEndTicks: number;
-  /** Pause after the match before a rematch starts automatically. */
+  /**
+   * After the match: a rematch starts as soon as BOTH players asked for it (Room.handleRematch).
+   * If this is > 0, a rematch also starts automatically after that many ticks.
+   * 0 = wait for the players forever (they can also leave the room).
+   */
   matchEndTicks: number;
   /** First player to win this many rounds wins the match. */
   roundsToWin: number;
@@ -19,11 +23,15 @@ export interface MatchConfig {
   maxRounds: number;
 }
 
+/**
+ * Best-of-5: the first player with 3 round wins takes the match. Drawn rounds (double
+ * kill, time ran out) give nobody a point; `maxRounds` makes sure the match still ends.
+ */
 export const DEFAULT_MATCH_CONFIG: MatchConfig = {
   countdownTicks: secondsToTicks(3),
   roundTicks: secondsToTicks(60),
-  roundEndTicks: secondsToTicks(3),
-  matchEndTicks: secondsToTicks(6),
+  roundEndTicks: secondsToTicks(2.5),
+  matchEndTicks: 0,
   roundsToWin: 3,
   maxRounds: 9,
 };

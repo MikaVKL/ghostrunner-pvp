@@ -114,6 +114,11 @@ export class GameClient {
     this.send({ type: 'leaveRoom' });
   }
 
+  /** Ask for a rematch after the match has ended (starts when both players asked). */
+  requestRematch(): void {
+    this.send({ type: 'rematch' });
+  }
+
   close(): void {
     this.transport.close();
   }

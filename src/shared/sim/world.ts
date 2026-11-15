@@ -11,7 +11,7 @@ import { createPlayer, type PlayerState } from './playerState';
  * countdown - both players frozen at their spawns
  * playing   - the round is running
  * roundEnd  - someone won the round; everyone frozen
- * matchEnd  - someone won the match; everyone frozen, rematch starts automatically
+ * matchEnd  - someone won the match; everyone frozen until both players vote for a rematch
  */
 export type MatchPhase = 'waiting' | 'countdown' | 'playing' | 'roundEnd' | 'matchEnd';
 
@@ -26,6 +26,8 @@ export interface MatchState {
   roundWinner: number;
   /** Slot that won the match, or -1 for none/draw. */
   matchWinner: number;
+  /** After the match: which slots asked for a rematch. Both true => a new match starts. */
+  rematchVotes: boolean[];
 }
 
 export interface WorldState {
@@ -54,6 +56,7 @@ export function createWorld(mapId: string): WorldState {
       scores: [0, 0],
       roundWinner: -1,
       matchWinner: -1,
+      rematchVotes: [false, false],
     },
   };
 }
