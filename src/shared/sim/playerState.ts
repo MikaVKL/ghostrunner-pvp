@@ -8,7 +8,7 @@
  *   object is sent over the network as-is, so new fields are synchronized automatically.
  * - Durations are counted in ticks (integers), not seconds.
  */
-import { DEFAULT_WEAPON_ID } from '../combat/weapons';
+import { DEFAULT_WEAPON_ID, type AttackKind } from '../combat/weapons';
 import { cloneVec3, type Vec3 } from '../math/vec3';
 import type { SpawnPoint } from '../maps/mapTypes';
 
@@ -55,6 +55,12 @@ export interface PlayerState {
   actionTicks: number;
   /** True once the current swing has hit or been parried (one result per swing). */
   attackConnected: boolean;
+  /** Which attack profile the current/last swing uses (normal or dash attack). */
+  attackKind: AttackKind;
+  /** Ticks until the next swing may start. */
+  attackCooldown: number;
+  /** Ticks until the next parry may start. */
+  parryCooldown: number;
 
   /** Buttons held in the previous tick. Needed to detect "just pressed". */
   prevButtons: number;
@@ -88,6 +94,9 @@ export function createPlayer(
     action: 'idle',
     actionTicks: 0,
     attackConnected: false,
+    attackKind: 'light',
+    attackCooldown: 0,
+    parryCooldown: 0,
     prevButtons: 0,
   };
 }

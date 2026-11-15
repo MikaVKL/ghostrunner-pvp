@@ -5,7 +5,7 @@ import { forwardFromYaw } from '../math/vec3';
 import { PLAYER_HALF_WIDTH } from '../physics/collision';
 import type { PlayerState } from '../sim/playerState';
 import { COMBAT } from './combatConfig';
-import type { WeaponDef } from './weapons';
+import type { AttackProfile } from './weapons';
 
 /**
  * How directly `from` looks at `to`: 1 = straight at, 0 = sideways, -1 = facing away.
@@ -20,11 +20,11 @@ export function facingDot(from: PlayerState, to: PlayerState): number {
   return (dx * forward.x + dz * forward.z) / dist;
 }
 
-/** True if `target` is inside the hit cone of `attacker`'s weapon. */
+/** True if `target` is inside the hit cone of `attacker`'s attack. */
 export function isInMeleeRange(
   attacker: PlayerState,
   target: PlayerState,
-  weapon: WeaponDef,
+  weapon: AttackProfile,
 ): boolean {
   if (Math.abs(target.pos.y - attacker.pos.y) > COMBAT.verticalReach) return false;
   const dist = Math.hypot(target.pos.x - attacker.pos.x, target.pos.z - attacker.pos.z);

@@ -7,15 +7,15 @@
 import { forwardFromYaw } from '../math/vec3';
 import type { GameEvent } from '../sim/events';
 import type { PlayerState } from '../sim/playerState';
-import { isAttackActive, isParryActive, setAction } from './actions';
+import { currentAttack, isAttackActive, isParryActive, setAction } from './actions';
 import { COMBAT } from './combatConfig';
 import { isFacing, isInMeleeRange } from './hitDetection';
-import { getWeapon, type WeaponDef } from './weapons';
+import type { AttackProfile } from './weapons';
 
 interface Contact {
   attacker: PlayerState;
   target: PlayerState;
-  weapon: WeaponDef;
+  attack: AttackProfile;
   parried: boolean;
 }
 
@@ -24,44 +24,56 @@ function findContacts(players: PlayerState[]): Contact[] {
   const contacts: Contact[] = [];
   for (const attacker of players) {
     if (!attacker.alive || attacker.attackConnected || !isAttackActive(attacker)) continue;
-    const weapon = getWeapon(attacker.weaponId);
+    const attack = currentAttack(attacker);
     for (const target of players) {
       if (target === attacker || !target.alive) continue;
-      if (!isInMeleeRange(attacker, target, weapon)) continue;
+      if (!isInMeleeRange(attacker, target, attack)) continue;
       const parried = isParryActive(target) && isFacing(target, attacker);
-      contacts.push({ attacker, target, weapon, parried });
+      contacts.push({ attacker, target, attack, parried });
     }
   }
   return contacts;
 }
 
-function applyHit(c: Contact, events: GameEvent[]): void {
-  const { attacker, target, weapon } = c;
-  target.hp = Math.max(0, target.hp - weapon.damage);
-  // Push the target away from the attacker.
-  let dx = target.pos.x - attacker.pos.x;
-  let dz = target.pos.z - attacker.pos.z;
+/** Unit vector from `from` to `to` on the ground plane (falls back to `from`'s view direction). */
+function directionBetween(from: PlayerState, to: PlayerState): { x: number; z: number } {
+  const dx = to.pos.x - from.pos.x;
+  const dz = to.pos.z - from.pos.z;
   const dist = Math.hypot(dx, dz);
-  if (dist < 1e-6) ({ x: dx, z: dz } = forwardFromYaw(attacker.yaw));
-  else {
-    dx /= dist;
-    dz /= dist;
-  }
-  target.vel.x += dx * weapon.knockback;
-  target.vel.z += dz * weapon.knockback;
-  target.vel.y = Math.max(target.vel.y, weapon.knockback * COMBAT.knockbackLift);
+  if (dist < 1e-6) return forwardFromYaw(from.yaw);
+  return { x: dx / dist, z: dz / dist };
+}
+
+function applyHit(c: Contact, events: GameEvent[]): void {
+  const { attacker, target, attack } = c;
+  target.hp = Math.max(0, target.hp - attack.damage);
+  // Push the target away from the attacker.
+  const dir = directionBetween(attacker, target);
+  target.vel.x += dir.x * attack.knockback;
+  target.vel.z += dir.z * attack.knockback;
+  target.vel.y = Math.max(target.vel.y, attack.knockback * COMBAT.knockbackLift);
   events.push({
     type: 'hit',
     attacker: attacker.slot,
     target: target.slot,
-    damage: weapon.damage,
+    kind: attacker.attackKind,
+    damage: attack.damage,
     hpLeft: target.hp,
   });
 }
 
+/** The attacker is stunned and pushed back; the defender may act again immediately. */
 function applyParry(c: Contact, events: GameEvent[]): void {
-  setAction(c.attacker, 'stunned');
-  events.push({ type: 'parry', attacker: c.attacker.slot, defender: c.target.slot });
+  const { attacker, target } = c;
+  setAction(attacker, 'stunned');
+  attacker.dashTicks = 0;
+  const away = directionBetween(target, attacker);
+  attacker.vel.x = away.x * COMBAT.parryPushback;
+  attacker.vel.z = away.z * COMBAT.parryPushback;
+  setAction(target, 'idle');
+  target.parryCooldown = 0;
+  target.attackCooldown = 0;
+  events.push({ type: 'parry', attacker: attacker.slot, defender: target.slot });
 }
 
 /**

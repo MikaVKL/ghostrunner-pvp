@@ -1,9 +1,9 @@
 {
-  "name": "multiplayer-game-template",
+  "name": "ghostrunner-pvp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Reusable authoritative-server multiplayer browser game template (TypeScript, Three.js, WebSockets).",
+  "description": "Ghostrunner-style 1v1 sword PvP in the browser (authoritative server, TypeScript, Three.js, WebSockets).",
   "engines": {
     "node": ">=22"
   },

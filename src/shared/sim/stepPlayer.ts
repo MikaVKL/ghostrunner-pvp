@@ -15,11 +15,12 @@ import { phaseAllowsAction, type MatchPhase } from './world';
 
 /** Full simulation step for an active player. */
 function stepActivePlayer(p: PlayerState, input: InputCmd, map: MapDef): void {
-  stepAction(p, input);
+  // Movement first: a dash started this tick already turns an attack into a dash attack.
   stepMovement(p, input, map, {
     speedFactor: actionSpeedFactor(p),
     canDash: p.action !== 'stunned',
   });
+  stepAction(p, input);
   p.prevButtons = input.buttons;
 }
 

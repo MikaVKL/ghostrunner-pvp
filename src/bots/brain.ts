@@ -73,7 +73,7 @@ export class BotBrain {
     const target = enemy && enemy.alive ? enemy : null;
     const distance = target ? horizontalDistance(me.pos, target.pos) : Infinity;
     const fighting = target !== null && distance < FIGHT_DISTANCE;
-    const range = getWeapon(me.weaponId).range;
+    const range = getWeapon(me.weaponId).attacks.light.range;
 
     // Where to go and where to look.
     if (!this.waypoint || this.ticks % REPATH_EVERY_TICKS === 0) {

@@ -5,10 +5,11 @@
  * it. Everything that involves the OTHER player (hits, parries) is in resolveCombat.ts.
  */
 import { Button, wasPressed, type InputCmd } from '../input';
+import { MOVE } from '../movement/movementConfig';
 import type { ActionState, PlayerState } from '../sim/playerState';
-import { COMBAT } from './combatConfig';
 import { assertNever } from '../util/assertNever';
-import { attackTotalTicks, getWeapon } from './weapons';
+import { COMBAT } from './combatConfig';
+import { attackTotalTicks, getWeapon, type AttackProfile } from './weapons';
 
 export function setAction(p: PlayerState, action: ActionState): void {
   p.action = action;
@@ -16,20 +17,49 @@ export function setAction(p: PlayerState, action: ActionState): void {
   p.attackConnected = false;
 }
 
+/** The attack profile (light or dash) of the swing the player is doing / did last. */
+export function currentAttack(p: PlayerState): AttackProfile {
+  return getWeapon(p.weaponId).attacks[p.attackKind];
+}
+
+/** True while dashing or shortly after: an attack started now becomes a dash attack. */
+export function isDashAttackReady(p: PlayerState): boolean {
+  if (p.dashTicks > 0) return true;
+  const ticksSinceDashStart = MOVE.dashCooldownTicks - p.dashCooldown;
+  return p.dashCooldown > 0 && ticksSinceDashStart <= MOVE.dashTicks + COMBAT.dashAttackGraceTicks;
+}
+
+function stepIdle(p: PlayerState, input: InputCmd): void {
+  if (wasPressed(input, p.prevButtons, Button.Attack) && p.attackCooldown === 0) {
+    setAction(p, 'attack');
+    p.attackKind = isDashAttackReady(p) ? 'dash' : 'light';
+  } else if (wasPressed(input, p.prevButtons, Button.Parry) && p.parryCooldown === 0) {
+    setAction(p, 'parry');
+  }
+}
+
 /** Advance the action state machine by one tick. */
 export function stepAction(p: PlayerState, input: InputCmd): void {
+  if (p.attackCooldown > 0) p.attackCooldown--;
+  if (p.parryCooldown > 0) p.parryCooldown--;
+
   switch (p.action) {
     case 'idle':
-      if (wasPressed(input, p.prevButtons, Button.Attack)) setAction(p, 'attack');
-      else if (wasPressed(input, p.prevButtons, Button.Parry)) setAction(p, 'parry');
+      stepIdle(p, input);
       return;
     case 'attack':
       p.actionTicks++;
-      if (p.actionTicks >= attackTotalTicks(getWeapon(p.weaponId))) setAction(p, 'idle');
+      if (p.actionTicks >= attackTotalTicks(currentAttack(p))) {
+        setAction(p, 'idle');
+        p.attackCooldown = getWeapon(p.weaponId).cooldownTicks;
+      }
       return;
     case 'parry':
       p.actionTicks++;
-      if (p.actionTicks >= COMBAT.parryWindowTicks + COMBAT.parryRecoveryTicks) setAction(p, 'idle');
+      if (p.actionTicks >= COMBAT.parryWindowTicks + COMBAT.parryRecoveryTicks) {
+        setAction(p, 'idle');
+        p.parryCooldown = COMBAT.parryCooldownTicks;
+      }
       return;
     case 'stunned':
       p.actionTicks++;
@@ -43,11 +73,8 @@ export function stepAction(p: PlayerState, input: InputCmd): void {
 /** True while the swing can hit (the "active" phase). */
 export function isAttackActive(p: PlayerState): boolean {
   if (p.action !== 'attack') return false;
-  const weapon = getWeapon(p.weaponId);
-  return (
-    p.actionTicks >= weapon.startupTicks &&
-    p.actionTicks < weapon.startupTicks + weapon.activeTicks
-  );
+  const attack = currentAttack(p);
+  return p.actionTicks >= attack.startupTicks && p.actionTicks < attack.startupTicks + attack.activeTicks;
 }
 
 /** True while the parry blocks incoming attacks. */

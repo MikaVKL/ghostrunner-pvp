@@ -4,8 +4,7 @@
  * This is purely visual - replace it with real animations later.
  */
 import type { MeshStandardMaterial, Object3D } from 'three';
-import { isParryActive } from '../../shared/combat/actions';
-import { getWeapon } from '../../shared/combat/weapons';
+import { currentAttack, isParryActive } from '../../shared/combat/actions';
 import { lerp } from '../../shared/math/scalar';
 import type { PlayerState } from '../../shared/sim/playerState';
 
@@ -25,7 +24,7 @@ const BLADE_STUNNED = 0xf2c744;
 
 export function swordPose(p: PlayerState): SwordPose {
   if (p.action === 'attack') {
-    const weapon = getWeapon(p.weaponId);
+    const weapon = currentAttack(p);
     const afterStartup = p.actionTicks - weapon.startupTicks;
     if (afterStartup < 0) {
       // wind up
