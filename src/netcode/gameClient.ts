@@ -98,8 +98,9 @@ export class GameClient {
 
   // ---------- lobby ----------
 
-  createRoom(name: string): void {
-    this.send({ type: 'createRoom', name });
+  /** Create a private room. Without `mapId` the server uses its default map. */
+  createRoom(name: string, mapId?: string): void {
+    this.send(mapId ? { type: 'createRoom', name, mapId } : { type: 'createRoom', name });
   }
 
   joinRoom(code: string, name: string): void {

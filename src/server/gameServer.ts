@@ -7,7 +7,6 @@
  * Tests wire it to a fake in-memory network and call tick() by hand.
  */
 import { PROTOCOL_VERSION, TICK_RATE } from '../shared/config';
-import { DEFAULT_MAP_ID, getMap } from '../shared/maps';
 import { DEFAULT_MATCH_CONFIG, type MatchConfig } from '../shared/match/matchConfig';
 import { parseClientMessage } from '../shared/protocol/codec';
 import type { Transport } from '../shared/protocol/transport';
@@ -21,6 +20,7 @@ const MAX_MESSAGES_PER_SECOND = 240;
 
 export interface GameServerOptions {
   matchConfig?: MatchConfig;
+  /** Force this map for every room (otherwise players choose / quick match rotates). */
   mapId?: string;
 }
 
@@ -42,8 +42,8 @@ export class GameServer {
 
   constructor(options: GameServerOptions = {}) {
     this.lobby = new Lobby({
-      map: getMap(options.mapId ?? DEFAULT_MAP_ID),
       matchConfig: options.matchConfig ?? DEFAULT_MATCH_CONFIG,
+      forcedMapId: options.mapId,
     });
   }
 

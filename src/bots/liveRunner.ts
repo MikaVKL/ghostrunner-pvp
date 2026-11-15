@@ -19,6 +19,8 @@ export interface LiveOptions {
   /** Give up after this many real seconds. */
   timeoutSec: number;
   useQuickMatch?: boolean;
+  /** Map for the room (not with quick match). Default: the server's default map. */
+  mapId?: string;
 }
 
 async function connectBot(options: LiveOptions, name: string, seed: number): Promise<Bot> {
@@ -36,7 +38,7 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
     guest.client.quickMatch(guest.name);
   } else {
     host.client.onRoomJoined = (room) => guest.client.joinRoom(room.code, guest.name);
-    host.client.createRoom(host.name);
+    host.client.createRoom(host.name, options.mapId);
   }
 
   const loops = bots.map((bot) => new TickLoop(() => bot.tick()));
@@ -56,6 +58,7 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
   });
 
   for (const loop of loops) loop.stop();
+  const mapId = host.client.room?.mapId ?? '?';
   for (const bot of bots) {
     if (!bot.client.connected) bot.errors.push('connection closed unexpectedly');
     bot.client.close();
@@ -63,6 +66,7 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
 
   return {
     label: options.label,
+    mapId,
     finished: finished(),
     winner: host.matchWinner,
     rounds: host.roundsPlayed,

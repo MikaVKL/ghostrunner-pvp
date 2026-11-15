@@ -11,7 +11,7 @@ import type { MatchState } from '../sim/world';
 // ---------- client -> server ----------
 
 export type ClientMessage =
-  | { type: 'createRoom'; name: string }
+  | { type: 'createRoom'; name: string; mapId?: string }
   | { type: 'joinRoom'; code: string; name: string }
   | { type: 'quickMatch'; name: string }
   | { type: 'leaveRoom' }

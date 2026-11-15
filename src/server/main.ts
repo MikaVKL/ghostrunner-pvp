@@ -4,7 +4,8 @@
  * Environment variables:
  *   PORT        port to listen on (default 3000)
  *   FAST_MATCH  set to 1 for very short rounds (handy for testing)
- *   MAP         id of the map to play (default: see DEFAULT_MAP_ID in src/shared/maps/index.ts)
+ *   MAP         force this map id for every room (default: players choose in the menu,
+ *               quick match rotates; ids are in src/shared/maps/index.ts)
  */
 import { networkInterfaces } from 'node:os';
 import { DEFAULT_MATCH_CONFIG, FAST_MATCH_CONFIG } from '../shared/match/matchConfig';

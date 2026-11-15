@@ -2,7 +2,7 @@
  * Collecting and printing the results of bot matches.
  */
 import type { ServerStats } from '../server/gameServer';
-import type { Bot } from './bot';
+import type { Bot, BotUsage } from './bot';
 
 export interface BotReport {
   name: string;
@@ -14,10 +14,12 @@ export interface BotReport {
   desyncDetails: string[];
   rttMs: number;
   errors: string[];
+  usage: BotUsage;
 }
 
 export interface MatchReport {
   label: string;
+  mapId: string;
   /** True if the match reached its end before the time limit. */
   finished: boolean;
   winner: number | null;
@@ -44,6 +46,7 @@ export function botReport(bot: Bot): BotReport {
     desyncDetails: stats.desyncDetails,
     rttMs: stats.rttMs,
     errors: [...bot.errors, ...stats.serverErrors],
+    usage: { ...bot.usage },
   };
 }
 
@@ -71,24 +74,39 @@ export function findProblems(report: RunReport): string[] {
   return problems;
 }
 
+/** Sum of the mechanics counters of all bots in all matches. */
+export function totalUsage(matches: MatchReport[]): BotUsage {
+  const total: BotUsage = { wallRunTicks: 0, wallJumps: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0 };
+  for (const bot of matches.flatMap((m) => m.bots)) {
+    for (const key of Object.keys(total) as (keyof BotUsage)[]) total[key] += bot.usage[key];
+  }
+  return total;
+}
+
 const pad = (value: string | number, width: number) => String(value).padEnd(width);
 
 export function printReport(report: RunReport): void {
   console.log('\n=== BOT REPORT ===');
   console.log(
-    pad('match', 12) + pad('bot', 8) + pad('result', 10) + pad('rounds', 8) + pad('time(s)', 9) +
+    pad('match', 10) + pad('map', 10) + pad('bot', 6) + pad('result', 9) + pad('rounds', 8) + pad('time(s)', 9) +
       pad('snaps', 8) + pad('corrections', 13) + pad('maxCorr(m)', 12) + pad('desyncs', 9) + 'rtt(ms)',
   );
   for (const match of report.matches) {
     match.bots.forEach((bot, slot) => {
       const result = !match.finished ? 'TIMEOUT' : match.winner === slot ? 'win' : match.winner === -1 ? 'draw' : 'loss';
       console.log(
-        pad(match.label, 12) + pad(bot.name, 8) + pad(result, 10) + pad(match.rounds, 8) +
+        pad(match.label, 10) + pad(match.mapId, 10) + pad(bot.name, 6) + pad(result, 9) + pad(match.rounds, 8) +
           pad(match.durationSec.toFixed(1), 9) + pad(bot.snapshots, 8) + pad(bot.corrections, 13) +
           pad(bot.maxCorrectionM.toFixed(3), 12) + pad(bot.desyncs, 9) + bot.rttMs.toFixed(0),
       );
     });
   }
+  const total = totalUsage(report.matches);
+  console.log(
+    `\nmechanics used by the bots: wall-run ${total.wallRunTicks} ticks, wall-jumps ${total.wallJumps}, ` +
+      `dashes ${total.dashes}, swings ${total.swings} (dash attacks ${total.dashAttacks}), ` +
+      `parries ${total.parries}, kills ${total.kills}`,
+  );
   if (report.server) {
     const t = report.server.tick;
     console.log(

@@ -18,9 +18,25 @@ export interface SpawnPoint {
   yaw: number;
 }
 
+/**
+ * A parkour shortcut that bots can take (humans can go wherever they want).
+ *   jump    - run from `from` toward `to` and jump where the floor ends (or a ledge blocks)
+ *   wallRun - run from `from` toward `to` along a wall, jump at the ledge, wall-run across
+ * Rules: `from` and `to` are on walkable ground. For 'wallRun' the line from->to must be
+ * parallel to the wall, 0.45 m away from its face (see HOW_TO_EXTEND.md, "Neue Map").
+ */
+export interface ParkourLink {
+  kind: 'jump' | 'wallRun';
+  from: Vec3;
+  to: Vec3;
+}
+
 export interface MapDef {
   id: string;
+  /** Display name (German, shown in the menu). */
   name: string;
+  /** One sentence for the map selection in the menu (German). */
+  description: string;
   boxes: Box[];
   /** One spawn per player slot (index = slot). */
   spawns: SpawnPoint[];
@@ -28,6 +44,13 @@ export interface MapDef {
   killY: number;
   /** Hand-placed points on walkable ground that bots use to find paths (e.g. bridge ends). */
   navPoints: Vec3[];
+  /** Parkour shortcuts for bots (one entry per direction). May be empty. */
+  links: ParkourLink[];
+}
+
+/** Shorthand for a point on the ground. */
+export function at(x: number, z: number, y = 0): Vec3 {
+  return { x, y, z };
 }
 
 /** Create a box from its center and size. Easier to read than min/max when building maps. */

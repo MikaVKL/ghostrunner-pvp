@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { generateRoomCode, generateUniqueRoomCode } from '../../src/server/lobby/roomCodes';
+import { GameServer } from '../../src/server/gameServer';
+import { DEFAULT_MAP_ID, MAP_ROTATION } from '../../src/shared/maps';
 import { createRng } from '../../src/shared/math/rng';
+import { FAST_MATCH_CONFIG } from '../../src/shared/match/matchConfig';
 import { createMatch, createTestServer, TestClient } from '../serverHelpers';
 
 describe('room codes', () => {
@@ -89,6 +92,41 @@ describe('lobby', () => {
     expect(a.roomCode).toBe(b.roomCode);
     expect(c.roomCode).not.toBe(a.roomCode);
     expect(server.lobby.roomCount).toBe(2);
+  });
+
+  it('createRoom uses the map the creator picked', () => {
+    const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG });
+    const a = new TestClient(server);
+    const b = new TestClient(server);
+    a.send({ type: 'createRoom', name: 'A', mapId: 'reaktor' });
+    b.send({ type: 'createRoom', name: 'B' });
+    expect(a.last('roomJoined')!.mapId).toBe('reaktor');
+    expect(b.last('roomJoined')!.mapId).toBe(DEFAULT_MAP_ID);
+    b.sendRaw('{"type":"leaveRoom"}');
+    b.sendRaw('{"type":"createRoom","name":"B","mapId":"does-not-exist"}');
+    expect(b.last('error')!.code).toBe('bad_message');
+  });
+
+  it('quick-match rooms take turns through the map rotation', () => {
+    const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG });
+    const seen: string[] = [];
+    for (let i = 0; i < MAP_ROTATION.length * 2; i++) {
+      const a = new TestClient(server);
+      const b = new TestClient(server);
+      a.send({ type: 'quickMatch', name: 'A' });
+      b.send({ type: 'quickMatch', name: 'B' });
+      expect(b.roomCode).toBe(a.roomCode);
+      seen.push(a.last('roomJoined')!.mapId);
+    }
+    expect(seen).toEqual([...MAP_ROTATION, ...MAP_ROTATION]);
+  });
+
+  it('a server started with a fixed map uses it for every room', () => {
+    const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG, mapId: 'daecher' });
+    const a = new TestClient(server);
+    a.send({ type: 'createRoom', name: 'A', mapId: 'reaktor' });
+    expect(a.last('roomJoined')!.mapId).toBe('daecher');
+    expect(() => new GameServer({ mapId: 'nope' })).toThrow();
   });
 
   it('quickMatch never joins a private room', () => {

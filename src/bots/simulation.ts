@@ -25,6 +25,8 @@ export interface SimOptions {
   matchConfig?: MatchConfig;
   /** Use quick match instead of create/join by room code. */
   useQuickMatch?: boolean;
+  /** Map for the room (not with quick match). Default: the server's default map. */
+  mapId?: string;
   /** Reuse an existing server (to collect statistics over several matches). */
   server?: GameServer;
 }
@@ -57,7 +59,7 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
     guest.client.quickMatch(guest.name);
   } else {
     host.client.onRoomJoined = (room) => guest.client.joinRoom(room.code, guest.name);
-    host.client.createRoom(host.name);
+    host.client.createRoom(host.name, options.mapId);
   }
 
   // Server and bots tick at slightly different moments and speeds, like real computers.
@@ -78,15 +80,18 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
   }
 
   const durationSec = net.nowMs / 1000;
+  const report = bots.map(botReport);
+  const mapId = host.client.room?.mapId ?? '?';
   for (const bot of bots) bot.client.close();
   net.advanceTo(net.nowMs + 1); // deliver the close events so the server frees the room
 
   return {
     label: options.label ?? `seed ${options.seed}`,
+    mapId,
     finished: finished(),
     winner: host.matchWinner,
     rounds: host.roundsPlayed,
     durationSec,
-    bots: bots.map(botReport),
+    bots: report,
   };
 }

@@ -3,6 +3,7 @@
  * Client -> server messages are strictly validated (never trust the client).
  */
 import { sanitizeInput } from '../input';
+import { isMapId } from '../maps';
 import type { ClientMessage, ServerMessage } from './messages';
 
 export const MAX_NAME_LENGTH = 16;
@@ -41,7 +42,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
 
   switch (msg.type) {
     case 'createRoom':
-      return { type: 'createRoom', name: sanitizeName(msg.name) };
+      if (msg.mapId === undefined) return { type: 'createRoom', name: sanitizeName(msg.name) };
+      return isMapId(msg.mapId) ? { type: 'createRoom', name: sanitizeName(msg.name), mapId: msg.mapId } : null;
     case 'quickMatch':
       return { type: 'quickMatch', name: sanitizeName(msg.name) };
     case 'joinRoom': {

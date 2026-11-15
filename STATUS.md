@@ -9,14 +9,14 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
 |---|---|---|
 | 1 | Kampfregeln: One-Hit-Kill, Parry-Fenster/-Cooldown/-Stun, Dash-Angriff, Cooldowns (alles Daten in `combat/weapons.ts` + `combat/combatConfig.ts`) | ✅ |
 | 2 | Rundensystem: Best-of-5, Countdown, Punktestand, Rematch (Regeln + Netzwerk; Anzeige kommt mit Schritt 9) | ✅ |
-| 3 | 3 Parkour-Maps + Map-Auswahl | ⬜ |
+| 3 | 3 Parkour-Maps (`schlucht`, `daecher`, `reaktor`) + Map-Wahl beim Raum-Erstellen, Quick-Match rotiert; Parkour-Links für Bots | ✅ |
 | 4 | Lag-Kompensation für Treffer | ⬜ |
 | 5 | Kollision zwischen Spielern | ⬜ |
 | 6 | Reconnect nach Verbindungsabbruch | ⬜ |
 | 7 | Optik (Figuren, Schwung-Animation, Partikel, Kamera, Sky, Nebel) | ⬜ |
 | 8 | Sound (Web Audio, prozedural) | ⬜ |
 | 9 | Deutsche Oberfläche, HUD, Hauptmenü, Steuerungshilfe | ⬜ |
-| 10 | Bots nutzen Wall-Run, Parry, Dash-Angriff | ⬜ |
+| 10 | Bots nutzen Wall-Run, Wandsprung, Parry, Dash-Angriff (Zähler im Bot-Report, Test in `tests/sim`) | ✅ |
 | 11 | Tests erweitert + Playwright-Browser-Tests als eigenes Skript | ⬜ |
 | 12 | Anleitung „Spielen übers Internet“ + Tunnel-Test | ⬜ |
 
@@ -33,6 +33,10 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
   abgelaufen) geben keinen Punkt; nach spätestens 9 Runden endet das Match.
 - **Rematch per Abstimmung:** Nach dem Match startet ein neues erst, wenn beide Spieler
   „Rematch“ gesendet haben (`matchEndTicks: 0`). Die Test-Config startet weiterhin automatisch.
+
+- **Maps:** Die alte `arena` bleibt als Übungs-/Test-Map. Jede Map hat einen sicheren Fußweg
+  (Brücke/Steg) UND Wall-Run-Abkürzungen. `links` in der Map sagen den Bots, wo sie
+  springen bzw. an der Wand laufen können; `tests/unit/maps.test.ts` spielt jeden Link durch.
 
 ## Nächste Schritte
 

@@ -17,7 +17,7 @@
  *
  * Ways across the 8 m gap: the bridge (safe), a wall-run along WALL N/S, or jump + dash.
  */
-import { boxFromBounds, boxFromCenter, type MapDef } from './mapTypes';
+import { at, boxFromBounds, boxFromCenter, type MapDef } from './mapTypes';
 
 const FLOOR = 0x4a5568;
 const BRIDGE = 0x718096;
@@ -27,6 +27,7 @@ const COVER = 0xc05621;
 export const ARENA: MapDef = {
   id: 'arena',
   name: 'Arena',
+  description: 'Übungsplatz: zwei Inseln, eine Brücke, zwei Wände zum Wall-Run.',
   killY: -15,
   boxes: [
     boxFromBounds(-20, -4, -1, 0, -9, 9, FLOOR), // island A
@@ -48,5 +49,12 @@ export const ARENA: MapDef = {
     { x: 14, y: 0, z: 0 },
     { x: -12, y: 0, z: -5 },
     { x: 12, y: 0, z: 5 },
+  ],
+  links: [
+    // Wall-runs across the gap along wall N (z = 9) and wall S (z = -9), both directions.
+    { kind: 'wallRun', from: at(-7, 8.55), to: at(5.5, 8.55) },
+    { kind: 'wallRun', from: at(7, 8.55), to: at(-5.5, 8.55) },
+    { kind: 'wallRun', from: at(-7, -8.55), to: at(5.5, -8.55) },
+    { kind: 'wallRun', from: at(7, -8.55), to: at(-5.5, -8.55) },
   ],
 };

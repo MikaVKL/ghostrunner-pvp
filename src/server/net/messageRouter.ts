@@ -11,7 +11,7 @@ export function routeMessage(lobby: Lobby, session: Session, message: ClientMess
   switch (message.type) {
     case 'createRoom':
       session.name = message.name;
-      lobby.createRoom(session);
+      lobby.createRoom(session, message.mapId);
       return;
     case 'joinRoom':
       session.name = message.name;

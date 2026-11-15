@@ -19,6 +19,7 @@ export { Button };
 export const TEST_MAP: MapDef = {
   id: 'test',
   name: 'Test',
+  description: 'Flat floor with one wall.',
   killY: -10,
   boxes: [
     boxFromBounds(-20, 20, -1, 0, -20, 20), // floor
@@ -29,6 +30,7 @@ export const TEST_MAP: MapDef = {
     { pos: { x: 1, y: 0, z: 5 }, yaw: Math.PI / 2 }, // looks toward -X
   ],
   navPoints: [],
+  links: [],
 };
 
 export const TEST_CTX: SimContext = { map: TEST_MAP, matchConfig: FAST_MATCH_CONFIG };

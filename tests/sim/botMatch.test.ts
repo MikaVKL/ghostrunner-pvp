@@ -8,10 +8,11 @@
 import { describe, expect, it } from 'vitest';
 import { Bot } from '../../src/bots/bot';
 import { MemoryNetwork } from '../../src/bots/memoryNetwork';
-import { findProblems, type MatchReport } from '../../src/bots/report';
+import { findProblems, totalUsage, type MatchReport } from '../../src/bots/report';
 import { runSimulatedMatch } from '../../src/bots/simulation';
 import { GameServer } from '../../src/server/gameServer';
 import { TICK_MS } from '../../src/shared/config';
+import { MAPS } from '../../src/shared/maps';
 import { FAST_MATCH_CONFIG } from '../../src/shared/match/matchConfig';
 import type { Transport } from '../../src/shared/protocol/transport';
 
@@ -24,6 +25,31 @@ function expectHealthy(report: MatchReport): void {
     expect(bot.snapshots).toBeGreaterThan(50);
   }
 }
+
+describe('bot matches on every map', () => {
+  it.each(Object.keys(MAPS))('map "%s": matches finish without any desync', (mapId) => {
+    for (let seed = 1; seed <= 4; seed++) {
+      const report = runSimulatedMatch({ seed, mapId, latencyMs: 60, jitterMs: 30, clockDrift: 0.002 });
+      expect(report.mapId).toBe(mapId);
+      expectHealthy(report);
+    }
+  });
+});
+
+describe('the bots really use the mechanics (so the desync check covers them)', () => {
+  it('wall-run, wall-jump, dash, dash attack, parry and kills all happen', () => {
+    const reports = Object.keys(MAPS).flatMap((mapId) =>
+      [1, 2, 3, 4, 5].map((seed) => runSimulatedMatch({ seed, mapId, latencyMs: 40, jitterMs: 20 })),
+    );
+    const usage = totalUsage(reports);
+    expect(usage.wallRunTicks).toBeGreaterThan(200);
+    expect(usage.wallJumps).toBeGreaterThan(2);
+    expect(usage.dashes).toBeGreaterThan(10);
+    expect(usage.dashAttacks).toBeGreaterThan(5);
+    expect(usage.parries).toBeGreaterThan(3);
+    expect(usage.kills).toBeGreaterThan(20);
+  });
+});
 
 describe('bot matches over a simulated network', () => {
   it('finishes matches on a perfect connection without any desync', () => {

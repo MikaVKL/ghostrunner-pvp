@@ -10,7 +10,7 @@
  *   --jitter MS    random extra delay per message           (default: sim 30, live 0)
  *   --drift X      clock error of the bots, sim only        (default 0.002)
  *   --seed N       first random seed                        (default 1)
- *   --map ID       map to play on (not with --url)          (default: the default map)
+ *   --map ID       play every match on this map             (default: take turns through all maps)
  *   --url URL      live only: use an already running server (e.g. ws://localhost:3000/ws)
  *   --full         live only: normal match length instead of short test rounds
  *   --timeout SEC  live only: give up after this long       (default 300)
@@ -19,6 +19,7 @@
  */
 import { GameServer, type ServerStats } from '../server/gameServer';
 import { startServer } from '../server/startServer';
+import { MAPS } from '../shared/maps';
 import { DEFAULT_MATCH_CONFIG, FAST_MATCH_CONFIG } from '../shared/match/matchConfig';
 import { runLiveMatch } from './liveRunner';
 import { findProblems, printReport, type RunReport } from './report';
@@ -40,10 +41,14 @@ function parseArgs(argv: string[]): Args {
 const num = (args: Args, key: string, fallback: number) =>
   args[key] !== undefined ? Number(args[key]) : fallback;
 
+/** Map for match number `i`: the one from --map, otherwise all maps take turns. */
+const ALL_MAP_IDS = Object.keys(MAPS);
+const mapFor = (args: Args, i: number) => args.map ?? ALL_MAP_IDS[i % ALL_MAP_IDS.length];
+
 function runSim(args: Args): RunReport {
   const matches = num(args, 'matches', 20);
   const seed = num(args, 'seed', 1);
-  const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG, mapId: args.map });
+  const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG });
   const reports = [];
   for (let i = 0; i < matches; i++) {
     reports.push(
@@ -53,7 +58,8 @@ function runSim(args: Args): RunReport {
         latencyMs: num(args, 'lag', 60),
         jitterMs: num(args, 'jitter', 30),
         clockDrift: num(args, 'drift', 0.002),
-        useQuickMatch: i % 4 === 3,
+        useQuickMatch: i % 5 === 4,
+        mapId: mapFor(args, i),
         server,
       }),
     );
@@ -65,7 +71,7 @@ async function runLive(args: Args): Promise<RunReport> {
   const matches = num(args, 'matches', 3);
   const seed = num(args, 'seed', 1);
   const matchConfig = args.full ? DEFAULT_MATCH_CONFIG : FAST_MATCH_CONFIG;
-  const ownServer = args.url ? null : await startServer({ port: 0, matchConfig, mapId: args.map });
+  const ownServer = args.url ? null : await startServer({ port: 0, matchConfig });
   const url = args.url ?? `ws://localhost:${ownServer!.port}/ws`;
   console.log(`Running ${matches} live match(es) against ${url} ...`);
 
@@ -79,6 +85,7 @@ async function runLive(args: Args): Promise<RunReport> {
         jitterMs: num(args, 'jitter', 0),
         timeoutSec: num(args, 'timeout', 300),
         useQuickMatch: i === matches - 1 && matches > 1,
+        mapId: mapFor(args, i),
       }),
     ),
   );

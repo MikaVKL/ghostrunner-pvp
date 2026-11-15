@@ -72,8 +72,9 @@ export class TestClient {
   }
 }
 
+/** Test server: short timers, always the simple 'arena' map (tests rely on its coordinates). */
 export function createTestServer(): GameServer {
-  return new GameServer({ matchConfig: FAST_MATCH_CONFIG });
+  return new GameServer({ matchConfig: FAST_MATCH_CONFIG, mapId: 'arena' });
 }
 
 /** Two clients in the same room, match started. */
