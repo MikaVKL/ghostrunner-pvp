@@ -1,12 +1,15 @@
 /**
- * The in-game overlay (HP bars, score, timer, big messages). Plain HTML elements from
- * index.html, updated once per frame from the newest snapshot.
+ * The in-game overlay: score, round timer, ability cooldowns, big messages and screen
+ * flashes. Plain HTML elements from index.html, updated once per frame. It only READS
+ * the game state. All texts are in hudTexts.ts.
  */
-import { TICK_RATE } from '../../shared/config';
+import { getWeapon } from '../../shared/combat/weapons';
+import { COMBAT } from '../../shared/combat/combatConfig';
+import { getMap } from '../../shared/maps';
 import { MOVE } from '../../shared/movement/movementConfig';
-import { MAX_HP } from '../../shared/sim/playerState';
-import type { MatchState } from '../../shared/sim/world';
+import type { PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
+import { centerMessage, secondsLeft, TEXT } from './hudTexts';
 
 function element(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -14,82 +17,103 @@ function element(id: string): HTMLElement {
   return el;
 }
 
-const seconds = (ticks: number) => Math.ceil(ticks / TICK_RATE);
+export type FlashKind = 'damage' | 'parry';
+
+/** "◆◆◇" for 2 of 3 round wins. */
+function pips(wins: number, needed: number): string {
+  return '◆'.repeat(Math.min(wins, needed)) + '◇'.repeat(Math.max(0, needed - wins));
+}
 
 export class Hud {
   private readonly root = element('hud');
-  private readonly score = element('score');
-  private readonly timer = element('timer');
-  private readonly playerHp = element('player-hp');
-  private readonly enemyHp = element('enemy-hp');
-  private readonly enemyPanel = element('enemy-panel');
+  private readonly myName = element('my-name');
+  private readonly myPips = element('my-pips');
   private readonly enemyName = element('enemy-name');
-  private readonly dashBar = element('dash-bar');
+  private readonly enemyPips = element('enemy-pips');
+  private readonly roundLabel = element('round-label');
+  private readonly timer = element('timer');
   private readonly message = element('message');
+  private readonly subMessage = element('sub-message');
+  private readonly attackBar = element('attack-bar');
+  private readonly parryBar = element('parry-bar');
+  private readonly dashBar = element('dash-bar');
   private readonly hint = element('hint');
   private readonly roomCode = element('room-code');
-  private readonly damageFlash = element('damage-flash');
+  private readonly mapName = element('map-name');
+  private readonly ping = element('ping');
+  private readonly flashEl = element('flash');
+  private readonly connectionLost = element('connection-lost');
   private toastText = '';
   private toastUntil = 0;
 
   setVisible(visible: boolean): void {
     this.root.classList.toggle('hidden', !visible);
+    if (!visible) document.body.classList.remove('dead', 'stunned');
   }
 
-  /** Show a short message in the middle of the screen (e.g. "PARRIED!"). */
+  /** Show a short message in the middle of the screen (e.g. "PARIERT!"). */
   toast(text: string, durationMs = 900): void {
     this.toastText = text;
     this.toastUntil = performance.now() + durationMs;
   }
 
-  /** Red flash around the screen when taking damage. */
-  flashDamage(): void {
-    this.damageFlash.classList.add('active');
-    requestAnimationFrame(() => requestAnimationFrame(() => this.damageFlash.classList.remove('active')));
+  /** A short colored flash over the whole screen. */
+  flash(kind: FlashKind): void {
+    this.flashEl.className = '';
+    void this.flashEl.offsetWidth; // restart the CSS animation
+    this.flashEl.className = `flash-${kind}`;
+  }
+
+  /** Banner while our own connection is broken and we try to get it back. */
+  setConnectionLost(lost: boolean): void {
+    this.connectionLost.classList.toggle('hidden', !lost);
   }
 
   update(client: GameClient, pointerLocked: boolean): void {
     const { room, snapshot, localPlayer: me } = client;
     if (!room || !snapshot || !me) return;
-    const enemy = client.opponent;
     const match = snapshot.match;
+    const enemySlot = 1 - room.slot;
+    const enemyInfo = room.players.find((p) => p.slot === enemySlot);
+    const inMatch = match.phase !== 'waiting';
 
     this.roomCode.textContent = room.code;
+    this.mapName.textContent = getMap(room.mapId).name;
+    this.ping.textContent = `${client.stats.rttMs.toFixed(0)} ms`;
     this.hint.classList.toggle('hidden', pointerLocked);
-    this.playerHp.style.width = `${(me.hp / MAX_HP) * 100}%`;
-    this.dashBar.style.width = `${(1 - me.dashCooldown / MOVE.dashCooldownTicks) * 100}%`;
 
-    this.enemyPanel.classList.toggle('hidden', !enemy);
-    if (enemy) {
-      this.enemyHp.style.width = `${(enemy.hp / MAX_HP) * 100}%`;
-      this.enemyName.textContent = room.players.find((p) => p.slot === enemy.slot)?.name ?? 'Opponent';
-    }
+    this.myName.textContent = room.players.find((p) => p.slot === room.slot)?.name ?? '';
+    this.enemyName.textContent = enemyInfo ? enemyInfo.name + (enemyInfo.connected ? '' : ' (getrennt)') : '';
+    this.myPips.textContent = inMatch ? pips(match.scores[room.slot], room.roundsToWin) : '';
+    this.enemyPips.textContent = inMatch ? pips(match.scores[enemySlot], room.roundsToWin) : '';
+    this.roundLabel.textContent = inMatch ? `Runde ${match.round}` : 'Übungsmodus';
+    const playing = match.phase === 'playing';
+    this.timer.textContent = playing ? String(secondsLeft(match.phaseTicksLeft)) : '';
+    this.timer.classList.toggle('low', playing && secondsLeft(match.phaseTicksLeft) <= 10);
 
-    const enemySlot = 1 - room.slot;
-    this.score.textContent = match.phase === 'waiting' ? '' : `${match.scores[room.slot]} : ${match.scores[enemySlot]}`;
-    this.timer.textContent = match.phase === 'playing' ? `${seconds(match.phaseTicksLeft)} s` : '';
-    this.message.textContent = this.messageFor(match, room.slot, room.code);
+    const toast = performance.now() < this.toastUntil ? this.toastText : '';
+    const center = centerMessage(match, room.slot, room.code, toast);
+    this.message.textContent = center.main;
+    this.subMessage.textContent = center.sub;
+    this.message.classList.toggle('countdown', match.phase === 'countdown');
+
+    this.updateAbilities(me);
+    document.body.classList.toggle('dead', !me.alive);
+    document.body.classList.toggle('stunned', me.alive && me.action === 'stunned');
   }
 
-  private messageFor(match: MatchState, mySlot: number, code: string): string {
-    const outcome = (winner: number, won: string, lost: string, draw: string) =>
-      winner === mySlot ? won : winner === -1 ? draw : lost;
-    switch (match.phase) {
-      case 'waiting':
-        return `Waiting for opponent\nRoom code: ${code}`;
-      case 'countdown':
-        return `Round ${match.round}\n${seconds(match.phaseTicksLeft)}`;
-      case 'playing':
-        return performance.now() < this.toastUntil ? this.toastText : '';
-      case 'roundEnd':
-        return outcome(match.roundWinner, 'Round won', 'Round lost', 'Draw');
-      case 'paused':
-        return `Gegner hat die Verbindung verloren\nWarte ${seconds(match.phaseTicksLeft)} s ...`;
-      case 'matchEnd':
-        return (
-          outcome(match.matchWinner, 'VICTORY', 'DEFEAT', 'DRAW') +
-          `\nRematch in ${seconds(match.phaseTicksLeft)}`
-        );
-    }
+  /** Cooldown bars: full = ready. */
+  private updateAbilities(me: PlayerState): void {
+    const weapon = getWeapon(me.weaponId);
+    const busy = me.action !== 'idle';
+    const set = (bar: HTMLElement, ready: number) => {
+      bar.style.width = `${Math.max(0, Math.min(1, ready)) * 100}%`;
+      bar.parentElement!.parentElement!.classList.toggle('ready', ready >= 1);
+    };
+    set(this.attackBar, busy ? 0 : 1 - me.attackCooldown / weapon.cooldownTicks);
+    set(this.parryBar, busy ? 0 : 1 - me.parryCooldown / COMBAT.parryCooldownTicks);
+    set(this.dashBar, me.action === 'stunned' ? 0 : 1 - me.dashCooldown / MOVE.dashCooldownTicks);
   }
 }
+
+export { TEXT };

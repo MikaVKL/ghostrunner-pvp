@@ -52,7 +52,16 @@ export interface SnapshotMessage {
 export type ServerMessage =
   | { type: 'welcome'; protocol: number; tickRate: number }
   /** `token` is a secret that lets this client take its seat again after a connection loss. */
-  | { type: 'roomJoined'; code: string; slot: number; mapId: string; token: string; players: RoomPlayerInfo[] }
+  | {
+      type: 'roomJoined';
+      code: string;
+      slot: number;
+      mapId: string;
+      token: string;
+      /** Round wins needed to win the match (3 = best-of-5), for the score display. */
+      roundsToWin: number;
+      players: RoomPlayerInfo[];
+    }
   | { type: 'roomUpdate'; players: RoomPlayerInfo[] }
   | { type: 'roomLeft' }
   | SnapshotMessage

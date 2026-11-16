@@ -1,14 +1,19 @@
 /**
- * Creates the Three.js renderer, scene, camera and lights.
+ * Creates the Three.js renderer, scene, camera, lights, fog and the sky backdrop.
  */
 import * as THREE from 'three';
+import { SKY_COLORS } from './palette';
+import { createSky } from './sky';
 
-const SKY_COLOR = 0x9db8d9;
+/** Field of view in degrees while standing still (camera effects widen it at speed). */
+export const BASE_FOV = 82;
 
 export interface SceneParts {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
+  /** Follows the camera (see sky.ts). */
+  sky: THREE.Group;
 }
 
 export function createScene(canvas: HTMLCanvasElement): SceneParts {
@@ -16,18 +21,25 @@ export function createScene(canvas: HTMLCanvasElement): SceneParts {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(SKY_COLOR);
-  scene.fog = new THREE.Fog(SKY_COLOR, 40, 140);
+  scene.background = new THREE.Color(SKY_COLORS.fog);
+  scene.fog = new THREE.Fog(SKY_COLORS.fog, 28, 120);
 
-  const camera = new THREE.PerspectiveCamera(80, 1, 0.05, 300);
+  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.05, 700);
   // 'YXZ' = first turn left/right (yaw), then look up/down (pitch), then tilt (roll).
   camera.rotation.order = 'YXZ';
   scene.add(camera); // needed so objects attached to the camera (the sword) are drawn
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 1.6));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
-  sun.position.set(12, 25, 8);
-  scene.add(sun);
+  const sky = createSky();
+  scene.add(sky);
+
+  // Cool light from above, warm pink light from the horizon side, a bit of fill.
+  scene.add(new THREE.HemisphereLight(0x8fa8ff, 0x2a1838, 1.5));
+  const moonLight = new THREE.DirectionalLight(0xffc4e0, 1.3);
+  moonLight.position.set(-9, 14, -20);
+  scene.add(moonLight);
+  const fill = new THREE.DirectionalLight(0x4fd8ff, 0.5);
+  fill.position.set(10, 6, 12);
+  scene.add(fill);
 
   const resize = () => {
     renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -37,5 +49,5 @@ export function createScene(canvas: HTMLCanvasElement): SceneParts {
   window.addEventListener('resize', resize);
   resize();
 
-  return { renderer, scene, camera };
+  return { renderer, scene, camera, sky };
 }

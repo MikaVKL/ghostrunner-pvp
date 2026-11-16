@@ -27,5 +27,12 @@ export const MOUSE_BUTTONS: Record<number, number> = {
   2: Button.Parry,
 };
 
-/** Radians of rotation per pixel of mouse movement. */
+/** Keys that are not game buttons (handled in app/gameApp.ts). */
+export const UI_KEYS = {
+  rematch: 'KeyR',
+  mute: 'KeyM',
+  help: 'KeyH',
+};
+
+/** Radians of rotation per pixel of mouse movement (at sensitivity 1.0 in the settings). */
 export const MOUSE_SENSITIVITY = 0.0022;

@@ -1,53 +1,103 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Multiplayer Game Template</title>
+    <title>Neonklinge – 1v1 Schwertduell</title>
     <link rel="stylesheet" href="/src/client/style.css" />
   </head>
   <body>
     <canvas id="game"></canvas>
 
-    <!-- In-game overlay. Filled and updated by src/client/ui/hud.ts -->
+    <!-- Overlay im Spiel. Wird von src/client/ui/hud.ts gefüllt und aktualisiert. -->
     <div id="hud" class="hidden">
       <div id="crosshair"></div>
-      <div id="damage-flash"></div>
+      <div id="flash"></div>
+      <div id="vignette"></div>
+
       <div id="top-bar">
-        <span id="score"></span>
-        <span id="timer"></span>
+        <div class="side me"><span class="name" id="my-name"></span><span class="pips" id="my-pips"></span></div>
+        <div id="round-info"><span id="round-label"></span><span id="timer"></span></div>
+        <div class="side enemy"><span class="pips" id="enemy-pips"></span><span class="name" id="enemy-name"></span></div>
       </div>
-      <div id="enemy-panel">
-        <div class="label" id="enemy-name">Opponent</div>
-        <div class="bar"><div class="fill enemy" id="enemy-hp"></div></div>
+
+      <div id="center">
+        <div id="message"></div>
+        <div id="sub-message"></div>
       </div>
-      <div id="player-panel">
-        <div class="label">HP</div>
-        <div class="bar"><div class="fill" id="player-hp"></div></div>
-        <div class="label">Dash</div>
-        <div class="bar small"><div class="fill dash" id="dash-bar"></div></div>
+
+      <div id="abilities">
+        <div class="ability"><div class="key">LMB</div><div class="bar"><div class="fill" id="attack-bar"></div></div><div class="label">Schlag</div></div>
+        <div class="ability"><div class="key">RMB</div><div class="bar"><div class="fill" id="parry-bar"></div></div><div class="label">Parry</div></div>
+        <div class="ability"><div class="key">Shift</div><div class="bar"><div class="fill" id="dash-bar"></div></div><div class="label">Dash</div></div>
       </div>
-      <div id="message"></div>
-      <div id="hint">Click to play · WASD move · Space jump · Shift dash · Left click / J attack · Right click / F parry · F3 debug</div>
+
+      <div id="hint">Klicke ins Spiel, um die Maus zu fangen · H = Steuerung</div>
+      <div id="connection-lost" class="hidden">Verbindung verloren – verbinde neu …</div>
+
       <div id="room-panel">
-        Room <b id="room-code"></b>
-        <button id="leave-button">Leave</button>
+        <span>Raum <b id="room-code"></b></span>
+        <span id="map-name"></span>
+        <span id="ping"></span>
+        <button id="hud-help-button">Steuerung (H)</button>
+        <button id="leave-button">Verlassen</button>
       </div>
       <pre id="debug" class="hidden"></pre>
     </div>
 
-    <!-- Start screen. Handled by src/client/ui/lobbyUi.ts -->
+    <!-- Hauptmenü. Wird von src/client/ui/lobbyUi.ts gesteuert. -->
     <div id="lobby">
       <div class="card">
-        <h1>Multiplayer Game Template</h1>
-        <label>Name <input id="name-input" maxlength="16" placeholder="Player" /></label>
-        <button id="create-button">Create room</button>
-        <div class="row">
-          <input id="code-input" maxlength="4" placeholder="CODE" />
-          <button id="join-button">Join room</button>
+        <h1>NEON<span>KLINGE</span></h1>
+        <p class="tagline">1 gegen 1 · Ein Treffer tötet · Best-of-5</p>
+
+        <label>Dein Name <input id="name-input" maxlength="16" placeholder="Spieler" /></label>
+        <button id="quick-button" class="primary">Schnelles Spiel</button>
+
+        <div class="section">
+          <div class="section-title">Mit einem Freund spielen</div>
+          <div id="map-list"></div>
+          <button id="create-button">Raum erstellen</button>
+          <div class="row">
+            <input id="code-input" maxlength="4" placeholder="CODE" />
+            <button id="join-button">Raum beitreten</button>
+          </div>
         </div>
-        <button id="quick-button">Quick match</button>
+
+        <div class="section settings">
+          <label>Lautstärke <input id="volume-slider" type="range" min="0" max="1" step="0.05" /></label>
+          <label>Maus-Empfindlichkeit <input id="sensitivity-slider" type="range" min="0.2" max="3" step="0.1" /></label>
+        </div>
+
+        <button id="help-button">Steuerung &amp; Regeln</button>
         <p id="lobby-status"></p>
+      </div>
+    </div>
+
+    <!-- Steuerungshilfe. Ein-/Ausblenden: src/client/ui/helpOverlay.ts (Taste H). -->
+    <div id="help" class="hidden">
+      <div class="card wide">
+        <h2>Steuerung</h2>
+        <table>
+          <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>Laufen</td></tr>
+          <tr><td>Maus</td><td>Umsehen</td></tr>
+          <tr><td><kbd>Leertaste</kbd></td><td>Springen · an der Wand: Wandsprung</td></tr>
+          <tr><td><kbd>Shift</kbd></td><td>Dash (kurzer, schneller Sprint, auch in der Luft)</td></tr>
+          <tr><td>Linke Maustaste / <kbd>J</kbd></td><td>Schwertschlag</td></tr>
+          <tr><td>Rechte Maustaste / <kbd>F</kbd></td><td>Parry (Abwehr)</td></tr>
+          <tr><td><kbd>Shift</kbd> + Schlag</td><td>Dash-Angriff (größere Reichweite, aber lange Erholung)</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Rematch nach dem Match</td></tr>
+          <tr><td><kbd>M</kbd> · <kbd>H</kbd> · <kbd>F3</kbd> · <kbd>Esc</kbd></td><td>Ton an/aus · diese Hilfe · Netzwerk-Anzeige · Maus freigeben</td></tr>
+        </table>
+        <h2>Regeln</h2>
+        <ul>
+          <li><b>Ein Treffer tötet.</b> Der leuchtende Bogen vor dir zeigt genau, wie weit dein Schlag reicht.</li>
+          <li><b>Parry:</b> Kurz bevor dich der Schlag trifft, Parry drücken und den Gegner ansehen. Er ist dann 1 Sekunde betäubt (leuchtet gelb) – dein freier Treffer. Ein Parry ins Leere macht dich kurz wehrlos.</li>
+          <li><b>Wall-Run:</b> Im Sprung an eine Wand und vorwärts halten. Du läufst bis zu 1,5 Sekunden an der Wand entlang – auch über den Abgrund.</li>
+          <li><b>Sturz in den Abgrund tötet.</b> Der Punkt geht an den Gegner.</li>
+          <li><b>Best-of-5:</b> Wer zuerst 3 Runden gewinnt, gewinnt das Match. Sterben beide, zählt die Runde nicht.</li>
+        </ul>
+        <button id="help-close" class="primary">Schließen (Esc)</button>
       </div>
     </div>
 

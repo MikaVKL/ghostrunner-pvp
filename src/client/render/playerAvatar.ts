@@ -1,45 +1,45 @@
 /**
- * The visible body of another player: a capsule with a visor (shows where it looks)
- * and a sword. Placeholder art - swap in a real model later.
+ * The visible body of another player: a FighterModel that follows the (interpolated)
+ * PlayerState and is animated by fighterPose.ts.
  */
 import * as THREE from 'three';
-import { PLAYER_HALF_WIDTH, PLAYER_HEIGHT } from '../../shared/physics/collision';
 import type { PlayerState } from '../../shared/sim/playerState';
-import { createSword, type SwordModel } from './sword';
-import { applySwordPose, swordPose } from './swordPose';
+import { isParryActive } from '../../shared/combat/actions';
+import { createFighter, type FighterModel } from './fighterModel';
+import { poseFighter, type FighterAnim } from './fighterPose';
+import { FX_COLORS, teamColor } from './palette';
 
-const BODY_COLOR = 0xe53e3e;
-const STUNNED_COLOR = 0xf2c744;
+/** Leg swing per meter run, in radians. */
+const STRIDE_PER_METER = 2.6;
 
 export class PlayerAvatar {
-  readonly group = new THREE.Group();
-  private readonly bodyMaterial = new THREE.MeshStandardMaterial({ color: BODY_COLOR, roughness: 0.6 });
-  private readonly sword: SwordModel = createSword();
+  readonly group: THREE.Group;
+  private readonly model: FighterModel;
+  private readonly anim: FighterAnim = { runPhase: 0, time: 0 };
+  private readonly baseColor: THREE.Color;
 
-  constructor() {
-    const radius = PLAYER_HALF_WIDTH;
-    const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(radius, PLAYER_HEIGHT - radius * 2, 6, 14),
-      this.bodyMaterial,
-    );
-    body.position.y = PLAYER_HEIGHT / 2;
-
-    // The visor sits on the front side (-Z is forward).
-    const visor = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.16, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x1a202c }),
-    );
-    visor.position.set(0, PLAYER_HEIGHT - 0.3, -radius + 0.05);
-
-    this.sword.group.position.set(0.45, 1.05, -0.25);
-    this.group.add(body, visor, this.sword.group);
+  constructor(slot: number) {
+    this.model = createFighter(teamColor(slot));
+    this.group = this.model.root;
+    this.baseColor = new THREE.Color(teamColor(slot));
   }
 
-  update(player: PlayerState): void {
+  /** @param dt seconds since the last frame */
+  update(player: PlayerState, dt: number): void {
     this.group.visible = player.alive;
     this.group.position.set(player.pos.x, player.pos.y, player.pos.z);
     this.group.rotation.y = player.yaw;
-    this.bodyMaterial.color.setHex(player.action === 'stunned' ? STUNNED_COLOR : BODY_COLOR);
-    applySwordPose(this.sword.group, this.sword.bladeMaterial, swordPose(player), 0.5);
+
+    this.anim.time += dt;
+    const speed = Math.hypot(player.vel.x, player.vel.z);
+    if (player.grounded || player.wallRunning) this.anim.runPhase += speed * dt * STRIDE_PER_METER;
+    poseFighter(this.model, player, this.anim);
+
+    // The glow shows the state: yellow = stunned (free hit!), white-blue = parrying.
+    const glow = this.model.glow;
+    if (player.action === 'stunned') glow.emissive.setHex(FX_COLORS.stun);
+    else if (isParryActive(player)) glow.emissive.setHex(FX_COLORS.parry);
+    else glow.emissive.copy(this.baseColor);
+    this.model.sword.bladeMaterial.emissive.copy(glow.emissive);
   }
 }

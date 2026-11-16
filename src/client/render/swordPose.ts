@@ -1,62 +1,69 @@
 /**
- * Translates a player's combat state into a simple sword pose. Used for the opponent's
- * avatar and for the first-person sword, so both always show the same thing.
- * This is purely visual - replace it with real animations later.
+ * The first-person sword: translates the local player's combat state into where the
+ * sword is on screen. Purely visual (the opponent's figure is animated in fighterPose.ts).
  */
-import type { MeshStandardMaterial, Object3D } from 'three';
+import type { Object3D } from 'three';
 import { currentAttack, isParryActive } from '../../shared/combat/actions';
 import { lerp } from '../../shared/math/scalar';
 import type { PlayerState } from '../../shared/sim/playerState';
 
+/** Position (relative to the camera) and rotation of the sword. */
 export interface SwordPose {
-  /** Forward swing angle in radians (negative = wound up backward). */
-  swing: number;
-  /** 0 = normal, 1 = sword held across the body (parry). */
-  guard: number;
-  /** Blade color (0xRRGGBB). */
-  color: number;
+  x: number;
+  y: number;
+  z: number;
+  rotX: number;
+  rotY: number;
+  rotZ: number;
 }
 
-const BLADE = 0xdfe6ee;
-const BLADE_ACTIVE = 0xff5a3c;
-const BLADE_PARRY = 0x4fb4ff;
-const BLADE_STUNNED = 0xf2c744;
+/** Sword at rest: handle at the bottom right, blade pointing forward toward the middle. */
+const REST: SwordPose = { x: 0.3, y: -0.3, z: -0.5, rotX: -1.05, rotY: 0, rotZ: 0.18 };
+/** Raised to the top right before a normal swing. */
+const RAISED: SwordPose = { x: 0.38, y: -0.06, z: -0.45, rotX: 0.3, rotY: 0, rotZ: -0.35 };
+/** End of a normal swing: bottom left, blade far forward. */
+const STRUCK: SwordPose = { x: -0.16, y: -0.38, z: -0.55, rotX: -1.75, rotY: 0, rotZ: 0.85 };
+/** Dash attack: pulled back to the right, then sweeping flat to the left. */
+const SIDE_BACK: SwordPose = { x: 0.46, y: -0.2, z: -0.4, rotX: -1.35, rotY: 0, rotZ: -1.1 };
+const SIDE_THROUGH: SwordPose = { x: -0.36, y: -0.24, z: -0.58, rotX: -1.45, rotY: 0, rotZ: 1.35 };
+/** Parry: blade held flat across the view. */
+const GUARD: SwordPose = { x: 0.22, y: -0.16, z: -0.5, rotX: -0.3, rotY: 0, rotZ: 1.4 };
+const STUNNED: SwordPose = { x: 0.46, y: -0.5, z: -0.45, rotX: -1.5, rotY: 0, rotZ: -0.7 };
+
+function mix(a: SwordPose, b: SwordPose, t: number): SwordPose {
+  return {
+    x: lerp(a.x, b.x, t),
+    y: lerp(a.y, b.y, t),
+    z: lerp(a.z, b.z, t),
+    rotX: lerp(a.rotX, b.rotX, t),
+    rotY: lerp(a.rotY, b.rotY, t),
+    rotZ: lerp(a.rotZ, b.rotZ, t),
+  };
+}
+
+/** Smooth start and end of a movement (0..1 -> 0..1). */
+const ease = (t: number) => t * t * (3 - 2 * t);
 
 export function swordPose(p: PlayerState): SwordPose {
   if (p.action === 'attack') {
-    const weapon = currentAttack(p);
-    const afterStartup = p.actionTicks - weapon.startupTicks;
-    if (afterStartup < 0) {
-      // wind up
-      return { swing: lerp(0, -0.7, p.actionTicks / weapon.startupTicks), guard: 0, color: BLADE };
-    }
-    if (afterStartup < weapon.activeTicks) {
-      // the dangerous part of the swing
-      return { swing: lerp(-0.7, 1.5, (afterStartup + 1) / weapon.activeTicks), guard: 0, color: BLADE_ACTIVE };
-    }
-    const recovery = (afterStartup - weapon.activeTicks) / weapon.recoveryTicks;
-    return { swing: lerp(1.5, 0, recovery), guard: 0, color: BLADE };
+    const attack = currentAttack(p);
+    const [from, to] = p.attackKind === 'dash' ? [SIDE_BACK, SIDE_THROUGH] : [RAISED, STRUCK];
+    const afterStartup = p.actionTicks - attack.startupTicks;
+    if (afterStartup < 0) return mix(REST, from, ease(p.actionTicks / attack.startupTicks));
+    if (afterStartup < attack.activeTicks) return mix(from, to, (afterStartup + 1) / attack.activeTicks);
+    return mix(to, REST, ease((afterStartup - attack.activeTicks) / attack.recoveryTicks));
   }
-  if (p.action === 'parry') {
-    return isParryActive(p)
-      ? { swing: 0, guard: 1, color: BLADE_PARRY }
-      : { swing: 0, guard: 0.4, color: BLADE };
-  }
-  if (p.action === 'stunned') return { swing: 1.1, guard: 0, color: BLADE_STUNNED };
-  return { swing: 0, guard: 0, color: BLADE };
+  if (p.action === 'parry') return isParryActive(p) ? GUARD : mix(GUARD, REST, 0.6);
+  if (p.action === 'stunned') return STUNNED;
+  return REST;
 }
 
-/**
- * Apply a pose to a sword model (see sword.ts: origin at the handle, blade pointing up).
- * @param restAngle how far the sword leans forward when idle, in radians
- */
-export function applySwordPose(
-  sword: Object3D,
-  blade: MeshStandardMaterial,
-  pose: SwordPose,
-  restAngle: number,
-): void {
-  sword.rotation.x = -(restAngle + pose.swing);
-  sword.rotation.z = pose.guard * 1.3;
-  blade.color.setHex(pose.color);
+/** Move the sword toward a pose (a little smoothing hides the 60 Hz steps). */
+export function applySwordPose(sword: Object3D, pose: SwordPose, blend: number): void {
+  sword.position.x += (pose.x - sword.position.x) * blend;
+  sword.position.y += (pose.y - sword.position.y) * blend;
+  sword.position.z += (pose.z - sword.position.z) * blend;
+  sword.rotation.x += (pose.rotX - sword.rotation.x) * blend;
+  sword.rotation.y += (pose.rotY - sword.rotation.y) * blend;
+  sword.rotation.z += (pose.rotZ - sword.rotation.z) * blend;
 }

@@ -1,3 +1,15 @@
+/* Look of the menu and the in-game overlay. Colors match src/client/render/palette.ts. */
+
+:root {
+  --cyan: #25d8ff;
+  --pink: #ff3d9a;
+  --yellow: #f2c744;
+  --panel: rgba(10, 12, 26, 0.86);
+  --border: #2c3460;
+  --text: #e8ecf8;
+  --muted: #8f9ac4;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -7,8 +19,8 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #0b1020;
-  color: #e8ecf4;
+  background: #05060f;
+  color: var(--text);
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   user-select: none;
 }
@@ -19,37 +31,85 @@ body {
   width: 100%;
   height: 100%;
   display: block;
+  transition: filter 0.25s;
+}
+
+/* The picture loses its color when we are dead, and blurs a little while stunned. */
+body.dead #game {
+  filter: grayscale(0.85) brightness(0.65);
+}
+
+body.stunned #game {
+  filter: saturate(0.6) blur(1.5px);
 }
 
 .hidden {
   display: none !important;
 }
 
-/* ---------- lobby ---------- */
+/* ---------- menu and help ---------- */
 
-#lobby {
+#lobby,
+#help {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(11, 16, 32, 0.85);
+  background: radial-gradient(ellipse at 50% 120%, rgba(184, 50, 122, 0.45), rgba(5, 6, 15, 0.92) 60%);
+  overflow-y: auto;
+  padding: 12px;
+}
+
+#help {
+  z-index: 10;
+  background: rgba(5, 6, 15, 0.93);
 }
 
 .card {
-  width: 340px;
-  padding: 28px;
+  width: 520px;
+  max-width: 100%;
+  margin: auto; /* centered, but scrollable from the top if the window is too small */
+  padding: 18px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: #161d33;
-  border: 1px solid #2c3757;
-  border-radius: 12px;
+  gap: 9px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 0 40px rgba(37, 216, 255, 0.12);
+}
+
+.card.wide {
+  width: 640px;
 }
 
 .card h1 {
-  margin: 0 0 8px;
-  font-size: 20px;
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-align: center;
+  color: var(--cyan);
+  text-shadow: 0 0 18px rgba(37, 216, 255, 0.7);
+}
+
+.card h1 span {
+  color: var(--pink);
+  text-shadow: 0 0 18px rgba(255, 61, 154, 0.7);
+}
+
+.card h2 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  color: var(--cyan);
+}
+
+.tagline {
+  margin: -6px 0 6px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .card label {
@@ -57,7 +117,29 @@ body {
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
-  color: #9aa6c4;
+  color: var(--muted);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.section-title {
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.settings label {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .row {
@@ -68,11 +150,17 @@ body {
 input,
 button {
   font: inherit;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid #2c3757;
-  background: #0f1528;
+  border: 1px solid var(--border);
+  background: #0c1024;
   color: inherit;
+}
+
+input[type='range'] {
+  padding: 0;
+  width: 55%;
+  accent-color: var(--cyan);
 }
 
 input {
@@ -85,33 +173,109 @@ input {
   text-transform: uppercase;
   letter-spacing: 4px;
   text-align: center;
+  max-width: 120px;
 }
 
 button {
   cursor: pointer;
-  background: #2b6cb0;
-  border-color: #2b6cb0;
+  background: #1a2148;
   font-weight: 600;
 }
 
 button:hover {
-  background: #3182ce;
+  background: #263068;
+  border-color: var(--cyan);
+}
+
+button.primary {
+  background: linear-gradient(90deg, #0f7fa8, #a02a78);
+  border-color: transparent;
+  font-size: 17px;
+}
+
+button.primary:hover {
+  filter: brightness(1.2);
+}
+
+#map-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.map-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 8px 10px;
+  background: #0c1024;
+  font-weight: 400;
+}
+
+.map-card span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.map-card.selected {
+  border-color: var(--cyan);
+  background: #12264a;
+  box-shadow: 0 0 10px rgba(37, 216, 255, 0.25);
 }
 
 #lobby-status {
   min-height: 20px;
   margin: 0;
   font-size: 13px;
-  color: #f6ad55;
+  text-align: center;
+  color: var(--yellow);
 }
 
-/* ---------- hud ---------- */
+#help table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+#help td {
+  padding: 4px 10px 4px 0;
+  vertical-align: top;
+}
+
+#help td:first-child {
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+#help ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #1a2148;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+/* ---------- HUD ---------- */
 
 #hud {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+#hud button {
+  pointer-events: auto;
+  padding: 4px 10px;
+  font-size: 13px;
 }
 
 #crosshair {
@@ -122,20 +286,43 @@ button:hover {
   height: 6px;
   margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: #fff;
+  box-shadow: 0 0 6px var(--cyan);
 }
 
-#damage-flash {
+#vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(transparent 40%, rgba(220, 38, 38, 0.7));
-  opacity: 0;
-  transition: opacity 0.4s ease-out;
+  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.55);
 }
 
-#damage-flash.active {
-  opacity: 1;
-  transition: none;
+body.stunned #vignette {
+  box-shadow: inset 0 0 180px rgba(242, 199, 68, 0.6);
+}
+
+#flash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+#flash.flash-damage {
+  background: radial-gradient(ellipse at center, rgba(255, 40, 40, 0.15), rgba(255, 0, 0, 0.7));
+  animation: flash 0.6s ease-out;
+}
+
+#flash.flash-parry {
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.7), rgba(159, 232, 255, 0.25));
+  animation: flash 0.3s ease-out;
+}
+
+@keyframes flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 #top-bar {
@@ -144,110 +331,189 @@ button:hover {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  font-size: 22px;
+  gap: 18px;
+  padding: 8px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+#top-bar .side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
   font-weight: 700;
 }
 
-#timer {
-  font-size: 14px;
-  font-weight: 400;
-  color: #cbd5e0;
+#top-bar .side.me {
+  justify-content: flex-end;
 }
 
-#enemy-panel {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  width: 220px;
+.pips {
+  font-size: 22px;
+  letter-spacing: 3px;
 }
 
-#player-panel {
-  position: absolute;
-  bottom: 24px;
-  left: 24px;
-  width: 260px;
+.side.me .pips,
+.side.me .name {
+  color: var(--cyan);
 }
 
-.label {
+.side.enemy .pips,
+.side.enemy .name {
+  color: var(--pink);
+}
+
+#round-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 90px;
   font-size: 12px;
-  margin: 6px 0 3px;
-  color: #cbd5e0;
+  color: var(--muted);
 }
 
-.bar {
-  height: 14px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
-  overflow: hidden;
+#timer {
+  min-height: 26px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
-.bar.small {
-  height: 8px;
+#timer.low {
+  color: #ff5a3c;
 }
 
-.fill {
-  height: 100%;
-  width: 100%;
-  background: #48bb78;
-  transition: width 0.12s linear;
-}
-
-.fill.enemy {
-  background: #f56565;
-}
-
-.fill.dash {
-  background: #63b3ed;
-  transition: none;
+#center {
+  position: absolute;
+  top: 24%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  text-shadow: 0 2px 12px #000;
 }
 
 #message {
+  font-size: 46px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+#message.countdown {
+  font-size: 110px;
+  color: var(--cyan);
+  text-shadow: 0 0 30px rgba(37, 216, 255, 0.8);
+}
+
+#sub-message {
+  margin-top: 6px;
+  font-size: 18px;
+  color: #cdd5f5;
+}
+
+#abilities {
   position: absolute;
-  top: 28%;
-  width: 100%;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+}
+
+.ability {
+  width: 92px;
+  padding: 6px 8px;
   text-align: center;
-  font-size: 44px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  white-space: pre-line;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  opacity: 0.6;
+}
+
+.ability.ready {
+  opacity: 1;
+  border-color: var(--cyan);
+}
+
+.ability .key {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.ability .label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ability .bar {
+  height: 5px;
+  margin: 4px 0;
+  background: #1a2148;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ability .fill {
+  height: 100%;
+  width: 100%;
+  background: var(--cyan);
+}
+
+#hint,
+#connection-lost {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 #hint {
-  position: absolute;
-  bottom: 8px;
-  width: 100%;
-  text-align: center;
-  font-size: 12px;
-  color: #a0aec0;
+  bottom: 104px;
+}
+
+#connection-lost {
+  top: 90px;
+  border-color: #ff5a3c;
+  color: #ffb4a3;
 }
 
 #room-panel {
   position: absolute;
-  top: 16px;
-  left: 20px;
-  font-size: 14px;
-  pointer-events: auto;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--muted);
 }
 
-#room-panel button {
-  margin-left: 8px;
-  padding: 4px 10px;
-  font-size: 12px;
-  background: #4a5568;
-  border-color: #4a5568;
+#room-code {
+  color: var(--text);
+  letter-spacing: 2px;
 }
 
 #debug {
   position: absolute;
-  top: 60px;
-  left: 20px;
+  top: 70px;
+  left: 14px;
   margin: 0;
-  padding: 8px 10px;
-  font: 12px/1.45 ui-monospace, Menlo, monospace;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 6px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  color: #b9f5c8;
 }

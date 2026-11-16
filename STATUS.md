@@ -13,9 +13,9 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
 | 4 | Lag-Kompensation: Treffer gegen die Position, die der Angreifer sah; Parry zählt, wenn er gedrückt wurde, bevor der Verteidiger den Treffer sah (max. 0,3 s) | ✅ |
 | 5 | Kollision zwischen Spielern (`physics/playerCollision.ts`, Teil 2 von `stepWorld`) | ✅ |
 | 6 | Reconnect: Token, Sitz 20 s reserviert, Match pausiert (Server + `GameClient.reconnect`; automatisches Neuverbinden im Browser kommt mit Schritt 9) | ✅ |
-| 7 | Optik (Figuren, Schwung-Animation, Partikel, Kamera, Sky, Nebel) | ⬜ |
-| 8 | Sound (Web Audio, prozedural) | ⬜ |
-| 9 | Deutsche Oberfläche, HUD, Hauptmenü, Steuerungshilfe | ⬜ |
+| 7 | Optik: Figuren aus Primitiven mit Schwert + Animationen, Schwungbogen, Partikel, Kamera-Effekte, Nachthimmel/Skyline/Nebel (`client/render/`) | ✅ |
+| 8 | Sound: 18 prozedurale Geräusche mit Web Audio (`client/audio/`) – im Browser nur per Code geprüft, nicht „gehört“ | ✅ |
+| 9 | Deutsche Oberfläche: Hauptmenü mit Map-Wahl und Einstellungen, HUD, Steuerungshilfe (H), Rematch (R), automatisches Neuverbinden | ✅ |
 | 10 | Bots nutzen Wall-Run, Wandsprung, Parry, Dash-Angriff (Zähler im Bot-Report, Test in `tests/sim`) | ✅ |
 | 11 | Tests erweitert + Playwright-Browser-Tests als eigenes Skript | ⬜ |
 | 12 | Anleitung „Spielen übers Internet“ + Tunnel-Test | ⬜ |
@@ -49,6 +49,11 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
   bleibt 20 s reserviert. Kommt der Spieler mit seinem Token zurück, wird die unterbrochene
   Runde neu gestartet (Punktestand bleibt). Kommt er nicht, geht der andere in den Übungsmodus.
   „Raum verlassen“ gibt den Sitz sofort frei.
+
+- **Name im Spiel:** Die Oberfläche heißt „Neonklinge“ (eigener Name). „Ghostrunner“ ist die
+  Marke eines existierenden Spiels; übernommen wurden nur Genre und Mechaniken, keine Namen,
+  Figuren, Level oder Grafiken.
+- **Bots sehen den Gegner interpoliert** (wie ein Mensch), damit die Lag-Kompensation passt.
 
 ## Nächste Schritte
 

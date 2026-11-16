@@ -1,29 +1,38 @@
 /**
- * A very simple sword model: a handle and a blade made of boxes.
+ * The sword: a handle, a guard and a glowing blade, made of boxes.
  */
 import * as THREE from 'three';
 
 export interface SwordModel {
-  /** Rotate this to swing the sword. Its origin is at the handle. */
+  /** Rotate this to swing the sword. Its origin is at the handle, the blade points up (+Y). */
   group: THREE.Group;
-  /** Change this material's color to tint the blade. */
+  /** Change this material's emissive color to tint the blade. */
   bladeMaterial: THREE.MeshStandardMaterial;
 }
 
-export function createSword(): SwordModel {
+export function createSword(glowColor: number): SwordModel {
   const group = new THREE.Group();
-  const bladeMaterial = new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.1, roughness: 0.35 });
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.1, 0.02), bladeMaterial);
-  blade.position.y = 0.65;
+  const bladeMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe8f4ff,
+    emissive: glowColor,
+    emissiveIntensity: 0.9,
+    metalness: 0.4,
+    roughness: 0.25,
+  });
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.045, 1.15, 0.016), bladeMaterial);
+  blade.position.y = 0.68;
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 4), bladeMaterial);
+  tip.position.y = 1.31;
+  tip.scale.z = 0.4;
   const handle = new THREE.Mesh(
-    new THREE.BoxGeometry(0.06, 0.22, 0.06),
-    new THREE.MeshStandardMaterial({ color: 0x2d3748 }),
+    new THREE.CylinderGeometry(0.028, 0.028, 0.26, 8),
+    new THREE.MeshStandardMaterial({ color: 0x14161f, roughness: 0.6 }),
   );
   const guard = new THREE.Mesh(
-    new THREE.BoxGeometry(0.22, 0.04, 0.06),
-    new THREE.MeshStandardMaterial({ color: 0x718096 }),
+    new THREE.BoxGeometry(0.2, 0.035, 0.07),
+    new THREE.MeshStandardMaterial({ color: 0x8a93b8, metalness: 0.7, roughness: 0.3 }),
   );
-  guard.position.y = 0.11;
-  group.add(blade, handle, guard);
+  guard.position.y = 0.13;
+  group.add(blade, tip, handle, guard);
   return { group, bladeMaterial };
 }

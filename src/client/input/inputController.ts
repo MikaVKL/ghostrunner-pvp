@@ -12,6 +12,8 @@ export class InputController {
   pitch = 0;
   /** Input is ignored while disabled (e.g. while the lobby is shown). */
   enabled = false;
+  /** Multiplier on the mouse speed (from the settings in the menu). */
+  sensitivity = 1;
   private readonly keysDown = new Set<string>();
   /** Buttons currently held. */
   private heldButtons = 0;
@@ -94,8 +96,9 @@ export class InputController {
 
   private onMouseMove = (event: MouseEvent): void => {
     if (!this.enabled || !this.pointerLocked) return;
-    this.yaw = wrapAngle(this.yaw - event.movementX * MOUSE_SENSITIVITY);
-    this.pitch = clamp(this.pitch - event.movementY * MOUSE_SENSITIVITY, -MAX_PITCH, MAX_PITCH);
+    const speed = MOUSE_SENSITIVITY * this.sensitivity;
+    this.yaw = wrapAngle(this.yaw - event.movementX * speed);
+    this.pitch = clamp(this.pitch - event.movementY * speed, -MAX_PITCH, MAX_PITCH);
   };
 
   private releaseAll = (): void => {

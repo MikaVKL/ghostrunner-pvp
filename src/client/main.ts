@@ -7,31 +7,27 @@
  *   ?predict=0    turn client-side prediction off, to feel what it is good for
  */
 import { GameClient } from '../netcode/gameClient';
-import { withLag } from '../netcode/lagTransport';
-import { connectWebSocket } from '../netcode/webSocketTransport';
+import { openTransport, type ConnectionOptions } from './app/connection';
 import { startGameApp } from './app/gameApp';
+import { TEXT } from './ui/hudTexts';
 
 const params = new URLSearchParams(location.search);
-const lagMs = Number(params.get('lag') ?? 0);
-const jitterMs = Number(params.get('jitter') ?? 0);
+const connection: ConnectionOptions = {
+  lagMs: Number(params.get('lag') ?? 0),
+  jitterMs: Number(params.get('jitter') ?? 0),
+};
 const predict = params.get('predict') !== '0';
 
-// Same host that served the page. In dev, Vite forwards /ws to the game server.
-const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-const url = `${protocol}://${location.host}/ws`;
-
 const debugInfo = [
-  lagMs || jitterMs ? `fake lag ${lagMs}+${jitterMs} ms` : '',
+  connection.lagMs || connection.jitterMs ? `fake lag ${connection.lagMs}+${connection.jitterMs} ms` : '',
   predict ? '' : 'PREDICTION OFF',
 ].join(' ');
 
 try {
-  const socket = await connectWebSocket(url);
-  const client = new GameClient(withLag(socket, lagMs, jitterMs), { predict });
-  startGameApp(client, debugInfo);
+  const client = new GameClient(await openTransport(connection), { predict });
+  startGameApp(client, connection, debugInfo);
   // Debugging aid: type `game.stats` or `game.localPlayer` in the browser console.
   (window as unknown as { game: GameClient }).game = client;
 } catch {
-  document.getElementById('lobby-status')!.textContent =
-    'Cannot reach the game server. Is it running? (npm run dev)';
+  document.getElementById('lobby-status')!.textContent = TEXT.serverUnreachable;
 }

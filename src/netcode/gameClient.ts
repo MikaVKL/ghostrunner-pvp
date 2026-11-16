@@ -42,6 +42,8 @@ export interface RoomInfo {
   mapId: string;
   /** Secret for taking our seat again after a connection loss (see `reconnect`). */
   token: string;
+  /** Round wins needed to win the match (3 = best-of-5). */
+  roundsToWin: number;
   players: RoomPlayerInfo[];
 }
 
@@ -213,6 +215,7 @@ export class GameClient {
           slot: message.slot,
           mapId: message.mapId,
           token: message.token,
+          roundsToWin: message.roundsToWin,
           players: message.players,
         };
         this.map = getMap(message.mapId);

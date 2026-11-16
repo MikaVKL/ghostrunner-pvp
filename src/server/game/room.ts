@@ -202,6 +202,7 @@ export class Room {
       slot: seat.slot,
       mapId: this.ctx.map.id,
       token: seat.token,
+      roundsToWin: this.ctx.matchConfig.roundsToWin,
       players: this.playerInfos(),
     });
   }
