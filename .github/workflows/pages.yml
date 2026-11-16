@@ -1,0 +1,71 @@
+# Baut die statische Version des Spiels (Solo gegen Bot, ohne Server) und veröffentlicht
+# sie auf GitHub Pages. Läuft bei jedem Push. Anleitung: INTERNET.md, "Variante E".
+#
+# Einmalig im Repo einstellen:  Settings -> Pages -> Source: "GitHub Actions"
+name: Deploy to GitHub Pages
+
+on:
+  push: # jeder Push, auf jedem Branch (einschränken: "branches: [main]" darunter ergänzen)
+  workflow_dispatch: # zusätzlich von Hand startbar (Tab "Actions" -> "Run workflow")
+
+# Rechte, die das Veröffentlichen auf Pages braucht.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nie zwei Veröffentlichungen gleichzeitig; eine laufende wird zu Ende geführt.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' # die Browser-Tests laufen hier nicht
+
+      # Nur veröffentlichen, was die Prüfungen besteht. Bewusst ohne tests/integration:
+      # die laufen in Echtzeit und wären auf den gemeinsam genutzten CI-Rechnern wackelig.
+      - name: Typprüfung
+        run: npm run typecheck
+      - name: Tests (Unit + Bot-Simulation inkl. Solo-Modus)
+        run: npx vitest run tests/unit tests/sim
+
+      # Eine Projekt-Seite liegt unter https://NAME.github.io/REPO/ - der Build muss
+      # diesen Unterordner kennen (siehe vite.config.ts).
+      - name: Statische Seite bauen
+        run: npm run build:pages
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+
+      - name: Pages vorbereiten
+        uses: actions/configure-pages@v5
+
+      - name: Seite hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Auf GitHub Pages veröffentlichen
+        id: deployment
+        uses: actions/deploy-pages@v4
