@@ -1,11 +1,14 @@
 # CLAUDE.md – Projektregeln für KI-Assistenten
 
-Dieses Repo ist ein **Template für Multiplayer-Browserspiele** (1v1, autoritativer Server,
+Dieses Repo ist **Ghostrunner-PvP**: ein 1v1-Schwertkampf im Browser (ein Treffer tötet,
+Parry, Dash, Wall-Run), gebaut auf einem Multiplayer-Template (autoritativer Server,
 Client-Side-Prediction). Lies diese Datei komplett, bevor du etwas änderst. Der Besitzer ist
 Programmieranfänger: erkläre, was du tust, und halte Änderungen klein.
 
 Weitere Doku: `ARCHITECTURE.md` (wie alles zusammenhängt), `HOW_TO_EXTEND.md` (Rezepte für
-Features/Waffen/Maps), `LEARNING.md` (Konzepte für Anfänger), `README.md` (Start).
+Features/Waffen/Maps), `LEARNING.md` (Konzepte für Anfänger), `README.md` (Start),
+`INTERNET.md` (mit Freunden übers Internet spielen), `STATUS.md` (was fertig ist, was offen
+ist, welche Entscheidungen getroffen wurden).
 
 ## Befehle
 
@@ -65,9 +68,10 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
    - *Vorhersagbar* (hängt nur vom eigenen Zustand + eigenem Input + Map ab) → in
      `stepPlayer` (`shared/sim/stepPlayer.ts`) bzw. `movement/`, `combat/actions.ts`.
      Der Client sagt das voraus.
-   - *Interaktion* (hängt vom anderen Spieler oder Match-Regeln ab: Treffer, Tod, Respawn)
-     → in `resolveCombat` oder `stepMatch`, aufgerufen von `stepWorld`. Nur der Server
-     entscheidet; der Client bekommt das Ergebnis per Snapshot.
+   - *Interaktion* (hängt vom anderen Spieler oder Match-Regeln ab: Treffer, Parry, Tod,
+     Respawn, Spieler-Kollision) → in `resolveCombat`, `separatePlayers` oder `stepMatch`,
+     aufgerufen von `stepWorld`. Nur der Server entscheidet; der Client bekommt das Ergebnis
+     per Snapshot.
 6. **Welt-Änderungen nur in `stepWorld`.** Wenn der Server die Welt außerhalb davon ändert
    (wie `Room.join/leave`), muss er `markAllDisturbed()` aufrufen.
 7. **Buttons sind flankengesteuert**: Aktionen starten mit `wasPressed(input, p.prevButtons, Button.X)`,
@@ -80,8 +84,10 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 - Kleine Dateien (Richtwert < 150 Zeilen), eine Aufgabe pro Datei, Kommentar-Kopf, der erklärt,
   wozu die Datei da ist.
 - Tuning-Werte nie im Code verstreuen, sondern in den Config-Dateien:
-  `movement/movementConfig.ts`, `combat/weapons.ts`, `combat/combatConfig.ts`,
-  `match/matchConfig.ts`, `shared/config.ts`, `client/input/bindings.ts`.
+  `movement/movementConfig.ts`, `combat/weapons.ts` (Angriffsprofile `light`/`dash`),
+  `combat/combatConfig.ts` (Parry, Stun, Lag-Kompensation), `match/matchConfig.ts`,
+  `shared/config.ts`, `client/input/bindings.ts`.
+- Texte, die der Spieler sieht, sind **Deutsch** (auch `name`/`description` von Maps und Waffen).
 - Koordinaten: +X rechts, +Y oben, **−Z ist vorwärts bei Yaw 0** (wie Three.js). `pos` eines
   Spielers ist die Position der **Füße**. Richtungen über `forwardFromYaw`/`rightFromYaw`.
 - Rendering (`src/client/render`) liest Zustand nur und verändert ihn nie.
@@ -99,6 +105,24 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
   als 0,25 m vermeiden (Tunneling-Schutz arbeitet mit 0,2-m-Schritten).
 - **Neuer Button:** auch `ALL_BUTTONS` in `shared/input.ts` erweitern, sonst filtert der
   Server ihn weg.
+- **Server-Zustand, den der Client nicht sieht:** `WorldState.history` (Positionen für die
+  Lag-Kompensation) und `WorldState.pendingHits` (noch nicht entschiedene Treffer). Beides
+  wird beim Rundenstart geleert (`respawnAll`). Wer Spieler teleportiert, muss das auch tun.
+- **Treffer sind verzögert:** Ein Schwung, der trifft, wird erst entschieden, wenn der
+  Verteidiger ihn gesehen hat (`resolveCombat.ts`, max. `COMBAT.maxRewindTicks`). Tests ohne
+  `viewTick` (= 0) entscheiden sofort. Die Runde endet erst, wenn `pendingHits` leer ist.
+- **Winkel normalisieren:** `wrapAngle` muss idempotent bleiben (zweimal anwenden = einmal
+  anwenden), weil Client UND Server jeden Input durch `sanitizeInput` schicken. Das war schon
+  einmal ein Desync (`yaw: -3.14159… vs 3.14159…`).
+- **Neue Match-Phase:** in `MatchPhase` (`sim/world.ts`), `stepMatch`, `phaseAllowsAction`
+  und im HUD (`client/ui/hudTexts.ts`) ergänzen. TypeScript meldet vergessene Stellen.
+- **Verbindungsabbruch ≠ Verlassen:** `Room.disconnect` reserviert den Sitz und pausiert das
+  Match (Phase `paused`), `Room.leave` gibt ihn sofort frei. Bots/Tests, die „fertig“ sind,
+  müssen `leaveRoom()` senden und der Nachricht Zeit geben, bevor sie die Verbindung schließen.
+- **Neue Map:** braucht `description` und `links` (darf leer sein). `tests/unit/maps.test.ts`
+  prüft jede registrierte Map automatisch (Spawns, Fußweg, jeden Parkour-Link).
+- **Bots sehen den Gegner interpoliert** (wie ein Mensch, ~100 ms in der Vergangenheit) und
+  nicht den neuesten Snapshot – sonst würde die Lag-Kompensation für sie nicht stimmen.
 - **Neue Nachricht Client→Server:** muss in `parseClientMessage` (`shared/protocol/codec.ts`)
   validiert werden, sonst lehnt der Server sie als `bad_message` ab.
 - **Protokoll geändert?** `PROTOCOL_VERSION` in `shared/config.ts` erhöhen.
@@ -112,6 +136,7 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 
 ## Was bewusst NICHT eingebaut ist (nicht als Bug melden)
 
-Lag-Kompensation für Treffer, Spieler-gegen-Spieler-Kollision, Reconnect nach Verbindungsabbruch,
-Accounts/Persistenz, Sound, echte 3D-Modelle/Animationen, Mobile-Steuerung, Binärprotokoll.
-Hinweise dazu stehen in `HOW_TO_EXTEND.md` (Abschnitt „Größere Baustellen“).
+Accounts/Persistenz/Ranglisten, mehr als 2 Spieler pro Raum, echte 3D-Modelle (Figuren sind
+aus Primitiven gebaut), Sound-Dateien (alle Geräusche werden erzeugt), Mobile-/Gamepad-
+Steuerung, Binärprotokoll, schräge Flächen/Rampen, Zuschauer. Hinweise dazu stehen in
+`HOW_TO_EXTEND.md` (Abschnitt „Größere Baustellen“).
