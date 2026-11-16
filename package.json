@@ -13,6 +13,7 @@
     "dev:client": "vite",
     "build": "vite build",
     "start": "tsx src/server/main.ts",
+    "host": "vite build && tsx src/server/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && vitest run",
     "test:watch": "vitest",
