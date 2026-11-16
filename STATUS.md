@@ -83,7 +83,7 @@ ohne ✅:
 
 | # | Schritt | Stand |
 |---|---|---|
-| A | Bot-Fehler beheben (Befund unten) + Qualitäts-Tests „Bot stürzt nicht von selbst ab / bleibt nicht stehen“ | 🔧 |
+| A | Bot-Fehler beheben (Befund unten) + Qualitäts-Tests „Bot stürzt nicht von selbst ab / bleibt nicht stehen“ (`tests/sim/botQuality.test.ts`) | ✅ |
 | B | Mechanik: Doppelsprung (Rezept 4 in `HOW_TO_EXTEND.md`; Feld `airJumpsLeft` in `PlayerState`) | ⬜ |
 | C | Mechanik: Klingen-Clash – zwei fast gleichzeitige Treffer prallen ab statt Doppel-K.O. (`resolveCombat.ts`, Event `clash`) | ⬜ |
 | D | Mechanik: Sprungfelder als Map-Element (`MapDef.pads`, vorhersagbar → `movement/`) | ⬜ |
@@ -103,6 +103,12 @@ ohne ✅:
 3. *Bot bleibt für immer stehen,* wenn er ganz am Rand einer Plattform landet: Von dort gilt
    kein Weg als „sicher begehbar“, `planRoute` liefert „bleib stehen“. Lösung: zum nächsten
    sicheren Punkt gehen (`nav.ts`).
+4. *Zwei Bots stehen sich bis zu 42 s reglos gegenüber,* wenn eine Deckung zwischen ihnen
+   steht: Im Nahkampf lief der Bot stur in Blickrichtung (zum Gegner) statt zum Wegpunkt.
+   Lösung: Laufrichtung und Blickrichtung getrennt (`bots/steering.ts`).
+
+Alle vier sind behoben. Messung danach (4 Maps × 3 Stufen × mehrere Seeds): 0 Abstürze gegen
+einen stehenden Spieler, jede Runde endet mit einem Schwert-Treffer, längstes Stehen 0,6 s.
 
 ## Was NICHT oder nur teilweise umgesetzt ist (ehrlich)
 

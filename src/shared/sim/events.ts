@@ -9,6 +9,8 @@ export type DeathCause = 'hp' | 'fall';
 export type GameEvent =
   | { type: 'hit'; attacker: number; target: number; kind: AttackKind; damage: number; hpLeft: number }
   | { type: 'parry'; attacker: number; defender: number }
+  /** Two swings met at the same moment: both blades bounce off, nobody dies. */
+  | { type: 'clash'; a: number; b: number }
   | { type: 'death'; slot: number; cause: DeathCause }
   | { type: 'roundStart'; round: number }
   | { type: 'roundEnd'; round: number; winner: number }

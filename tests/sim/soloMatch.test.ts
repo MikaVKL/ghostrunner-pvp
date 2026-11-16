@@ -6,76 +6,14 @@
  * The "human" in these tests is either idle or steered by a second bot brain.
  */
 import { describe, expect, it } from 'vitest';
-import { BotBrain, DEFAULT_PERSONALITY } from '../../src/bots/brain';
-import type { GameClient } from '../../src/netcode/gameClient';
-import { TICK_MS } from '../../src/shared/config';
 import { MAPS } from '../../src/shared/maps';
-import { DEFAULT_MATCH_CONFIG, FAST_MATCH_CONFIG, type MatchConfig } from '../../src/shared/match/matchConfig';
-import type { GameEvent } from '../../src/shared/sim/events';
+import { DEFAULT_MATCH_CONFIG } from '../../src/shared/match/matchConfig';
 import { DIFFICULTIES, isDifficulty, type Difficulty } from '../../src/solo/difficulty';
 import { createLoopback } from '../../src/solo/loopback';
-import { SoloMatch } from '../../src/solo/soloMatch';
+import { expectHealthy, startSolo, type SoloRun } from '../soloHelpers';
 
 const LEVELS = Object.keys(DIFFICULTIES) as Difficulty[];
-/** Short timers, but rematch only by vote - like the real rules. */
-const QUICK_RULES: MatchConfig = { ...FAST_MATCH_CONFIG, matchEndTicks: 0 };
-
-interface SoloRun {
-  solo: SoloMatch;
-  events: GameEvent[];
-  /** Advance the match by one tick (human input, then server + bot). */
-  tick: () => void;
-  /** Tick until `done()` is true; fails after `maxTicks`. */
-  runUntil: (what: string, done: () => boolean, maxTicks?: number) => void;
-}
-
-/** Steers a GameClient like a human would - here with a bot brain, or not at all. */
-function pilot(client: GameClient, brain: BotBrain | null): void {
-  client.renderClock.advance(TICK_MS);
-  const me = client.localPlayer;
-  if (!brain || !me || !client.map) {
-    client.tick({ moveX: 0, moveZ: 0, yaw: me?.yaw ?? 0, pitch: 0, buttons: 0 });
-    return;
-  }
-  const enemySlot = client.opponent?.slot;
-  const enemy = enemySlot === undefined ? null : (client.sampleRemote(enemySlot) ?? client.opponent);
-  client.tick(brain.think(me, enemy, client.map));
-}
-
-function startSolo(options: { difficulty?: Difficulty; mapId?: string; seed?: number; human?: 'idle' | 'fights'; rules?: MatchConfig }): SoloRun {
-  const solo = new SoloMatch({
-    playerName: 'Mika',
-    mapId: options.mapId ?? 'schlucht',
-    difficulty: options.difficulty ?? 'mittel',
-    seed: options.seed ?? 1,
-    matchConfig: options.rules ?? QUICK_RULES,
-  });
-  const events: GameEvent[] = [];
-  solo.client.onGameEvent = (event) => events.push(event);
-  solo.start();
-  const brain = options.human === 'fights' ? new BotBrain((options.seed ?? 1) + 1000, DEFAULT_PERSONALITY) : null;
-  const tick = () => {
-    pilot(solo.client, brain);
-    solo.step();
-  };
-  const runUntil = (what: string, done: () => boolean, maxTicks = 60 * 240) => {
-    for (let i = 0; i < maxTicks && !done(); i++) tick();
-    expect(done(), `never happened: ${what}`).toBe(true);
-  };
-  return { solo, events, tick, runUntil };
-}
-
-const phase = (run: SoloRun) => run.solo.client.snapshot?.match.phase;
-
-/** Nothing went wrong anywhere: no desync, no error, no rejected message. */
-function expectHealthy({ solo }: SoloRun): void {
-  expect(solo.client.stats.desyncs, solo.client.stats.desyncDetails[0]).toBe(0);
-  expect(solo.bot.client.stats.desyncs, solo.bot.client.stats.desyncDetails[0]).toBe(0);
-  expect(solo.client.stats.serverErrors).toEqual([]);
-  expect(solo.bot.errors).toEqual([]);
-  expect(solo.server.stats().errors).toBe(0);
-  expect(solo.server.stats().badMessages).toBe(0);
-}
+const phase = (run: SoloRun) => run.phase();
 
 describe('loopback connection', () => {
   it('delivers messages immediately in both directions and reports closing to both ends', () => {

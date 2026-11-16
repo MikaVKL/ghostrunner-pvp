@@ -13,17 +13,21 @@ import { createRng, type Rng } from '../shared/math/rng';
 import { angleDifference, clamp } from '../shared/math/scalar';
 import { forwardFromYaw, horizontalDistance, yawToward, type Vec3 } from '../shared/math/vec3';
 import { getWeapon } from '../shared/combat/weapons';
+import { MOVE } from '../shared/movement/movementConfig';
 import type { PlayerState } from '../shared/sim/playerState';
 import { FightHabits } from './brainFight';
 import { ButtonHolder } from './buttonHolder';
-import { ARRIVE_DISTANCE, canStandAt, isWalkable, planRoute, type NavStep } from './nav';
+import { ARRIVE_DISTANCE, canStandAt, isWalkable, nearestStandable, planRoute, type NavStep } from './nav';
 import { LinkRunner } from './parkour';
+import { directionOf, directionTo, keysFor, NO_KEYS, type MoveKeys } from './steering';
 
 /** Closer than this, the bot looks at the enemy instead of at its waypoint. */
 const FIGHT_DISTANCE = 6.5;
 const REPATH_EVERY_TICKS = 10;
 /** How far ahead the bot checks for floor before walking. */
 const LEDGE_LOOKAHEAD = 0.9;
+/** Seconds a normal jump stays in the air (up and down again). */
+const JUMP_AIR_TIME = (2 * MOVE.jumpSpeed) / MOVE.gravity;
 /** A position change larger than this in one tick means "respawned". */
 const TELEPORT_DISTANCE = 3;
 
@@ -79,14 +83,18 @@ export class BotBrain {
     this.fight = new FightHabits(this.rng, personality);
   }
 
-  /** Decide the input for this tick. `enemy` is null while alone in the room. */
-  think(me: PlayerState, enemy: PlayerState | null, map: MapDef): InputSample {
+  /**
+   * Decide the input for this tick. `enemy` is null while alone in the room.
+   * @param canAct false while the player is frozen (countdown, round over, dead)
+   */
+  think(me: PlayerState, enemy: PlayerState | null, map: MapDef, canAct = true): InputSample {
     this.ticks++;
     if (!this.hasYaw) {
       this.yaw = me.yaw;
       this.hasYaw = true;
     }
     this.noticeRespawn(me);
+    if (!canAct) return this.waitFrozen(me, enemy);
     if (this.runner) return this.followLink(me, map, this.runner);
 
     const target = enemy && enemy.alive ? enemy : null;
@@ -99,6 +107,10 @@ export class BotBrain {
       const goal = target ? target.pos : this.wanderTarget(map);
       this.route = planRoute(map, me.pos, goal, this.personality.linkCost);
     }
+    // Standing on the very edge of a platform, no line counts as walkable: step back onto safe ground first.
+    const onEdge = me.grounded && !canStandAt(map, me.pos.x, me.pos.z, me.pos.y);
+    const safeSpot = onEdge ? nearestStandable(map, me.pos) : null;
+    if (safeSpot) this.route = { target: safeSpot, link: null };
     const waypoint = this.route.target;
     const toWaypoint = horizontalDistance(me.pos, waypoint);
     if (this.route.link && me.grounded && toWaypoint < ARRIVE_DISTANCE) {
@@ -108,28 +120,45 @@ export class BotBrain {
     const lookAt = fighting ? target.pos : waypoint;
     const turn = this.turnToward(horizontalDistance(me.pos, lookAt) > 0.3 ? yawToward(me.pos, lookAt) : this.yaw);
 
-    // Movement: walk forward when roughly facing the goal (and coast the last half meter
-    // so the bot stops ON the waypoint); circle the enemy when close.
+    // Where to walk - decided separately from where to look, so the bot can keep its eyes
+    // on the opponent while going around an obstacle. Coast the last half meter so it stops
+    // ON the waypoint; circle the enemy when close.
     const speed = Math.hypot(me.vel.x, me.vel.z);
-    const wantsForward = toWaypoint > 0.5 || (speed < 2 && toWaypoint > 0.15);
-    let moveZ = Math.abs(turn) < 0.6 && wantsForward ? 1 : 0;
-    let moveX = 0;
+    const wantsToWalk = toWaypoint > 0.5 || (speed < 2 && toWaypoint > 0.15);
+    let wish = wantsToWalk ? directionTo(me.pos, waypoint) : null;
+    if (!fighting && Math.abs(turn) >= 0.6) wish = null; // outside a fight: turn first, then walk
     if (fighting && distance < range * 0.75) {
-      moveZ = 0;
       if (this.rng() < 0.03) this.strafe = -this.strafe;
-      moveX = this.strafe;
+      const toEnemy = directionTo(me.pos, target.pos);
+      wish = toEnemy ? { x: -toEnemy.z * this.strafe, z: toEnemy.x * this.strafe } : null;
     }
-    ({ moveX, moveZ } = this.avoidLedges(me, map, moveX, moveZ, fighting ? LEDGE_LOOKAHEAD : toWaypoint));
+    let keys = keysFor(wish, this.yaw);
+    if (!safeSpot) keys = this.avoidLedges(me, map, keys, fighting ? LEDGE_LOOKAHEAD : toWaypoint);
+    const { moveX, moveZ } = keys;
 
     if (fighting) {
       const aimError = Math.abs(angleDifference(this.yaw, yawToward(me.pos, target.pos)));
       const pathIsSafe = () => isWalkable(map, me.pos, target.pos);
       this.buttons.press(this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe }));
     }
-    this.moveRandomly(me, map, moveZ);
+    // No stunts right before a parkour link or a narrow waypoint - they need a clean approach.
+    if (!this.route.link && toWaypoint > 3) this.moveRandomly(me, map, moveZ);
     this.unstick(me, moveX !== 0 || moveZ !== 0);
 
     return { moveX, moveZ, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() };
+  }
+
+  /**
+   * Frozen (countdown, round over, dead): only look at the opponent. Nothing here may
+   * count as "stuck" - otherwise the bot would jump the moment the round starts.
+   */
+  private waitFrozen(me: PlayerState, enemy: PlayerState | null): InputSample {
+    this.stuckChecks = 0;
+    this.stuckPos = null;
+    this.route = null;
+    this.runner = null;
+    if (enemy && horizontalDistance(me.pos, enemy.pos) > 0.3) this.turnToward(yawToward(me.pos, enemy.pos));
+    return { moveX: 0, moveZ: 0, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() };
   }
 
   /** Let the LinkRunner steer until the parkour link is done. */
@@ -162,32 +191,47 @@ export class BotBrain {
     this.yaw = me.yaw;
   }
 
-  /** Random jumps and dashes so that all movement code gets exercised. */
+  /** Random jumps and dashes for variety - but only where the bot will land on solid ground. */
   private moveRandomly(me: PlayerState, map: MapDef, moveZ: number): void {
-    if (me.grounded && this.rng() < this.personality.jumpChance) this.buttons.press(Button.Jump);
+    const landsSafely = (distance: number) => {
+      const speed = Math.hypot(me.vel.x, me.vel.z) || 1;
+      const x = me.pos.x + (me.vel.x / speed) * distance;
+      const z = me.pos.z + (me.vel.z / speed) * distance;
+      return canStandAt(map, x, z, me.pos.y);
+    };
+    if (me.grounded && this.rng() < this.personality.jumpChance) {
+      // A jump carries the bot as far as it runs in the time it is in the air.
+      const flight = Math.hypot(me.vel.x, me.vel.z) * JUMP_AIR_TIME;
+      if (landsSafely(flight) && landsSafely(flight + 1)) this.buttons.press(Button.Jump);
+    }
     if (moveZ > 0 && this.rng() < this.personality.dashChance) {
-      // Only dash if the landing spot (about 3.5 m ahead) has floor. Mostly.
       const forward = forwardFromYaw(this.yaw);
-      const safe = canStandAt(map, me.pos.x + forward.x * 3.5, me.pos.z + forward.z * 3.5, me.pos.y);
-      if (safe || this.rng() < 0.1) this.buttons.press(Button.Dash);
+      const safe = [2, 3.5, 5].every((d) => canStandAt(map, me.pos.x + forward.x * d, me.pos.z + forward.z * d, me.pos.y));
+      if (safe) this.buttons.press(Button.Dash);
     }
   }
 
-  /** Do not walk into the void: cancel movement toward a spot without floor. */
-  private avoidLedges(me: PlayerState, map: MapDef, moveX: number, moveZ: number, forwardRoom: number) {
-    if (!me.grounded) return { moveX, moveZ };
-    const forward = forwardFromYaw(this.yaw);
-    const ahead = (fx: number, fz: number, distance: number) =>
-      canStandAt(map, me.pos.x + fx * distance, me.pos.z + fz * distance, me.pos.y);
+  /**
+   * Do not walk into the void: if the spot ahead has no floor, try only one of the two
+   * keys (sliding along the edge), otherwise stand still.
+   */
+  private avoidLedges(me: PlayerState, map: MapDef, keys: MoveKeys, room: number): MoveKeys {
+    if (!me.grounded) return keys;
     // Never look further ahead than the waypoint itself (it may be right next to a ledge).
-    const lookahead = Math.min(LEDGE_LOOKAHEAD, forwardRoom);
-    if (moveZ !== 0 && !ahead(forward.x * moveZ, forward.z * moveZ, lookahead)) moveZ = 0;
-    // The right vector is the forward vector rotated by 90 degrees.
-    if (moveX !== 0 && !ahead(-forward.z * moveX, forward.x * moveX, LEDGE_LOOKAHEAD)) {
-      this.strafe = -this.strafe;
-      moveX = 0;
+    const lookahead = Math.min(LEDGE_LOOKAHEAD, room);
+    const isSafe = (candidate: MoveKeys) => {
+      const dir = directionOf(candidate, this.yaw);
+      return !dir || canStandAt(map, me.pos.x + dir.x * lookahead, me.pos.z + dir.z * lookahead, me.pos.y);
+    };
+    if (isSafe(keys)) return keys;
+    this.strafe = -this.strafe;
+    const forwardOnly = { moveX: 0, moveZ: keys.moveZ };
+    const sideOnly = { moveX: keys.moveX, moveZ: 0 };
+    if (keys.moveZ !== 0 && keys.moveX !== 0) {
+      if (isSafe(forwardOnly)) return forwardOnly;
+      if (isSafe(sideOnly)) return sideOnly;
     }
-    return { moveX, moveZ };
+    return NO_KEYS;
   }
 
   /** If the bot wants to move but has not moved for a second, jump and turn a bit. */

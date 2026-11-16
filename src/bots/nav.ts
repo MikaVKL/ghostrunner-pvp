@@ -78,6 +78,24 @@ export function isWalkable(map: MapDef, a: Vec3, b: Vec3): boolean {
   return true;
 }
 
+/**
+ * The closest spot around `pos` where a player can stand safely, or null if there is
+ * none within 2.4 m. Used when the bot ended up on the very edge of a platform, from
+ * where no straight line counts as "walkable".
+ */
+export function nearestStandable(map: MapDef, pos: Vec3): Vec3 | null {
+  for (let radius = 0.4; radius <= 2.4; radius += 0.4) {
+    for (let step = 0; step < 12; step++) {
+      const angle = (step / 12) * Math.PI * 2;
+      const x = pos.x + Math.cos(angle) * radius;
+      const z = pos.z + Math.sin(angle) * radius;
+      const ground = standHeightAt(map, x, z, pos.y);
+      if (ground !== null) return { x, y: ground, z };
+    }
+  }
+  return null;
+}
+
 /** One connection of the nav graph: walk in a straight line, or take a parkour link. */
 interface Edge {
   to: number;

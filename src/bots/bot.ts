@@ -3,6 +3,7 @@
  */
 import { TICK_MS } from '../shared/config';
 import type { Transport } from '../shared/protocol/transport';
+import { phaseAllowsAction } from '../shared/sim/world';
 import { GameClient } from '../netcode/gameClient';
 import { BotBrain, type BotPersonality } from './brain';
 
@@ -84,7 +85,9 @@ export class Bot {
       // Like a human, the bot sees the opponent interpolated, slightly in the past.
       const enemySlot = client.opponent?.slot;
       const enemy = enemySlot === undefined ? null : (client.sampleRemote(enemySlot) ?? client.opponent);
-      client.tick(this.brain.think(me, enemy, client.map));
+      // Frozen during countdown / after the round: the brain must know, or it thinks it is stuck.
+      const canAct = me.alive && phaseAllowsAction(client.snapshot?.match.phase ?? 'waiting');
+      client.tick(this.brain.think(me, enemy, client.map, canAct));
       this.countUsage();
     } catch (error) {
       this.errors.push(error instanceof Error ? (error.stack ?? error.message) : String(error));
