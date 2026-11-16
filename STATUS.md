@@ -12,7 +12,7 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
 | 3 | 3 Parkour-Maps (`schlucht`, `daecher`, `reaktor`) + Map-Wahl beim Raum-Erstellen, Quick-Match rotiert; Parkour-Links für Bots | ✅ |
 | 4 | Lag-Kompensation: Treffer gegen die Position, die der Angreifer sah; Parry zählt, wenn er gedrückt wurde, bevor der Verteidiger den Treffer sah (max. 0,3 s) | ✅ |
 | 5 | Kollision zwischen Spielern (`physics/playerCollision.ts`, Teil 2 von `stepWorld`) | ✅ |
-| 6 | Reconnect nach Verbindungsabbruch | ⬜ |
+| 6 | Reconnect: Token, Sitz 20 s reserviert, Match pausiert (Server + `GameClient.reconnect`; automatisches Neuverbinden im Browser kommt mit Schritt 9) | ✅ |
 | 7 | Optik (Figuren, Schwung-Animation, Partikel, Kamera, Sky, Nebel) | ⬜ |
 | 8 | Sound (Web Audio, prozedural) | ⬜ |
 | 9 | Deutsche Oberfläche, HUD, Hauptmenü, Steuerungshilfe | ⬜ |
@@ -44,6 +44,11 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
   Verteidiger ihn *gesehen* hat – bis dahin kann er noch parieren. Kills kommen dadurch
   ~0,1 s + Ping später, dafür ist Parry bei jedem Ping gleich schwer. Grenze: 0,3 s.
 - **Gefundener Template-Bug:** `wrapAngle` war bei ±π nicht idempotent → seltener Desync. Behoben.
+
+- **Reconnect:** Bei Verbindungsabbruch wird das Match pausiert (Phase `paused`), der Sitz
+  bleibt 20 s reserviert. Kommt der Spieler mit seinem Token zurück, wird die unterbrochene
+  Runde neu gestartet (Punktestand bleibt). Kommt er nicht, geht der andere in den Übungsmodus.
+  „Raum verlassen“ gibt den Sitz sofort frei.
 
 ## Nächste Schritte
 

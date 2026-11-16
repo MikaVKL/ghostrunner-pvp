@@ -101,6 +101,10 @@ export function stepMatch(world: WorldState, ctx: SimContext, events: GameEvent[
     case 'matchEnd':
       stepMatchEnd(world, ctx);
       return;
+    case 'paused':
+      // Only a countdown for the HUD. The server room ends the pause (rejoin or timeout).
+      if (match.phaseTicksLeft > 0) match.phaseTicksLeft--;
+      return;
     default:
       assertNever(match.phase);
   }

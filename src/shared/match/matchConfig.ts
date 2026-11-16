@@ -17,6 +17,8 @@ export interface MatchConfig {
    * 0 = wait for the players forever (they can also leave the room).
    */
   matchEndTicks: number;
+  /** How long the seat of a player who lost its connection stays reserved (match is paused). */
+  reconnectTicks: number;
   /** First player to win this many rounds wins the match. */
   roundsToWin: number;
   /** Hard limit so a match always ends, even with many draws. */
@@ -32,6 +34,7 @@ export const DEFAULT_MATCH_CONFIG: MatchConfig = {
   roundTicks: secondsToTicks(60),
   roundEndTicks: secondsToTicks(2.5),
   matchEndTicks: 0,
+  reconnectTicks: secondsToTicks(20),
   roundsToWin: 3,
   maxRounds: 9,
 };
@@ -42,6 +45,7 @@ export const FAST_MATCH_CONFIG: MatchConfig = {
   roundTicks: secondsToTicks(20),
   roundEndTicks: secondsToTicks(0.3),
   matchEndTicks: secondsToTicks(1),
+  reconnectTicks: secondsToTicks(2),
   roundsToWin: 2,
   maxRounds: 5,
 };

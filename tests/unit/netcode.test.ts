@@ -126,7 +126,7 @@ describe('GameClient desync detection', () => {
     const transport: Transport = { send: (d) => sent.push(d), close: () => {}, onMessage: () => {}, onClose: () => {} };
     const client = new GameClient(transport);
     const receive = (message: ServerMessage) => transport.onMessage(encodeMessage(message));
-    receive({ type: 'roomJoined', code: 'TEST', slot: 0, mapId: ARENA.id, players: [{ slot: 0, name: 'x' }] });
+    receive({ type: 'roomJoined', code: 'TEST', slot: 0, mapId: ARENA.id, token: 'abcdef0123456789', players: [{ slot: 0, name: 'x', connected: true }] });
     const serverPlayer = createPlayer(0, ARENA.spawns[0]);
     const snapshot = (overrides: Partial<SnapshotMessage>): SnapshotMessage => ({
       type: 'snapshot',

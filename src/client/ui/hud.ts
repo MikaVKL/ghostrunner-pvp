@@ -83,6 +83,8 @@ export class Hud {
         return performance.now() < this.toastUntil ? this.toastText : '';
       case 'roundEnd':
         return outcome(match.roundWinner, 'Round won', 'Round lost', 'Draw');
+      case 'paused':
+        return `Gegner hat die Verbindung verloren\nWarte ${seconds(match.phaseTicksLeft)} s ...`;
       case 'matchEnd':
         return (
           outcome(match.matchWinner, 'VICTORY', 'DEFEAT', 'DRAW') +

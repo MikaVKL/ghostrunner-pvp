@@ -14,8 +14,9 @@ import { createPlayer, type PlayerState } from './playerState';
  * playing   - the round is running
  * roundEnd  - someone won the round; everyone frozen
  * matchEnd  - someone won the match; everyone frozen until both players vote for a rematch
+ * paused    - a player lost its connection; everyone frozen until it is back (or gives up)
  */
-export type MatchPhase = 'waiting' | 'countdown' | 'playing' | 'roundEnd' | 'matchEnd';
+export type MatchPhase = 'waiting' | 'countdown' | 'playing' | 'roundEnd' | 'matchEnd' | 'paused';
 
 export interface MatchState {
   phase: MatchPhase;
@@ -30,6 +31,9 @@ export interface MatchState {
   matchWinner: number;
   /** After the match: which slots asked for a rematch. Both true => a new match starts. */
   rematchVotes: boolean[];
+  /** Only while 'paused': the phase (and its remaining ticks) that was interrupted. */
+  resumePhase: MatchPhase;
+  resumeTicksLeft: number;
 }
 
 /** Where every player stood at the end of one tick (for lag compensation). */
@@ -79,6 +83,8 @@ export function createWorld(mapId: string): WorldState {
       roundWinner: -1,
       matchWinner: -1,
       rematchVotes: [false, false],
+      resumePhase: 'waiting',
+      resumeTicksLeft: 0,
     },
     history: [],
     pendingHits: [],

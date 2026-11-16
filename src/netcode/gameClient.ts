@@ -14,6 +14,7 @@ import { cloneVec3, type Vec3 } from '../shared/math/vec3';
 import { encodeMessage, parseServerMessage } from '../shared/protocol/codec';
 import type {
   ClientMessage,
+  ErrorCode,
   RoomPlayerInfo,
   ServerMessage,
   SnapshotMessage,
@@ -39,6 +40,8 @@ export interface RoomInfo {
   /** Our own player slot. */
   slot: number;
   mapId: string;
+  /** Secret for taking our seat again after a connection loss (see `reconnect`). */
+  token: string;
   players: RoomPlayerInfo[];
 }
 
@@ -60,10 +63,12 @@ export class GameClient {
    */
   readonly correctionOffset: Vec3 = { x: 0, y: 0, z: 0 };
 
+  /** The room we are in. Stays set while the connection is lost, so we can rejoin. */
   room: RoomInfo | null = null;
   map: MapDef | null = null;
   /** The newest snapshot received from the server. */
   snapshot: SnapshotMessage | null = null;
+  /** False after the connection broke, until `reconnect` is called with a new one. */
   connected = true;
 
   // Assign these to react to things happening.
@@ -73,7 +78,8 @@ export class GameClient {
   onGameEvent: (event: GameEvent) => void = () => {};
   /** Called when the match phase changes (previous is null for the first snapshot). */
   onPhaseChange: (phase: MatchPhase, previous: MatchPhase | null) => void = () => {};
-  onError: (message: string) => void = () => {};
+  onError: (message: string, code: ErrorCode) => void = () => {};
+  /** The connection broke. If `room` is set, a `reconnect` can take the seat again. */
   onClose: () => void = () => {};
 
   private readonly predictor = new Predictor();
@@ -81,19 +87,38 @@ export class GameClient {
   private readonly now: () => number;
   private nextSeq = 1;
   private tickCount = 0;
+  private transport!: Transport;
 
-  constructor(
-    private readonly transport: Transport,
-    options: GameClientOptions = {},
-  ) {
+  constructor(transport: Transport, options: GameClientOptions = {}) {
     this.predict = options.predict ?? true;
     this.now = options.now ?? (() => performance.now());
+    this.attach(transport);
+  }
+
+  private attach(transport: Transport): void {
+    this.transport = transport;
     transport.onMessage = (data) => this.handleMessage(data);
     transport.onClose = () => {
+      if (this.transport !== transport) return; // an old connection, already replaced
       this.connected = false;
-      this.room = null;
       this.onClose();
     };
+  }
+
+  /**
+   * Continue with a fresh connection after the old one broke. If we were in a room, we
+   * ask for our old seat (the server keeps it reserved for a while). The answer is either
+   * `onRoomJoined` (we are back) or `onRoomLeft` (too late, the seat is gone).
+   */
+  reconnect(transport: Transport): void {
+    this.attach(transport);
+    this.connected = true;
+    if (this.room) this.rejoinRoom(this.room.code, this.room.token);
+  }
+
+  /** Ask for a reserved seat with a token from an earlier `roomJoined` (e.g. after a page reload). */
+  rejoinRoom(code: string, token: string): void {
+    this.send({ type: 'rejoin', code, token });
   }
 
   // ---------- lobby ----------
@@ -154,6 +179,7 @@ export class GameClient {
     this.correctionOffset.z *= CORRECTION_DECAY;
 
     // Inputs are only sent once we know our starting state (first snapshot received).
+    if (!this.connected) return;
     if (!this.room || !this.map || !this.snapshot || !this.predictor.state) return;
     // viewTick tells the server which moment of the other players we are looking at (lag compensation).
     const viewTick = Math.round(this.renderClock.renderTick * 100) / 100;
@@ -186,6 +212,7 @@ export class GameClient {
           code: message.code,
           slot: message.slot,
           mapId: message.mapId,
+          token: message.token,
           players: message.players,
         };
         this.map = getMap(message.mapId);
@@ -209,7 +236,13 @@ export class GameClient {
         return;
       case 'error':
         this.stats.serverErrors.push(`${message.code}: ${message.message}`);
-        this.onError(message.message);
+        this.onError(message.message, message.code);
+        if (message.code === 'rejoin_failed') {
+          // Our seat is gone: we are back in the lobby.
+          this.room = null;
+          this.resetGameState();
+          this.onRoomLeft();
+        }
         return;
       default:
         assertNever(message);

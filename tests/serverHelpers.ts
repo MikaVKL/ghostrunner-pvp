@@ -65,6 +65,13 @@ export class TestClient {
     return this.last('snapshot');
   }
 
+  /** The reconnect token from the last `roomJoined`. */
+  get token(): string {
+    const joined = this.last('roomJoined');
+    if (!joined) throw new Error('client is not in a room');
+    return joined.token;
+  }
+
   get roomCode(): string {
     const joined = this.last('roomJoined');
     if (!joined) throw new Error('client is not in a room');

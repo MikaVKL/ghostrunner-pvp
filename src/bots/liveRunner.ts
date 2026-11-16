@@ -37,7 +37,10 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
     host.client.quickMatch(host.name);
     guest.client.quickMatch(guest.name);
   } else {
-    host.client.onRoomJoined = (room) => guest.client.joinRoom(room.code, guest.name);
+    // The guest follows the host into its room (only once - a rejoin also reports "joined").
+    host.client.onRoomJoined = (room) => {
+      if (!guest.client.room) guest.client.joinRoom(room.code, guest.name);
+    };
     host.client.createRoom(host.name, options.mapId);
   }
 
@@ -61,8 +64,11 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
   const mapId = host.client.room?.mapId ?? '?';
   for (const bot of bots) {
     if (!bot.client.connected) bot.errors.push('connection closed unexpectedly');
-    bot.client.close();
+    bot.client.leaveRoom(); // leave for good, otherwise the server keeps the seat reserved
   }
+  // Give the goodbye time to get through the artificial lag before closing.
+  await new Promise((resolve) => setTimeout(resolve, (options.lagMs ?? 0) + (options.jitterMs ?? 0) + 50));
+  for (const bot of bots) bot.client.close();
 
   return {
     label: options.label,

@@ -51,6 +51,41 @@ describe('the bots really use the mechanics (so the desync check covers them)', 
   });
 });
 
+describe('reconnect in whole matches', () => {
+  it('a bot that loses its connection mid-match comes back and the match finishes cleanly', () => {
+    for (const [seed, bot] of [[1, 0], [2, 1], [3, 0]]) {
+      const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG });
+      const report = runSimulatedMatch({
+        seed,
+        server,
+        latencyMs: 40,
+        jitterMs: 20,
+        disconnect: { bot, atMs: 2500, forMs: 800 },
+      });
+      expectHealthy(report);
+      expect(server.lobby.roomCount).toBe(0);
+      expect(server.stats().errors).toBe(0);
+    }
+  });
+
+  it('if the bot stays away too long, the other one ends up alone (no crash, no desync)', () => {
+    const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG });
+    const report = runSimulatedMatch({
+      seed: 4,
+      server,
+      latencyMs: 40,
+      maxSeconds: 12,
+      disconnect: { bot: 1, atMs: 1500, forMs: 5000 }, // longer than the reserved time
+    });
+    expect(report.finished).toBe(false); // the match was abandoned
+    for (const bot of report.bots) expect(bot.desyncs).toBe(0);
+    expect(report.bots[0].errors).toEqual([]);
+    expect(report.bots[1].errors).toEqual(['rejoin_failed: The seat is no longer available.']);
+    expect(server.stats().errors).toBe(0);
+    expect(server.lobby.roomCount).toBe(0);
+  });
+});
+
 describe('lag compensation in whole matches', () => {
   it('at 100 ms ping swings still kill (most rounds end by a sword hit)', () => {
     const reports = [1, 2, 3, 4, 5, 6].map((seed) => runSimulatedMatch({ seed, latencyMs: 50, jitterMs: 10 }));

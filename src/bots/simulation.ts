@@ -29,6 +29,11 @@ export interface SimOptions {
   mapId?: string;
   /** Reuse an existing server (to collect statistics over several matches). */
   server?: GameServer;
+  /**
+   * Simulate a connection loss: the link of bot `bot` (0 or 1) breaks at `atMs` and the
+   * bot reconnects `forMs` later with a new link (see GameClient.reconnect).
+   */
+  disconnect?: { bot: number; atMs: number; forMs: number };
 }
 
 /** Something that must be called at a fixed interval of virtual time. */
@@ -47,10 +52,10 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
   const server = options.server ?? new GameServer({ matchConfig: options.matchConfig ?? FAST_MATCH_CONFIG });
   const now = () => net.nowMs;
 
+  const links = [net.createLink(), net.createLink()];
   const bots = ['botA', 'botB'].map((name, i) => {
-    const link = net.createLink();
-    server.attach(link.server);
-    return new Bot(link.client, { name, seed: options.seed * 2 + i, now });
+    server.attach(links[i].server);
+    return new Bot(links[i].client, { name, seed: options.seed * 2 + i, now });
   });
   const [host, guest] = bots;
 
@@ -58,7 +63,10 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
     host.client.quickMatch(host.name);
     guest.client.quickMatch(guest.name);
   } else {
-    host.client.onRoomJoined = (room) => guest.client.joinRoom(room.code, guest.name);
+    // The guest follows the host into its room (only once - a rejoin also reports "joined").
+    host.client.onRoomJoined = (room) => {
+      if (!guest.client.room) guest.client.joinRoom(room.code, guest.name);
+    };
     host.client.createRoom(host.name, options.mapId);
   }
 
@@ -69,6 +77,18 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
     { nextAt: TICK_MS * 0.37, period: TICK_MS * (1 + drift), run: () => host.tick() },
     { nextAt: TICK_MS * 0.71, period: TICK_MS * (1 - drift), run: () => guest.tick() },
   ];
+
+  const outage = options.disconnect;
+  if (outage) {
+    const reconnect = () => {
+      const link = net.createLink();
+      server.attach(link.server);
+      bots[outage.bot].client.reconnect(link.client);
+    };
+    // "Never" as period: each of the two actors runs exactly once.
+    actors.push({ nextAt: outage.atMs, period: Infinity, run: () => net.breakLink(links[outage.bot]) });
+    actors.push({ nextAt: outage.atMs + outage.forMs, period: Infinity, run: reconnect });
+  }
 
   const maxMs = (options.maxSeconds ?? 600) * 1000;
   const finished = () => bots.every((bot) => bot.matchFinished);
@@ -82,8 +102,12 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
   const durationSec = net.nowMs / 1000;
   const report = bots.map(botReport);
   const mapId = host.client.room?.mapId ?? '?';
+  // Leave for good (otherwise the server keeps the seats reserved), let the goodbyes
+  // arrive, then close the connections.
+  for (const bot of bots) bot.client.leaveRoom();
+  net.advanceTo(net.nowMs + (options.latencyMs ?? 0) + (options.jitterMs ?? 0) + 1);
   for (const bot of bots) bot.client.close();
-  net.advanceTo(net.nowMs + 1); // deliver the close events so the server frees the room
+  net.advanceTo(net.nowMs + 1);
 
   return {
     label: options.label ?? `seed ${options.seed}`,

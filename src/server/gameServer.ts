@@ -87,6 +87,8 @@ export class GameServer {
   private handleMessage(session: Session, data: string): void {
     session.messageCount++;
     if (session.messageCount > MAX_MESSAGES_PER_SECOND) {
+      // Kicked for flooding: no seat reservation, the player is out.
+      this.lobby.leave(session);
       session.close();
       this.handleClose(session);
       return;
@@ -107,6 +109,6 @@ export class GameServer {
   private handleClose(session: Session): void {
     if (!this.sessions.delete(session)) return;
     session.closed = true;
-    this.lobby.leave(session);
+    this.lobby.disconnect(session);
   }
 }

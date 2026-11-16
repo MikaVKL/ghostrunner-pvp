@@ -36,7 +36,7 @@ describe('lobby', () => {
     const joined = a.last('roomJoined')!;
     expect(joined.code).toHaveLength(4);
     expect(joined.slot).toBe(0);
-    expect(joined.players).toEqual([{ slot: 0, name: 'Alice' }]);
+    expect(joined.players).toEqual([{ slot: 0, name: 'Alice', connected: true }]);
     server.tick();
     server.tick();
     expect(a.snapshot!.match.phase).toBe('waiting');
@@ -149,12 +149,12 @@ describe('lobby', () => {
     expect(a.snapshot!.players).toHaveLength(1);
   });
 
-  it('a disconnect counts as leaving, and empty rooms are deleted', () => {
+  it('leaving frees the seat at once, and empty rooms are deleted', () => {
     const { server, a, b } = createMatch();
     expect(server.lobby.playerCount).toBe(2);
-    a.disconnect();
+    a.send({ type: 'leaveRoom' });
     expect(server.lobby.playerCount).toBe(1);
-    b.disconnect();
+    b.send({ type: 'leaveRoom' });
     expect(server.lobby.roomCount).toBe(0);
   });
 

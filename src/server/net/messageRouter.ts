@@ -21,6 +21,9 @@ export function routeMessage(lobby: Lobby, session: Session, message: ClientMess
       session.name = message.name;
       lobby.quickMatch(session);
       return;
+    case 'rejoin':
+      lobby.rejoin(session, message.code, message.token);
+      return;
     case 'leaveRoom':
       lobby.leave(session);
       return;

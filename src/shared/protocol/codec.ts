@@ -8,6 +8,8 @@ import type { ClientMessage, ServerMessage } from './messages';
 
 export const MAX_NAME_LENGTH = 16;
 export const ROOM_CODE_LENGTH = 4;
+/** Reconnect tokens are hex strings made by the server. */
+const TOKEN_PATTERN = /^[0-9a-f]{16,64}$/;
 /** Largest message the server accepts, in characters. */
 export const MAX_CLIENT_MESSAGE_LENGTH = 512;
 
@@ -49,6 +51,11 @@ export function parseClientMessage(text: string): ClientMessage | null {
     case 'joinRoom': {
       const code = parseRoomCode(msg.code);
       return code ? { type: 'joinRoom', code, name: sanitizeName(msg.name) } : null;
+    }
+    case 'rejoin': {
+      const code = parseRoomCode(msg.code);
+      const tokenOk = typeof msg.token === 'string' && TOKEN_PATTERN.test(msg.token);
+      return code && tokenOk ? { type: 'rejoin', code, token: msg.token as string } : null;
     }
     case 'leaveRoom':
       return { type: 'leaveRoom' };

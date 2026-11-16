@@ -42,6 +42,12 @@ export class MemoryNetwork {
     return { client, server };
   }
 
+  /** Simulate a broken connection: both ends are told that it closed (after the usual delay). */
+  breakLink(link: { client: Transport; server: Transport }): void {
+    link.client.close();
+    link.server.close();
+  }
+
   /** Deliver every message that is due up to `timeMs` and move the clock there. */
   advanceTo(timeMs: number): void {
     for (;;) {

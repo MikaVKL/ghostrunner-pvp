@@ -14,6 +14,8 @@ export type ClientMessage =
   | { type: 'createRoom'; name: string; mapId?: string }
   | { type: 'joinRoom'; code: string; name: string }
   | { type: 'quickMatch'; name: string }
+  /** Take the old seat again after a connection loss (see `roomJoined.token`). */
+  | { type: 'rejoin'; code: string; token: string }
   | { type: 'leaveRoom' }
   | { type: 'rematch' }
   | { type: 'input'; cmd: InputCmd }
@@ -24,9 +26,11 @@ export type ClientMessage =
 export interface RoomPlayerInfo {
   slot: number;
   name: string;
+  /** False while the player has lost its connection and its seat is reserved. */
+  connected: boolean;
 }
 
-export type ErrorCode = 'bad_message' | 'room_not_found' | 'room_full' | 'already_in_room';
+export type ErrorCode = 'bad_message' | 'room_not_found' | 'room_full' | 'already_in_room' | 'rejoin_failed';
 
 export interface SnapshotMessage {
   type: 'snapshot';
@@ -47,7 +51,8 @@ export interface SnapshotMessage {
 
 export type ServerMessage =
   | { type: 'welcome'; protocol: number; tickRate: number }
-  | { type: 'roomJoined'; code: string; slot: number; mapId: string; players: RoomPlayerInfo[] }
+  /** `token` is a secret that lets this client take its seat again after a connection loss. */
+  | { type: 'roomJoined'; code: string; slot: number; mapId: string; token: string; players: RoomPlayerInfo[] }
   | { type: 'roomUpdate'; players: RoomPlayerInfo[] }
   | { type: 'roomLeft' }
   | SnapshotMessage

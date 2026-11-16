@@ -1,10 +1,14 @@
 /**
  * One game room: up to two players and their world. The room owns the authoritative
  * simulation. It knows nothing about WebSockets - it only talks to Session objects.
+ *
+ * Reconnect: a seat whose client lost its connection stays reserved for
+ * `matchConfig.reconnectTicks`. Meanwhile the match is paused. With the secret token from
+ * `roomJoined` the client can take the seat again (rejoin).
  */
 import { MAX_PLAYERS_PER_ROOM, SNAPSHOT_EVERY_TICKS } from '../../shared/config';
 import type { InputCmd } from '../../shared/input';
-import { enterWaiting, startMatch, voteRematch } from '../../shared/match/lifecycle';
+import { enterWaiting, pauseMatch, resumeMatch, startMatch, voteRematch } from '../../shared/match/lifecycle';
 import { encodeMessage } from '../../shared/protocol/codec';
 import type { RoomPlayerInfo, SnapshotMessage } from '../../shared/protocol/messages';
 import type { GameEvent } from '../../shared/sim/events';
@@ -16,7 +20,13 @@ import { InputQueue } from './inputQueue';
 /** A player's place in the room. */
 interface Seat {
   slot: number;
-  session: Session;
+  name: string;
+  /** Null while the client is disconnected and the seat is reserved for it. */
+  session: Session | null;
+  /** Secret for taking this seat again after a connection loss. */
+  token: string;
+  /** How long the seat has been without a connection. */
+  disconnectedTicks: number;
   inputs: InputQueue;
   /** True if something unpredictable happened to this player since the last snapshot. */
   disturbed: boolean;
@@ -32,6 +42,7 @@ export class Room {
     private readonly ctx: SimContext,
     /** Public rooms can be filled by quick match. */
     readonly isPublic: boolean,
+    private readonly createToken: () => string,
   ) {
     this.world = createWorld(ctx.map.id);
   }
@@ -48,35 +59,67 @@ export class Room {
     return this.seats.length;
   }
 
+  /** True if a seat is reserved for a player who lost its connection. */
+  get hasDisconnectedSeat(): boolean {
+    return this.seats.some((s) => s.session === null);
+  }
+
   /** Add a player. The caller must check `isFull` first. */
   join(session: Session): void {
     const slot = this.seats.some((s) => s.slot === 0) ? 1 : 0;
-    this.seats.push({ slot, session, inputs: new InputQueue(), disturbed: true });
+    const seat: Seat = {
+      slot,
+      name: session.name,
+      session,
+      token: this.createToken(),
+      disconnectedTicks: 0,
+      inputs: new InputQueue(),
+      disturbed: true,
+    };
+    this.seats.push(seat);
     session.room = this;
     addPlayer(this.world, slot, this.ctx.map);
     if (this.isFull) startMatch(this.world, this.ctx);
+    if (this.hasDisconnectedSeat) pauseMatch(this.world, this.ctx.matchConfig.reconnectTicks);
     this.markAllDisturbed();
-
-    session.send({
-      type: 'roomJoined',
-      code: this.code,
-      slot,
-      mapId: this.ctx.map.id,
-      players: this.playerInfos(),
-    });
+    this.sendRoomJoined(seat);
     this.broadcastRoomUpdate();
   }
 
+  /** The player leaves for good (leave button, kicked, or reconnect time ran out). */
   leave(session: Session): void {
     const seat = this.seats.find((s) => s.session === session);
     if (!seat) return;
-    this.seats = this.seats.filter((s) => s !== seat);
     session.room = null;
-    removePlayer(this.world, seat.slot);
-    enterWaiting(this.world, this.ctx);
-    this.markAllDisturbed();
     session.send({ type: 'roomLeft' });
+    this.removeSeat(seat);
+  }
+
+  /** The connection of a player broke. Its seat stays reserved; the match is paused. */
+  disconnect(session: Session): void {
+    const seat = this.seats.find((s) => s.session === session);
+    if (!seat) return;
+    session.room = null;
+    seat.session = null;
+    seat.disconnectedTicks = 0;
+    pauseMatch(this.world, this.ctx.matchConfig.reconnectTicks);
+    this.markAllDisturbed();
     this.broadcastRoomUpdate();
+  }
+
+  /** A client with the right token takes its reserved seat again. Returns false if refused. */
+  rejoin(session: Session, token: string): boolean {
+    const seat = this.seats.find((s) => s.session === null && s.token === token);
+    if (!seat) return false;
+    seat.session = session;
+    seat.inputs = new InputQueue(); // the client starts counting its inputs from 1 again
+    session.room = this;
+    session.name = seat.name;
+    if (!this.hasDisconnectedSeat) resumeMatch(this.world, this.ctx);
+    this.markAllDisturbed();
+    this.sendRoomJoined(seat);
+    this.broadcastRoomUpdate();
+    return true;
   }
 
   handleInput(session: Session, cmd: InputCmd): void {
@@ -91,8 +134,10 @@ export class Room {
 
   /** Advance the room by one simulation tick. Called by the server's tick loop. */
   tick(): void {
+    this.dropExpiredSeats();
     const inputs: InputsBySlot = {};
     for (const seat of this.seats) {
+      if (!seat.session) continue; // disconnected: neutral input
       const next = seat.inputs.next();
       inputs[seat.slot] = next.input ?? undefined;
       if (!next.predictable) seat.disturbed = true;
@@ -107,6 +152,23 @@ export class Room {
     if (this.world.tick % SNAPSHOT_EVERY_TICKS === 0) this.sendSnapshots();
   }
 
+  /** Give up seats whose player did not come back in time. */
+  private dropExpiredSeats(): void {
+    for (const seat of [...this.seats]) {
+      if (seat.session) continue;
+      seat.disconnectedTicks++;
+      if (seat.disconnectedTicks > this.ctx.matchConfig.reconnectTicks) this.removeSeat(seat);
+    }
+  }
+
+  private removeSeat(seat: Seat): void {
+    this.seats = this.seats.filter((s) => s !== seat);
+    removePlayer(this.world, seat.slot);
+    enterWaiting(this.world, this.ctx);
+    this.markAllDisturbed();
+    this.broadcastRoomUpdate();
+  }
+
   private sendSnapshots(): void {
     for (const seat of this.seats) {
       const snapshot: SnapshotMessage = {
@@ -118,7 +180,7 @@ export class Room {
         match: this.world.match,
         events: this.pendingEvents,
       };
-      seat.session.sendRaw(encodeMessage(snapshot));
+      seat.session?.sendRaw(encodeMessage(snapshot));
       seat.disturbed = false;
     }
     this.pendingEvents = [];
@@ -130,11 +192,22 @@ export class Room {
   }
 
   private playerInfos(): RoomPlayerInfo[] {
-    return this.seats.map((s) => ({ slot: s.slot, name: s.session.name }));
+    return this.seats.map((s) => ({ slot: s.slot, name: s.name, connected: s.session !== null }));
+  }
+
+  private sendRoomJoined(seat: Seat): void {
+    seat.session?.send({
+      type: 'roomJoined',
+      code: this.code,
+      slot: seat.slot,
+      mapId: this.ctx.map.id,
+      token: seat.token,
+      players: this.playerInfos(),
+    });
   }
 
   private broadcastRoomUpdate(): void {
     const players = this.playerInfos();
-    for (const seat of this.seats) seat.session.send({ type: 'roomUpdate', players });
+    for (const seat of this.seats) seat.session?.send({ type: 'roomUpdate', players });
   }
 }

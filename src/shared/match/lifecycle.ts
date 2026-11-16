@@ -37,6 +37,34 @@ export function voteRematch(world: WorldState, slot: number): boolean {
   return true;
 }
 
+/**
+ * Freeze the match because a player lost its connection. `ticks` is shown as a countdown
+ * (the room removes the player when it runs out). Does nothing in practice mode.
+ */
+export function pauseMatch(world: WorldState, ticks: number): void {
+  const match = world.match;
+  if (match.phase === 'waiting' || match.phase === 'paused') return;
+  match.resumePhase = match.phase;
+  match.resumeTicksLeft = match.phaseTicksLeft;
+  match.phase = 'paused';
+  match.phaseTicksLeft = ticks;
+}
+
+/**
+ * Continue after a pause. An interrupted round is replayed from its countdown (fair for
+ * the player who was away); pauses between rounds simply continue.
+ */
+export function resumeMatch(world: WorldState, ctx: SimContext): void {
+  const match = world.match;
+  if (match.phase !== 'paused') return;
+  if (match.resumePhase === 'countdown' || match.resumePhase === 'playing') {
+    startRound(world, ctx, match.round);
+    return;
+  }
+  match.phase = match.resumePhase;
+  match.phaseTicksLeft = match.resumeTicksLeft;
+}
+
 /** Go back to free practice mode. Called when a player leaves. */
 export function enterWaiting(world: WorldState, ctx: SimContext): void {
   respawnAll(world, ctx);
