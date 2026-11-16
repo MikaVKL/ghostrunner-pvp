@@ -84,9 +84,9 @@ ohne ✅:
 | # | Schritt | Stand |
 |---|---|---|
 | A | Bot-Fehler beheben (Befund unten) + Qualitäts-Tests „Bot stürzt nicht von selbst ab / bleibt nicht stehen“ (`tests/sim/botQuality.test.ts`) | ✅ |
-| B | Mechanik: Doppelsprung (Rezept 4 in `HOW_TO_EXTEND.md`; Feld `airJumpsLeft` in `PlayerState`) | ⬜ |
-| C | Mechanik: Klingen-Clash – zwei fast gleichzeitige Treffer prallen ab statt Doppel-K.O. (`resolveCombat.ts`, Event `clash`) | ⬜ |
-| D | Mechanik: Sprungfelder als Map-Element (`MapDef.pads`, vorhersagbar → `movement/`) | ⬜ |
+| B | Mechanik: Doppelsprung (`airJumpsLeft` in `PlayerState`, `movement/locomotion.ts`; `tests/unit/doubleJump.test.ts`) | ✅ |
+| C | Mechanik: Klingen-Clash – zwei Schläge innerhalb von 0,1 s prallen ab statt Doppel-K.O. (`resolveCombat.ts`, Event `clash`). Unentschieden zwischen Bots: vorher ~17 %, jetzt ~2 % | ✅ |
+| D | Mechanik: Sprungfelder als Map-Element (`MapDef.pads`, `movement/jumpPad.ts`; `tests/unit/jumpPad.test.ts`). Noch in keiner Map verbaut – kommt mit Schritt E | ✅ |
 | E | Maps überarbeiten: echte Höhenunterschiede, Sprungfelder, eigenes Farbthema je Map (`MapDef.theme`) | ⬜ |
 | F | Bot-KI: Ausweich-Dash, Fehlschläge/Stun bestrafen, Vor-und-Zurück, Kampfstil je Runde, Reaktionszeit je Schwierigkeit | ⬜ |
 | G | Mehr Bot-Tests (Qualität, Nutzung der neuen Mechaniken, Reihenfolge der Schwierigkeiten) + Browser-Tests + Doku | ⬜ |

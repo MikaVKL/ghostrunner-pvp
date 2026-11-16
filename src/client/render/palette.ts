@@ -19,6 +19,9 @@ export const FX_COLORS = {
   hit: 0xff5a3c,
   hitCore: 0xffffff,
   parry: 0x9fe8ff,
+  clash: 0xffe08a,
+  /** Jump pads and their sparks. */
+  pad: 0x7dff5a,
   stun: 0xf2c744,
   dust: 0x8a93b8,
 };

@@ -45,6 +45,10 @@ export function stepLocomotion(
     p.vel.y = MOVE.jumpSpeed;
     p.grounded = false;
     p.coyoteTicks = 0;
+  } else if (jumpPressed && p.airJumpsLeft > 0) {
+    // Double jump: a second jump in mid-air.
+    p.vel.y = MOVE.airJumpSpeed;
+    p.airJumpsLeft--;
   }
 
   p.vel.y = Math.max(p.vel.y - MOVE.gravity * TICK_DT, -MOVE.terminalFallSpeed);

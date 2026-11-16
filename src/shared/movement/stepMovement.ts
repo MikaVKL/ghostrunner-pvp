@@ -8,6 +8,7 @@ import type { MapDef } from '../maps/mapTypes';
 import { moveAndCollide } from '../physics/collision';
 import type { PlayerState } from '../sim/playerState';
 import { stepDash, tryStartDash } from './dash';
+import { applyJumpPads } from './jumpPad';
 import { stepLocomotion, wishDirection } from './locomotion';
 import { MOVE } from './movementConfig';
 import { stepWallRun, updateWallRun } from './wallRun';
@@ -50,6 +51,7 @@ export function stepMovement(
   // 3) Ground contact refills the air abilities.
   if (p.grounded) {
     p.coyoteTicks = MOVE.coyoteTicks;
+    p.airJumpsLeft = MOVE.airJumps;
     p.wallRunLeft = MOVE.wallRunMaxTicks;
     p.wallRunning = false;
     p.wallNormalX = 0;
@@ -57,4 +59,7 @@ export function stepMovement(
   } else if (p.coyoteTicks > 0) {
     p.coyoteTicks--;
   }
+
+  // 4) Standing on a jump pad throws the player into the air.
+  applyJumpPads(p, map);
 }

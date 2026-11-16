@@ -46,6 +46,7 @@ export function updateWallRun(p: PlayerState, input: InputCmd, map: MapDef): voi
 
   if (!p.wallRunning) {
     p.wallRunning = true;
+    p.airJumpsLeft = MOVE.airJumps; // touching a wall gives the double jump back
     p.vel.y = clamp(p.vel.y, MOVE.wallRunEntryMinVy, MOVE.wallRunEntryMaxVy);
   }
   p.wallNormalX = wall.nx;

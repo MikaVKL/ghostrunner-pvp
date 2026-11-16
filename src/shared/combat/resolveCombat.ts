@@ -6,7 +6,8 @@
  *
  * Two steps per tick (lag compensation, see lagCompensation.ts):
  *   1. findContacts:  a swing that reaches its target becomes a "pending hit"
- *   2. decideHits:    a pending hit is decided once the target has seen it: parry or hit
+ *   2. decideHits:    a pending hit is decided once the target has seen it:
+ *                     clash (the target swings back at the same moment), parry, or hit
  */
 import { forwardFromYaw } from '../math/vec3';
 import type { InputCmd } from '../input';
@@ -80,15 +81,49 @@ function applyParry(attacker: PlayerState, target: PlayerState, events: GameEven
 }
 
 /**
+ * True if the target of `hit` is swinging back at the attacker at (almost) the same
+ * moment: its own blade reaches the attacker within COMBAT.clashWindowTicks of this hit.
+ */
+function isClash(world: WorldState, hit: PendingHit, attacker: PlayerState, target: PlayerState): boolean {
+  if (!attacker.alive || target.action !== 'attack') return false;
+  const swing = currentAttack(target);
+  // The tick at which the target's blade became (or will become) dangerous.
+  const targetStrikesAt = world.tick - (target.actionTicks - swing.startupTicks);
+  if (Math.abs(targetStrikesAt - hit.tick) > COMBAT.clashWindowTicks) return false;
+  return isInMeleeRange(target, attacker, swing);
+}
+
+/** Both blades bounce off: nobody is hurt, both are thrown back and must recover. */
+function applyClash(a: PlayerState, b: PlayerState, events: GameEvent[]): void {
+  const fromAtoB = directionBetween(a, b);
+  for (const [p, sign] of [[a, -1], [b, 1]] as const) {
+    setAction(p, 'idle');
+    p.attackCooldown = COMBAT.clashCooldownTicks;
+    p.dashTicks = 0;
+    p.vel.x = fromAtoB.x * sign * COMBAT.clashPushback;
+    p.vel.z = fromAtoB.z * sign * COMBAT.clashPushback;
+    p.vel.y = Math.max(p.vel.y, COMBAT.clashLift);
+  }
+  events.push({ type: 'clash', a: a.slot, b: b.slot });
+}
+
+/**
  * Step 2: decide every pending hit whose target has seen it by now.
  * Returns the hits that are still undecided.
  */
 function decideHits(world: WorldState, inputs: Inputs, events: GameEvent[]): PendingHit[] {
   const undecided: PendingHit[] = [];
+  /** Players whose swing ended in a clash this tick: their own pending hits are void. */
+  const clashed = new Set<number>();
   for (const hit of world.pendingHits) {
     const attacker = world.players.find((p) => p.slot === hit.attacker);
     const target = world.players.find((p) => p.slot === hit.target);
-    if (!attacker || !target || !target.alive) continue;
+    if (!attacker || !target || !target.alive || clashed.has(hit.attacker)) continue;
+    if (isClash(world, hit, attacker, target)) {
+      applyClash(attacker, target, events);
+      clashed.add(attacker.slot).add(target.slot);
+      continue;
+    }
     if (effectiveViewTick(world, inputs[target.slot]?.viewTick) < hit.tick) {
       undecided.push(hit); // the target has not seen this swing land yet - it may still parry
       continue;
@@ -96,7 +131,8 @@ function decideHits(world: WorldState, inputs: Inputs, events: GameEvent[]): Pen
     if (isParryActive(target) && isFacing(target, attacker)) applyParry(attacker, target, events);
     else applyHit(hit, attacker, target, events);
   }
-  return undecided;
+  // A clash also cancels hits that were decided to wait earlier in this loop.
+  return undecided.filter((hit) => !clashed.has(hit.attacker));
 }
 
 /**

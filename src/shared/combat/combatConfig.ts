@@ -17,6 +17,19 @@ export const COMBAT = {
   /** Horizontal speed (m/s) that pushes a parried attacker away from the defender. */
   parryPushback: 4,
 
+  // --- blade clash ---
+  /**
+   * Two swings that would land within this many ticks of each other do not kill: the
+   * blades clash and both fighters are thrown back.
+   */
+  clashWindowTicks: secondsToTicks(0.1),
+  /** Horizontal speed (m/s) that pushes both fighters apart after a clash. */
+  clashPushback: 7,
+  /** Upward speed (m/s) of a clash: a small hop, so that ground friction does not eat the push. */
+  clashLift: 3,
+  /** After a clash neither fighter can swing again for N ticks. */
+  clashCooldownTicks: secondsToTicks(0.35),
+
   // --- movement while acting ---
   /** Run speed multiplier while stunned. */
   stunnedSpeedFactor: 0.35,

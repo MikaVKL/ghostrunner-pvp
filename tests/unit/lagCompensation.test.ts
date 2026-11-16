@@ -146,19 +146,37 @@ describe('lag-compensated parry', () => {
     expect(decidedAt).toBe(HIT_TICK + COMBAT.maxRewindTicks);
   });
 
-  it('a trade between a lagging and a non-lagging player is a draw, not a win for the lagger', () => {
+  it('simultaneous swings of a lagging and a non-lagging player clash - lag gives no kill', () => {
     const world = playingWorld();
     const [a, b] = world.players;
     const events: GameEvent[] = [];
     for (let tick = 0; tick < 60 && world.match.phase === 'playing'; tick++) {
       const press = tick === 0 ? Button.Attack : 0;
       // Slot 0 has no lag, slot 1 sees everything 12 ticks late. Both swing at the same time.
-      const inputs = { 0: hold(a, { buttons: press }), 1: hold(b, { buttons: press, viewTick: world.tick + 1 - DELAY }) };
+      const inputs = { 0: hold(a, { buttons: press }), 1: hold(b, { buttons: press, viewTick: Math.max(1, world.tick + 1 - DELAY) }) };
+      events.push(...stepWorld(world, inputs, TEST_CTX).events);
+    }
+    expect(events.filter((e) => e.type === 'clash')).toHaveLength(1);
+    expect(events.filter((e) => e.type === 'death')).toHaveLength(0);
+    expect(world.pendingHits).toEqual([]);
+    expect(world.match.scores).toEqual([0, 0]);
+  });
+
+  it('a real trade (second swing clearly later, but before the first hit is seen) is a draw', () => {
+    const world = playingWorld();
+    const [a, b] = world.players;
+    const second = COMBAT.clashWindowTicks + 2; // too late for a clash
+    const events: GameEvent[] = [];
+    for (let tick = 0; tick < 80 && world.match.phase === 'playing'; tick++) {
+      // Slot 0 sees the world 18 ticks late, so its death is decided late enough for its own swing to land.
+      const inputs = {
+        0: hold(a, { buttons: tick === second ? Button.Attack : 0, viewTick: Math.max(1, world.tick + 1 - COMBAT.maxRewindTicks) }),
+        1: hold(b, { buttons: tick === 0 ? Button.Attack : 0 }),
+      };
       events.push(...stepWorld(world, inputs, TEST_CTX).events);
     }
     expect(events.filter((e) => e.type === 'death')).toHaveLength(2);
     expect(world.match.roundWinner).toBe(-1);
-    expect(world.match.scores).toEqual([0, 0]);
   });
 
   it('undecided hits are thrown away when the next round starts', () => {

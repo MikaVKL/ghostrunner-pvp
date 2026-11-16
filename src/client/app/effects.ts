@@ -27,6 +27,8 @@ export interface Listener {
 
 const MOMENT_SOUNDS: Partial<Record<Moment, SoundName>> = {
   jump: 'jump',
+  doubleJump: 'doubleJump',
+  padLaunch: 'padLaunch',
   wallJump: 'wallJump',
   land: 'land',
   dash: 'dash',
@@ -75,6 +77,14 @@ export class Effects {
     if (moment === 'jump' || moment === 'wallJump') {
       particles.burst({ pos: feet(p), count: 8, color: FX_COLORS.dust, speed: 1.8, life: 0.3, gravity: 3 });
     }
+    if (moment === 'doubleJump') {
+      // A ring of sparks under the feet.
+      particles.burst({ pos: feet(p), count: 22, color, speed: 3.5, life: 0.35, dir: { x: 0, y: -0.2, z: 0 }, spread: 0.85 });
+    }
+    if (moment === 'padLaunch') {
+      particles.burst({ pos: feet(p), count: 40, color: FX_COLORS.pad, speed: 7, life: 0.5, dir: { x: 0, y: 1, z: 0 }, spread: 0.45 });
+      if (!listener) this.view.cameraFx.shake(0.06);
+    }
     if (moment === 'wallJump' && !listener) this.view.cameraFx.shake(0.04);
   }
 
@@ -109,6 +119,20 @@ export class Effects {
         this.hud.flash('parry');
         this.view.cameraFx.shake(0.18);
         this.hud.toast(event.attacker === mySlot ? TEXT.gotParried : TEXT.parried, 1100);
+        return;
+      }
+      case 'clash': {
+        const a = find(event.a);
+        const b = find(event.b);
+        const where = a && b ? { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 + 1.2, z: (a.pos.z + b.pos.z) / 2 } : listener.pos;
+        this.view.particles.burst({ pos: where, count: 90, color: FX_COLORS.clash, speed: 12, life: 0.55, gravity: 8 });
+        this.view.particles.burst({ pos: where, count: 30, color: FX_COLORS.hitCore, speed: 5, life: 0.25 });
+        playSound(this.audio, 'clash', this.place(listener, where));
+        this.view.cameraFx.shake(0.22);
+        if (event.a === mySlot || event.b === mySlot) {
+          this.hud.flash('parry');
+          this.hud.toast(TEXT.clash, 800);
+        }
         return;
       }
       case 'death':

@@ -31,6 +31,18 @@ export interface ParkourLink {
   to: Vec3;
 }
 
+/**
+ * A jump pad: a flat rectangle on a floor. Whoever steps on it is thrown into the air
+ * with exactly the velocity `launch` (so the flight always follows the same arc).
+ */
+export interface JumpPad {
+  /** The rectangle on the ground (the y of both corners is the floor height). */
+  min: Vec3;
+  max: Vec3;
+  /** Velocity in m/s the player gets. y must be > 0. */
+  launch: Vec3;
+}
+
 export interface MapDef {
   id: string;
   /** Display name (German, shown in the menu). */
@@ -46,6 +58,17 @@ export interface MapDef {
   navPoints: Vec3[];
   /** Parkour shortcuts for bots (one entry per direction). May be empty. */
   links: ParkourLink[];
+  /** Jump pads. May be left out. */
+  pads?: JumpPad[];
+}
+
+/**
+ * Create a square jump pad of 2 x 2 m centered at (x, z) on a floor at height `y`.
+ * `launch` is the velocity the player gets, e.g. { x: 6, y: 13, z: 0 }.
+ */
+export function jumpPad(x: number, z: number, y: number, launch: Vec3, size = 2): JumpPad {
+  const half = size / 2;
+  return { min: { x: x - half, y, z: z - half }, max: { x: x + half, y, z: z + half }, launch };
 }
 
 /** Shorthand for a point on the ground. */

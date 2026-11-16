@@ -141,21 +141,6 @@ describe('hits (one hit kills)', () => {
     expect(world.match.scores).toEqual([1, 0]);
   });
 
-  it('two simultaneous swings kill both players (draw)', () => {
-    const world = playingWorld();
-    const [a, b] = world.players;
-    stepWorld(
-      world,
-      { 0: hold(a, { buttons: Button.Attack }), 1: hold(b, { buttons: Button.Attack }) },
-      TEST_CTX,
-    );
-    runWorld(world, { 0: hold(a), 1: hold(b) }, light.startupTicks + 1);
-    expect(a.alive).toBe(false);
-    expect(b.alive).toBe(false);
-    expect(world.match.roundWinner).toBe(-1);
-    expect(world.match.scores).toEqual([0, 0]);
-  });
-
   it('the target is reported as disturbed when it gets hit', () => {
     const world = playingWorld();
     const [a, b] = world.players;
@@ -318,5 +303,72 @@ describe('dash attack', () => {
     expect(events.some((e) => e.type === 'parry')).toBe(true);
     expect(b.alive).toBe(true);
     expect(a.action).toBe('stunned');
+  });
+});
+
+describe('blade clash', () => {
+  /** Slot 0 swings at tick 0, slot 1 swings `delay` ticks later. Returns all events of the exchange. */
+  function exchange(world: WorldState, delay: number): GameEvent[] {
+    const [a, b] = world.players;
+    const events: GameEvent[] = [];
+    for (let tick = 0; tick < attackTotalTicks(light) + delay && world.match.phase === 'playing'; tick++) {
+      const inputs = {
+        0: hold(a, { buttons: tick === 0 ? Button.Attack : 0 }),
+        1: hold(b, { buttons: tick === delay ? Button.Attack : 0 }),
+      };
+      events.push(...stepWorld(world, inputs, TEST_CTX).events);
+    }
+    return events;
+  }
+
+  it('two simultaneous swings clash: nobody dies, both are thrown back', () => {
+    const world = playingWorld();
+    const [a, b] = world.players;
+    const gapBefore = b.pos.x - a.pos.x;
+    const events = exchange(world, 0);
+    expect(events.filter((e) => e.type === 'clash')).toEqual([{ type: 'clash', a: 0, b: 1 }]);
+    expect(events.some((e) => e.type === 'hit' || e.type === 'death')).toBe(false);
+    expect(a.alive && b.alive).toBe(true);
+    expect(world.match.phase).toBe('playing');
+    expect(b.pos.x - a.pos.x).toBeGreaterThan(gapBefore + 1);
+  });
+
+  it('swings a few ticks apart still clash', () => {
+    const world = playingWorld();
+    const events = exchange(world, COMBAT.clashWindowTicks - 1);
+    expect(events.some((e) => e.type === 'clash')).toBe(true);
+    expect(events.some((e) => e.type === 'hit')).toBe(false);
+  });
+
+  it('a swing that comes clearly later does not save you: the first swing kills', () => {
+    const world = playingWorld();
+    const events = exchange(world, COMBAT.clashWindowTicks + 3);
+    expect(events.some((e) => e.type === 'clash')).toBe(false);
+    expect(events).toContainEqual(expect.objectContaining({ type: 'hit', attacker: 0, target: 1 }));
+    expect(world.match.scores).toEqual([1, 0]);
+  });
+
+  it('no clash if the other swing could not reach (looking away)', () => {
+    const world = playingWorld();
+    world.players[1].yaw = -Math.PI / 2; // slot 1 swings into the air, away from slot 0
+    const events = exchange(world, 0);
+    expect(events.some((e) => e.type === 'clash')).toBe(false);
+    expect(world.players[1].alive).toBe(false);
+  });
+
+  it('after a clash both must wait before swinging again', () => {
+    const world = playingWorld();
+    const [a, b] = world.players;
+    for (let tick = 0; tick <= light.startupTicks; tick++) {
+      const press = tick === 0 ? Button.Attack : 0;
+      stepWorld(world, { 0: hold(a, { buttons: press }), 1: hold(b, { buttons: press }) }, TEST_CTX);
+    }
+    expect(a.action).toBe('idle');
+    expect(a.attackCooldown).toBeGreaterThan(COMBAT.clashCooldownTicks - 3);
+    stepWorld(world, { 0: hold(a, { buttons: Button.Attack }), 1: hold(b) }, TEST_CTX);
+    expect(a.action).toBe('idle'); // still cooling down
+    runWorld(world, { 0: hold(a), 1: hold(b) }, COMBAT.clashCooldownTicks);
+    stepWorld(world, { 0: hold(a, { buttons: Button.Attack }), 1: hold(b) }, TEST_CTX);
+    expect(a.action).toBe('attack');
   });
 });

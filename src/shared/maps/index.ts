@@ -30,4 +30,4 @@ export function getMap(id: string): MapDef {
   return MAPS[id];
 }
 
-export type { Box, MapDef, ParkourLink, SpawnPoint } from './mapTypes';
+export type { Box, JumpPad, MapDef, ParkourLink, SpawnPoint } from './mapTypes';

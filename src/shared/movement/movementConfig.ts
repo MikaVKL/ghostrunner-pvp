@@ -20,6 +20,12 @@ export const MOVE = {
   /** Grace period: you can still jump shortly after leaving a ledge. */
   coyoteTicks: secondsToTicks(0.1),
 
+  // --- double jump ---
+  /** How many extra jumps are allowed in the air (0 = no double jump). */
+  airJumps: 1,
+  /** Upward speed of a jump in the air (a bit weaker than a jump from the ground). */
+  airJumpSpeed: 7.5,
+
   // --- dash ---
   dashSpeed: 22,
   dashTicks: secondsToTicks(0.15),

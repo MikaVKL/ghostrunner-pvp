@@ -33,6 +33,8 @@ export interface PlayerState {
   grounded: boolean;
   /** Ticks left in which a jump is still allowed after walking off a ledge. */
   coyoteTicks: number;
+  /** Extra jumps left while in the air. Refills on the ground, on a wall and on a jump pad. */
+  airJumpsLeft: number;
   /** Ticks left in the current dash (0 = not dashing). */
   dashTicks: number;
   /** Ticks until the next dash is allowed. */
@@ -81,6 +83,7 @@ export function createPlayer(
     pitch: 0,
     grounded: false,
     coyoteTicks: 0,
+    airJumpsLeft: 0,
     dashTicks: 0,
     dashCooldown: 0,
     dashDirX: 0,

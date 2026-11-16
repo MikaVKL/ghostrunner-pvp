@@ -13,6 +13,9 @@ export type SoundName =
   | 'parry'
   | 'dash'
   | 'jump'
+  | 'doubleJump'
+  | 'padLaunch'
+  | 'clash'
   | 'wallJump'
   | 'land'
   | 'fall'
@@ -60,6 +63,25 @@ const RECIPES: Record<SoundName, Recipe> = {
     a.tone({ type: 'sawtooth', from: 110, to: 660, duration: 0.16, gain: 0.07 }, p);
   },
   jump: (a, p) => a.tone({ type: 'sine', from: 200, to: 340, duration: 0.1, gain: 0.16 }, p),
+  // Second jump in the air: a brighter blip with a puff of air.
+  doubleJump: (a, p) => {
+    a.tone({ type: 'triangle', from: 380, to: 760, duration: 0.12, gain: 0.2 }, p);
+    a.noise({ filter: 'bandpass', from: 1200, to: 2400, q: 2, duration: 0.1, gain: 0.2 }, p);
+  },
+  // Jump pad: a rising electric "boing".
+  padLaunch: (a, p) => {
+    a.tone({ type: 'sawtooth', from: 120, to: 900, duration: 0.3, gain: 0.14 }, p);
+    a.tone({ type: 'sine', from: 240, to: 1400, duration: 0.35, gain: 0.2 }, p);
+    a.noise({ filter: 'highpass', from: 2500, duration: 0.12, gain: 0.25 }, p);
+  },
+  // Two blades meet: like a parry, but harsher and doubled.
+  clash: (a, p) => {
+    for (const [from, gain] of [[980, 0.22], [1560, 0.2], [2330, 0.16], [3120, 0.12]]) {
+      a.tone({ type: 'square', from, to: from * 0.97, duration: 0.35, gain: gain * 0.5 }, p);
+      a.tone({ type: 'triangle', from: from * 1.5, to: from * 1.47, duration: 0.5, gain }, p);
+    }
+    a.noise({ filter: 'highpass', from: 4000, duration: 0.09, gain: 0.7 }, p);
+  },
   wallJump: (a, p) => {
     a.tone({ type: 'sine', from: 260, to: 520, duration: 0.12, gain: 0.2 }, p);
     a.noise({ filter: 'lowpass', from: 900, duration: 0.07, gain: 0.3 }, p);

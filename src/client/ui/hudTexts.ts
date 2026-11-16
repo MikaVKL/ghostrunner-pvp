@@ -10,6 +10,7 @@ export const TEXT = {
   hit: 'TREFFER!',
   parried: 'PARIERT! Jetzt zuschlagen!',
   gotParried: 'GEPARIERT – du bist betäubt!',
+  clash: 'KLINGEN-CLASH!',
   fell: 'Abgestürzt!',
   enemyFell: 'Gegner abgestürzt!',
   soundOff: 'Ton aus',

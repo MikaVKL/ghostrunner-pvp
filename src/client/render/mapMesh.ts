@@ -4,8 +4,8 @@
  * edges in the box's color. Below the map, layers of mist hide the bottom of the abyss.
  */
 import * as THREE from 'three';
-import type { Box, MapDef } from '../../shared/maps/mapTypes';
-import { SKY_COLORS } from './palette';
+import type { Box, JumpPad, MapDef } from '../../shared/maps/mapTypes';
+import { FX_COLORS, SKY_COLORS } from './palette';
 
 /** A dark tile with a light border; tinted by each box's color. One tile = 1 meter. */
 function createGridTexture(): THREE.Texture {
@@ -91,10 +91,50 @@ function createAbyssMist(map: MapDef): THREE.Group {
   return mist;
 }
 
+/**
+ * A jump pad: a glowing plate on the floor with an arrow that points where it throws you.
+ */
+function createPadObject(pad: JumpPad): THREE.Object3D {
+  const group = new THREE.Group();
+  const sizeX = pad.max.x - pad.min.x;
+  const sizeZ = pad.max.z - pad.min.z;
+  const glow = new THREE.MeshBasicMaterial({ color: FX_COLORS.pad, transparent: true, opacity: 0.55, fog: false });
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(sizeX, 0.06, sizeZ), glow);
+  plate.position.y = 0.03;
+  const frame = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(sizeX, 0.12, sizeZ)),
+    new THREE.LineBasicMaterial({ color: 0xffffff }),
+  );
+  frame.position.y = 0.06;
+  // The arrow: a flat triangle lying on the plate. Pads that throw straight up show a square instead.
+  const flat = Math.hypot(pad.launch.x, pad.launch.z);
+  const marker =
+    flat > 0.1
+      ? new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.1, 3), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }))
+      : new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.05, 0.7), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }));
+  if (flat > 0.1) {
+    marker.rotation.x = Math.PI / 2; // lay the cone down, tip toward -Z
+    marker.scale.z = 0.08; // flatten it into an arrow head
+    const arrow = new THREE.Group();
+    arrow.add(marker);
+    arrow.rotation.y = Math.atan2(-pad.launch.x, -pad.launch.z); // same convention as a player's yaw
+    arrow.rotation.order = 'YXZ';
+    arrow.position.y = 0.1;
+    group.add(arrow);
+  } else {
+    marker.position.y = 0.1;
+    group.add(marker);
+  }
+  group.add(plate, frame);
+  group.position.set((pad.min.x + pad.max.x) / 2, pad.min.y, (pad.min.z + pad.max.z) / 2);
+  return group;
+}
+
 export function buildMapGroup(map: MapDef): THREE.Group {
   const group = new THREE.Group();
   const texture = createGridTexture();
   for (const box of map.boxes) group.add(createBoxObject(box, texture));
+  for (const pad of map.pads ?? []) group.add(createPadObject(pad));
   group.add(createAbyssMist(map));
   return group;
 }

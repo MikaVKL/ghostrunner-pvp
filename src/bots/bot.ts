@@ -2,6 +2,7 @@
  * A bot = the normal GameClient (same netcode as a human) + a BotBrain pressing the buttons.
  */
 import { TICK_MS } from '../shared/config';
+import { MOVE } from '../shared/movement/movementConfig';
 import type { Transport } from '../shared/protocol/transport';
 import { phaseAllowsAction } from '../shared/sim/world';
 import { GameClient } from '../netcode/gameClient';
@@ -19,6 +20,10 @@ export interface BotOptions {
 export interface BotUsage {
   wallRunTicks: number;
   wallJumps: number;
+  doubleJumps: number;
+  padLaunches: number;
+  /** Blade clashes this bot was part of. */
+  clashes: number;
   dashes: number;
   swings: number;
   dashAttacks: number;
@@ -35,10 +40,12 @@ export class Bot {
   roundsPlayed = 0;
   /** Exceptions thrown inside the bot's own tick. */
   readonly errors: string[] = [];
-  readonly usage: BotUsage = { wallRunTicks: 0, wallJumps: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0 };
+  readonly usage: BotUsage = {
+    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0,
+  };
   private readonly brain: BotBrain;
   /** Own state one tick ago, to notice when something starts. */
-  private before = { wallRunning: false, dashing: false, attacking: false };
+  private before = { wallRunning: false, dashing: false, attacking: false, grounded: true, airJumpsLeft: 0 };
 
   constructor(transport: Transport, options: BotOptions) {
     this.name = options.name;
@@ -49,6 +56,7 @@ export class Bot {
       if (event.type === 'roundEnd') this.roundsPlayed++;
       if (event.type === 'matchEnd') this.matchWinner = event.winner;
       if (event.type === 'parry' && event.defender === mySlot) this.usage.parries++;
+      if (event.type === 'clash' && (event.a === mySlot || event.b === mySlot)) this.usage.clashes++;
       if (event.type === 'hit' && event.attacker === mySlot && event.hpLeft === 0) this.usage.kills++;
     };
   }
@@ -60,7 +68,15 @@ export class Bot {
   private countUsage(): void {
     const me = this.client.localPlayer;
     if (!me) return;
-    const now = { wallRunning: me.wallRunning, dashing: me.dashTicks > 0, attacking: me.action === 'attack' };
+    const now = {
+      wallRunning: me.wallRunning,
+      dashing: me.dashTicks > 0,
+      attacking: me.action === 'attack',
+      grounded: me.grounded,
+      airJumpsLeft: me.airJumpsLeft,
+    };
+    if (!this.before.grounded && !now.grounded && now.airJumpsLeft < this.before.airJumpsLeft) this.usage.doubleJumps++;
+    if (this.before.grounded && !now.grounded && me.vel.y > MOVE.jumpSpeed + 0.5) this.usage.padLaunches++;
     if (now.wallRunning) this.usage.wallRunTicks++;
     // A wall-run that ends with upward speed was ended by a wall-jump.
     if (this.before.wallRunning && !now.wallRunning && me.vel.y > 5) this.usage.wallJumps++;
