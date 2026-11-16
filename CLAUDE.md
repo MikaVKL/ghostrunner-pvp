@@ -16,10 +16,13 @@ ist, welche Entscheidungen getroffen wurden).
 |---|---|
 | `npm install` | Abhängigkeiten installieren (einmalig) |
 | `npm run dev` | Server (Port 3000) + Vite-Client (Port 5173) mit Auto-Reload |
-| `npm test` | Typecheck + alle Tests (Unit, Bot-Simulation, echter Server). ~15 s |
-| `npm run bots:sim` | 20 Bot-Matches im Speicher mit Lag/Jitter. ~2 s. **Schnellster Desync-Check** |
+| `npm run host` | Client bauen + Server starten, der alles auf Port 3000 ausliefert (zum Spielen mit anderen) |
+| `npm test` | Typecheck + alle Tests (Unit, Bot-Simulation, echter Server). ~20 s |
+| `npm run bots:sim` | 20 Bot-Matches auf allen Maps im Speicher mit Lag/Jitter. ~3 s. **Schnellster Desync-Check** |
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server. ~20 s |
+| `npm run test:browser` | Playwright: zwei echte Chromium-Tabs spielen gegeneinander. ~90 s. Nach Client-/UI-Änderungen ausführen |
 | `npm run check` | `npm test` + `npm run bots:sim` – vor jedem Commit ausführen |
+| `npm run check:all` | `check` + `bots` + `test:browser` – vor größeren Abgaben |
 | `npm run typecheck` | Nur TypeScript prüfen |
 | `npm run build` / `npm start` | Client bauen / Server starten, der den gebauten Client mit ausliefert |
 
@@ -37,12 +40,24 @@ Optionen für Bots stehen oben in `src/bots/cli.ts` (z. B. `npm run bots:sim -- 
 
 ```
 src/shared/    Spiellogik + Protokoll. Läuft auf Server UND Client. Kein DOM, kein Three.js, kein Node-API.
-src/server/    Nur Server: Tick-Loop, Räume, Lobby, WebSocket. Darf shared importieren.
+               sim/ (stepWorld, PlayerState) · movement/ · physics/ (Map- und Spieler-Kollision) ·
+               combat/ (Waffen, Aktionen, Treffer, Lag-Kompensation) · match/ (Runden, Pause, Rematch) ·
+               maps/ · protocol/ · math/
+src/server/    Nur Server: Tick-Loop, Räume (game/room.ts, seat.ts), Lobby, WebSocket. Darf shared importieren.
 src/netcode/   Client-Netzwerklogik OHNE Browser-Abhängigkeit (Prediction, Reconciliation,
-               Interpolation). Wird vom Browser-Client und von den Bots benutzt.
-src/client/    Nur Browser: Three.js, Eingabe, HUD. Darf shared + netcode importieren.
-src/bots/      Test-Bots, simuliertes Netzwerk, Reports. Darf alles außer client importieren.
-tests/         unit/ (einzelne Funktionen), sim/ (Bot-Matches), integration/ (echter Server).
+               Interpolation, Reconnect). Wird vom Browser-Client und von den Bots benutzt.
+src/client/    Nur Browser. Darf shared + netcode importieren.
+               app/    Verdrahtung, Spielschleife, effects.ts (Partikel/Sound/Texte bei Ereignissen),
+                       stateWatcher.ts, connection.ts (Verbinden/Neuverbinden), settings.ts
+               render/ Three.js: Himmel, Map, Figuren (fighterModel/fighterPose), Schwungbogen,
+                       Partikel, Kamera-Effekte. Liest nur.
+               audio/  Web Audio: audioEngine.ts + sounds.ts (alle Geräusche als Rezepte)
+               ui/     Menü (lobbyUi), HUD (hud + hudTexts), Hilfe, Debug-Anzeige
+               input/  Tastatur/Maus → InputSample
+src/bots/      Test-Bots (brain, brainFight, nav, parkour), simuliertes Netzwerk, Reports.
+               Darf alles außer client importieren.
+tests/         unit/ (einzelne Funktionen), sim/ (Bot-Matches), integration/ (echter Server,
+               auch hinter einem Reverse-Proxy), browser/ (Playwright, eigenes Skript).
 ```
 
 Import-Regeln (nicht brechen): `shared` importiert **nichts** aus den anderen Ordnern.
@@ -130,6 +145,15 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
   (`faceSpawnDirection` in `client/app/gameApp.ts`), weil Inputs die Blickrichtung bestimmen.
 - **Hintergrund-Tab:** Browser pausieren `requestAnimationFrame`; der Spieler bleibt dann stehen
   (Server ersetzt fehlende Inputs nach 0,5 s durch „nichts gedrückt“). Das ist gewollt.
+- **Effekte erst nach dem Server?** Nein: Sprung, Dash, Schwung usw. des eigenen Spielers
+  werden sofort aus dem vorhergesagten `PlayerState` abgelesen (`client/app/stateWatcher.ts`).
+  Nur Treffer/Parry/Tod kommen als `GameEvent` vom Server.
+- **Browser-Tests warten auf Zustände, nie auf feste Zeiten.** Im Test-Chromium ohne
+  Grafikkarte läuft das Bild langsam; kurze Phasen (Countdown) kann ein Test verpassen. Und:
+  HUD-Texte ändern sich erst einen Frame nach dem Zustand (`expectText` benutzen).
+- **Funktionen in `page.evaluate`:** keine benannten inneren Funktionen/Pfeilfunktionen in
+  Variablen (`tsx` fügt dort einen Helfer `__name` ein, den es im Browser nicht gibt).
+  Größere Skripte als Text übergeben (siehe `PARRY_ON_SIGHT` in `tests/browser/run.ts`).
 - **Port belegt:** `PORT=3001 npm run dev` (Vite liest dieselbe Variable für den Proxy).
 - Die Integrationstests starten einen echten Server auf einem freien Port – keine festen Ports
   in Tests verwenden.

@@ -18,23 +18,24 @@ anderes sagt. (Die Konzepte dahinter erklärt `LEARNING.md`.)
 │  src/server    │        │   src/netcode     │       │    src/bots      │
 │  Tick-Loop     │◄──────►│  GameClient       │◄──────│  Bot = GameClient│
 │  Lobby, Räume  │  Netz  │  Predictor        │benutzt│      + BotBrain  │
-│  Input-Queue   │ (JSON) │  Interpolation    │       │  MemoryNetwork   │
+│  Input-Queue   │ (JSON) │  Interpolation    │       │  Parkour, Nav    │
+│  Reconnect     │        │  Reconnect        │       │  MemoryNetwork   │
 └────────────────┘        └─────────▲─────────┘       │  Reports, CLI    │
                                     │ benutzt         └──────────────────┘
                           ┌─────────┴─────────┐
                           │   src/client      │
-                          │  Three.js, Input  │
-                          │  HUD, Lobby-UI    │
+                          │  Three.js, Audio  │
+                          │  Input, HUD, Menü │
                           └───────────────────┘
 ```
 
 | Ordner | Aufgabe | Wichtigste Dateien |
 |---|---|---|
 | `src/shared` | Regeln des Spiels | `sim/stepWorld.ts`, `sim/stepPlayer.ts`, `sim/playerState.ts` |
-| `src/server` | Autorität, Räume, Netzwerk | `gameServer.ts`, `game/room.ts`, `game/inputQueue.ts`, `lobby/lobby.ts` |
+| `src/server` | Autorität, Räume, Netzwerk, Reconnect | `gameServer.ts`, `game/room.ts`, `game/inputQueue.ts`, `lobby/lobby.ts` |
 | `src/netcode` | Client-Netzlogik ohne Browser | `gameClient.ts`, `predictor.ts`, `interpolation.ts` |
-| `src/client` | Bild, Eingabe, UI | `app/gameApp.ts`, `app/gameLoop.ts`, `render/gameView.ts` |
-| `src/bots` | Automatische Spieler + Testnetz | `brain.ts`, `simulation.ts`, `liveRunner.ts`, `report.ts` |
+| `src/client` | Bild, Ton, Eingabe, UI | `app/gameApp.ts`, `app/effects.ts`, `render/gameView.ts`, `audio/sounds.ts`, `ui/hud.ts` |
+| `src/bots` | Automatische Spieler + Testnetz | `brain.ts`, `parkour.ts`, `simulation.ts`, `report.ts` |
 
 Warum ist `netcode` vom `client` getrennt? Damit die Bots **exakt denselben Netzwerk-Code**
 benutzen wie echte Spieler. Was die Bots testen, ist das, was im Browser läuft.
@@ -48,7 +49,7 @@ benutzen wie echte Spieler. Was die Bots testen, ist das, was im Browser läuft.
       │  InputController.sample()        einmal pro Tick (60 Hz)
       ▼
  GameClient.tick(sample)
-      │  1. seq vergeben, sanitizeInput()
+      │  1. seq + viewTick vergeben, sanitizeInput()
       │  2. ──── {type:"input", cmd} ─────────────────►  parseClientMessage()  (validieren)
       │                                                   InputQueue.push()     (pro Spieler)
       │  3. Predictor.predict():                               │
@@ -60,6 +61,7 @@ benutzen wie echte Spieler. Was die Bots testen, ist das, was im Browser läuft.
                                                           stepWorld(world, inputs)
                                                             1. stepPlayer() je Spieler
                                                             2. resolveCombat()  (Treffer/Parry)
+                                                               separatePlayers() (Kollision)
                                                             3. stepMatch()      (Tod, Runden)
                                                                │
       ◄──── {type:"snapshot", tick, ack, clean, ──────────────┘   alle 2 Ticks (30 Hz)
@@ -71,7 +73,7 @@ benutzen wie echte Spieler. Was die Bots testen, ist das, was im Browser läuft.
       │     • Vorhersage für Input `ack` mit Server-Zustand vergleichen
       │     • Server-Zustand übernehmen, alle Inputs > ack erneut anwenden (Rollback + Replay)
       ├─ Gegner: SnapshotBuffer.push()  → wird beim Rendern interpoliert (100 ms verzögert)
-      └─ events → HUD-Effekte (Treffer-Flash, „PARRY!“)
+      └─ events → Effekte (Partikel, Sound, Kamerawackeln, „PARIERT!“)
 ```
 
 ## 3. Ein Server-Tick im Detail (`shared/sim/stepWorld.ts`)
@@ -80,24 +82,30 @@ benutzen wie echte Spieler. Was die Bots testen, ist das, was im Browser läuft.
 stepWorld(world, inputs):
   ┌─ Teil 1: VORHERSAGBAR ──────────────────────────────────────────────┐
   │ für jeden Spieler: stepPlayer(player, input, map, phase)             │
-  │    stepAction()    Angriff/Parry-Zustandsautomat (combat/actions.ts) │
   │    stepMovement()  Dash | Wall-Run | Laufen+Springen, dann Kollision │
+  │    stepAction()    Angriff/Parry-Zustandsautomat + Cooldowns         │
+  │                    (combat/actions.ts; Angriff im Dash = Dash-Angriff)│
   └──────────────────────────────────────────────────────────────────────┘
         Kopie aller Spieler merken ("so hätte es jeder Client vorhergesagt")
   ┌─ Teil 2: INTERAKTION (nur der Server weiß das) ─────────────────────┐
-  │ resolveCombat()   wer trifft wen, Parry, Schaden, Knockback, Stun   │
-  │ stepMatch()       Tod (HP/Sturz), Punkte, Phasenwechsel, Respawn    │
+  │ resolveCombat()    Schwung trifft (Lag-Kompensation) → pendingHits; │
+  │                    entscheiden: Parry (Stun, Rückstoß) oder Treffer │
+  │ separatePlayers()  Spieler, die ineinander stehen, auseinander-     │
+  │                    schieben                                          │
+  │ stepMatch()        Tod (HP/Sturz), Punkte, Phasenwechsel, Respawn   │
   └──────────────────────────────────────────────────────────────────────┘
         Vergleich mit der Kopie → Liste `disturbed` (wessen Zustand wurde
         durch Teil 2 verändert?)
+  recordPositions()    Positionen dieses Ticks für die Lag-Kompensation merken
 ```
 
-Diese Zweiteilung ist das Herz des Templates:
+Diese Zweiteilung ist das Herz des Netcodes:
 
 - **Teil 1** läuft auch auf dem Client (Prediction). Deshalb fühlt sich die eigene Bewegung
   sofort an.
-- **Teil 2** kennt nur der Server. Wird ein Spieler dadurch verändert, weicht die Vorhersage
-  seines Clients kurz ab – das ist eine erwartete **Correction**.
+- **Teil 2** kennt nur der Server. Wird ein Spieler dadurch verändert (getroffen, pariert,
+  weggeschoben), weicht die Vorhersage seines Clients kurz ab – das ist eine erwartete
+  **Correction**.
 - Der Server merkt sich pro Spieler, ob seit dem letzten Snapshot irgendetwas
   Unvorhersagbares passiert ist, und schickt das als `clean: true/false` mit.
 
@@ -128,13 +136,51 @@ abweichenden Feldern, z. B. `tick 812, ack 790: vel.y: -0.4 vs -0.8`.
      │                                │ nächste Runde                  │ oder Zeit um
      │ ein Spieler geht               │                                ▼
      └──────────────◄─────────────────┴──────────────────────────── roundEnd
-                                      ▲                                │ genug Siege oder
-                                      │ automatischer Rematch          │ maxRounds erreicht
+                                      ▲                                │ jemand hat 3 Siege
+                                      │ BEIDE drücken „Rematch“        │ (oder maxRounds)
                                       └────────────── matchEnd ◄───────┘
+
+  Verbindungsabbruch in irgendeiner Match-Phase:
+     Phase ──► paused ──► (Spieler ist zurück)   unterbrochene Runde startet neu ab Countdown,
+                 │                               Pausen zwischen Runden laufen einfach weiter
+                 └──────► (20 s vorbei)          Sitz wird frei → waiting
 ```
 
+- **Best-of-5:** `roundsToWin: 3`. Unentschiedene Runden (Doppel-K.O., Zeit abgelaufen) geben
+  keinen Punkt; `maxRounds` (9) sorgt dafür, dass ein Match trotzdem endet.
+- **Rundenende wartet auf offene Treffer:** Ist jemand tot, endet die Runde erst, wenn
+  `world.pendingHits` leer ist (höchstens 0,3 s). So wird ein echter Schlagabtausch ein
+  Unentschieden statt ein Sieg für den Spieler mit dem höheren Ping.
+- **Rematch:** `match.rematchVotes[slot]`; die Nachricht `rematch` setzt die Stimme
+  (`voteRematch`). Die Test-Config (`FAST_MATCH_CONFIG`) startet zusätzlich automatisch neu.
+
 Spieler werden nur in `waiting` und `playing` simuliert (`phaseAllowsAction`), sonst sind sie
-eingefroren und können sich nur umsehen. Kampf zählt nur in `playing`.
+eingefroren und können sich nur umsehen. Kampf und Spieler-Kollision zählen nur in `playing`.
+
+## 4b. Lag-Kompensation (`shared/combat/lagCompensation.ts`, `resolveCombat.ts`)
+
+Jeder Client zeigt den Gegner leicht in der Vergangenheit (Interpolation 100 ms + Laufzeit).
+Jeder Input trägt deshalb `viewTick`: den Server-Tick, den der Client gerade **anzeigt**.
+
+```
+ Angreifer schlägt zu (Server-Tick H)
+      │  Wo war das Ziel bei viewTick des Angreifers?  → world.history (letzte ~20 Ticks)
+      ▼
+ in Reichweite?  ──nein──► kein Treffer
+      │ ja
+      ▼
+ world.pendingHits += { attacker, target, tick: H }       (Treffer ist „unterwegs“)
+      │
+      │  jeden Tick: hat das Ziel Tick H schon GESEHEN?  (viewTick des Ziels ≥ H)
+      ▼
+ Ziel pariert gerade und schaut zum Angreifer?
+      ├─ ja  → Parry: Angreifer 1 s betäubt + zurückgestoßen, Verteidiger sofort frei
+      └─ nein → Treffer: damage (100 = tot), Rückstoß
+```
+
+Beide Blicke in die Vergangenheit sind auf `COMBAT.maxRewindTicks` (0,3 s) begrenzt. Ohne
+`viewTick` (0, z. B. in Unit-Tests) wird nichts zurückgespult und sofort entschieden.
+`history` und `pendingHits` liegen im `WorldState`, werden aber nicht an Clients gesendet.
 
 ## 5. Server-Aufbau
 
@@ -143,10 +189,25 @@ startServer.ts         HTTP (/health, /stats, statische Dateien) + WebSocket (/w
    └─ GameServer       netzwerk-unabhängiger Kern: attach(transport), tick(), stats()
         ├─ Session     ein verbundener Client (Name, Raum, Rate-Limit-Zähler)
         ├─ messageRouter   welche Nachricht → welche Aktion
-        ├─ Lobby       alle Räume; createRoom / joinRoom(code) / quickMatch / leave
-        │    └─ Room   2 Sitze + WorldState; tick(): Inputs holen → stepWorld → Snapshots
-        │         └─ InputQueue  je Spieler; liefert genau 1 Input pro Tick
+        ├─ Lobby       alle Räume; createRoom(mapId) / joinRoom(code) / quickMatch / rejoin / leave
+        │    └─ Room   2 Sitze + WorldState + Map; tick(): Inputs holen → stepWorld → Snapshots
+        │         ├─ Seat        Sitz eines Spielers: Session (oder null = getrennt), Token
+        │         └─ InputQueue  je Sitz; liefert genau 1 Input pro Tick
         └─ Metrics     Tick-Dauer (avg/p99/max), Fehler, ungültige Nachrichten
+```
+
+Maps: Wer einen Raum erstellt, wählt die Map (`createRoom.mapId`). Quick-Match-Räume wechseln
+reihum durch `MAP_ROTATION`. Mit `MAP=...` erzwingt der Server eine Map für alle Räume.
+
+Reconnect:
+
+```
+ roomJoined { token }          Client merkt sich Raumcode + Token (auch in sessionStorage)
+ Verbindung bricht ab    →     Room.disconnect: Sitz bleibt, session = null, Match → paused
+ Client verbindet neu    →     { type: 'rejoin', code, token } → Room.rejoin: gleicher Sitz,
+                               neue InputQueue, Match geht weiter (roomJoined kommt erneut)
+ 20 s ohne Rückkehr      →     Sitz wird entfernt, der andere Spieler → waiting
+ „Verlassen“-Knopf       →     Room.leave: Sitz sofort frei (keine Reservierung)
 ```
 
 Sicherheit („nie dem Client vertrauen“):
@@ -177,14 +238,25 @@ Server-Code, gleicher Client-Code, nur Netz und Uhr sind ausgetauscht.
 
 ```
 main.ts          verbindet, liest URL-Optionen (?lag ?jitter ?predict)
- └─ app/gameApp.ts       verdrahtet alles, reagiert auf Events (Effekte)
+ └─ app/gameApp.ts       verdrahtet alles (Menü ↔ Spiel, Tasten R/M/H, Reconnect)
      ├─ app/gameLoop.ts      requestAnimationFrame + Akkumulator → feste 60-Hz-Ticks
+     ├─ app/stateWatcher.ts  erkennt „Momente“ (Sprung, Dash, Schwung …) am PlayerState
+     ├─ app/effects.ts       Momente + GameEvents → Partikel, Sound, Wackeln, Texte
+     ├─ app/connection.ts    Verbinden, automatisches Neuverbinden, Sitz merken
      ├─ input/inputController.ts   Tastatur/Maus → InputSample (Tasten in input/bindings.ts)
-     ├─ render/gameView.ts   zeichnet: Map (mapMesh), Gegner (playerAvatar), Schwert (sword, swordPose)
-     └─ ui/                  lobbyUi, hud, debugOverlay   (HTML-Elemente aus index.html)
+     ├─ render/gameView.ts   zeichnet einen Frame:
+     │     sceneSetup + sky      Renderer, Licht, Nebel, Nachthimmel mit Skyline
+     │     mapMesh               Quader mit Raster und Neon-Kanten, Dunst im Abgrund
+     │     playerAvatar          Gegner: fighterModel (Figur aus Quadern) + fighterPose (Animation)
+     │     sword + swordPose     eigenes Schwert in der Ich-Ansicht
+     │     slashArc              leuchtender Bogen = exakte Trefferzone des Schwungs
+     │     particles, cameraFx   Funken/Staub; Wackeln, Sichtfeld, Neigung
+     ├─ audio/               audioEngine (Web Audio) + sounds (Rezepte, keine Dateien)
+     └─ ui/                  lobbyUi (Hauptmenü), hud + hudTexts, helpOverlay, debugOverlay
 ```
 
-Regel: `render/` und `ui/` **lesen** nur. Sie ändern nie Spielzustand.
+Regel: `render/`, `audio/` und `ui/` **lesen** nur. Sie ändern nie Spielzustand.
+Zufall für Optik (Partikel, Wackeln) darf `Math.random()` benutzen – er ist kein Spielzustand.
 
 ## 8. Wichtige Zahlen (alle in Config-Dateien änderbar)
 
@@ -194,16 +266,22 @@ Regel: `render/` und `ui/` **lesen** nur. Sie ändern nie Spielzustand.
 | Snapshot-Rate | 30 Hz (alle 2 Ticks) | `shared/config.ts` |
 | Interpolations-Verzögerung | 6 Ticks = 100 ms | `netcode/interpolation.ts` |
 | Input-Puffer max. | 6 Inputs = 100 ms | `server/game/inputQueue.ts` |
-| Lauf-/Dash-Tempo, Sprung, Wall-Run | siehe Datei | `shared/movement/movementConfig.ts` |
-| Schwert (Schaden, Reichweite, Phasen) | 34 / 2,6 m / 8+5+16 Ticks | `shared/combat/weapons.ts` |
-| Parry-Fenster / Stun | 12 / 48 Ticks | `shared/combat/combatConfig.ts` |
-| Runden, Zeiten | Best-of bis 3 Siege, 60 s | `shared/match/matchConfig.ts` |
+| Lauf-/Dash-Tempo, Sprung, Wall-Run | 7 / 22 m/s, 1,5 m hoch, 1,5 s | `shared/movement/movementConfig.ts` |
+| Schwert normal: Schaden / Reichweite / Phasen | 100 / 2,4 m / 12+6+18 Ticks | `shared/combat/weapons.ts` |
+| Schwert Dash-Angriff | 100 / 3,2 m / 6+6+27 Ticks | `shared/combat/weapons.ts` |
+| Angriffs-Cooldown | 15 Ticks (0,25 s) | `shared/combat/weapons.ts` |
+| Parry: Fenster / Erholung / Cooldown / Stun | 15 / 18 / 30 / 60 Ticks | `shared/combat/combatConfig.ts` |
+| Lag-Kompensation max. | 18 Ticks (0,3 s) | `shared/combat/combatConfig.ts` |
+| Match | Best-of-5 (3 Siege), 60 s pro Runde, 3 s Countdown | `shared/match/matchConfig.ts` |
+| Reconnect-Zeit | 20 s | `shared/match/matchConfig.ts` |
 
 ## 9. Tests – was prüft was
 
 | Ordner | Prüft | Beispiele |
 |---|---|---|
-| `tests/unit` | einzelne Funktionen und Klassen | Sprunghöhe, Dash-Distanz, Parry-Fenster, Raumcodes, Input-Validierung, Predictor |
+| `tests/unit` | einzelne Funktionen und Klassen | Sprunghöhe, One-Hit-Kill, Parry-Fenster und -Cooldown, Dash-Angriff, Best-of-5, Rematch, Lag-Kompensation, Spieler-Kollision, Reconnect, Raumcodes, Input-Validierung, Predictor |
+| `tests/unit/maps.test.ts` | jede registrierte Map | Spawns, Abgrund, sicherer Fußweg, jeder Parkour-Link wird durchgespielt, Bots erreichen den Gegner |
 | `tests/unit/architecture.test.ts` | die Projektregeln selbst | keine verbotenen Imports zwischen Ordnern, kein `Math.random()`/`Date.now()` in der Simulation |
-| `tests/sim` | ganze Bot-Matches über simuliertes Netz | 0 Desyncs bei 0/80/300 ms Lag, Reproduzierbarkeit, „Detektor schlägt bei Manipulation an“ |
-| `tests/integration` | echter Server + echte WebSockets | `/health`, Müll-Nachrichten, zwei Live-Matches |
+| `tests/sim` | ganze Bot-Matches über simuliertes Netz | 0 Desyncs auf allen Maps bei 0/80/300 ms Lag, Verbindungsabbruch mitten im Match, „Bots benutzen alle Mechaniken“, „Detektor schlägt bei Manipulation an“ |
+| `tests/integration` | echter Server + echte WebSockets | `/health`, Müll-Nachrichten, Live-Matches, Betrieb hinter einem Reverse-Proxy (wie ein Tunnel) |
+| `tests/browser` (eigenes Skript: `npm run test:browser`) | das echte Spiel in echtem Chromium, zwei Tabs | Menü, Raum erstellen/beitreten, Kill, Parry, Sturz, Match-Ende, Rematch, Reconnect, Seiten-Reload |

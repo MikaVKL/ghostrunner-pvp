@@ -1,6 +1,6 @@
 # LEARNING.md – Die wichtigsten Konzepte, einfach erklärt
 
-Du musst diese Datei nicht auswendig können. Aber wenn du die sechs Ideen hier verstanden
+Du musst diese Datei nicht auswendig können. Aber wenn du die Ideen hier verstanden
 hast, verstehst du, **warum** der Code so gebaut ist – und kannst einer KI viel bessere
 Anweisungen geben.
 
@@ -23,7 +23,7 @@ Die zweite naive Lösung – „jeder Client berechnet seinen Spieler selbst und
 Position mit“ – fühlt sich super an, aber dann kann jeder schummeln: Ein manipulierter Client
 sagt einfach „ich bin jetzt hinter dir und du bist tot“.
 
-Dieses Template löst beides gleichzeitig. Dafür braucht es die folgenden Ideen.
+Dieses Spiel löst beides gleichzeitig. Dafür braucht es die folgenden Ideen.
 
 ---
 
@@ -185,6 +185,68 @@ Snapshot als nicht `clean`).
 
 ---
 
+## 8. Lag-Kompensation: Treffen, was man sieht
+
+**Problem:** Wegen Idee 6 siehst du den Gegner ~100 ms + halber Ping in der Vergangenheit.
+Du schlägst genau dann zu, wenn er vor dir steht – aber auf dem Server ist er „in Wirklichkeit“
+schon einen Meter weiter. Ohne Gegenmaßnahme müsstest du bei Ping immer vorhalten.
+
+**Idee:** Der Server merkt sich, wo jeder in den letzten 0,3 Sekunden war. Dein Input sagt
+ihm, welchen Moment du gerade siehst (`viewTick`). Für deinen Schlag spult der Server den
+Gegner an die Stelle zurück, an der **du ihn gesehen hast**. Das heißt „Rewind“.
+
+Vergleich: der Videobeweis. Der Schiedsrichter entscheidet nicht nach dem, was jetzt ist,
+sondern spult zu dem Moment zurück, den der Spieler vor Augen hatte.
+
+**Und der Parry?** Für den Verteidiger gilt dasselbe umgekehrt: Er sieht deinen Schlag zu
+spät. Deshalb wartet der Server mit der Entscheidung, bis der Verteidiger den Treffer
+**gesehen** hat. Hat er bis dahin Parry gedrückt, gilt der Parry. Der Preis: Ein Kill wird
+ein Zehntel plus den Ping des Gegners später bestätigt.
+
+Wo es dafür eine Grenze braucht: Niemand soll „in die ferne Vergangenheit“ treffen. Mehr als
+0,3 Sekunden (`COMBAT.maxRewindTicks`) spult der Server nie zurück.
+
+> **Experiment:** Lies in `tests/unit/lagCompensation.test.ts` die drei Tests unter
+> „lag-compensated hits“: Derselbe Schlag auf einen weglaufenden Gegner geht ohne
+> Lag-Kompensation daneben und trifft mit ihr.
+>
+> **Experiment:** Spiele mit `?lag=75` (150 ms Ping extra) gegen einen Freund. Schläge treffen
+> trotzdem, wenn der Gegner auf deinem Bildschirm in Reichweite ist. Mit `F3` siehst du den Ping.
+
+---
+
+## 9. Interaktionen kann man nicht vorhersagen (und das ist okay)
+
+Dein Client sagt nur vorher, was **du** tust (Idee 4). Was der Gegner mit dir macht – dich
+treffen, parieren, wegschieben –, kann er nicht wissen. Das entscheidet der Server im zweiten
+Teil jedes Ticks, und dein Client bekommt es als **Correction** mit.
+
+Beispiel Spieler-Kollision: Du läufst gegen den Gegner. Dein Client rechnet „ich laufe
+weiter“, der Server sagt „nein, da steht jemand“. Solange ihr euch berührt, gibt es deshalb
+viele kleine Corrections. Das ist gewollt und wird weich dargestellt.
+
+Merksatz für neue Features: **Hängt es nur von mir ab → vorhersagbar (`stepPlayer`). Hängt es
+vom anderen ab → Interaktion (Teil 2 von `stepWorld`).**
+
+> **Experiment:** `F3` drücken und gegen einen stehenden Gegner laufen: `corrections` zählt
+> schnell hoch, `desyncs` bleibt 0.
+
+---
+
+## 10. Reconnect: Die Verbindung darf abreißen
+
+WLAN wackelt, ein Laptop klappt zu. Der Server gibt jedem Spieler beim Betreten ein geheimes
+**Token**. Reißt die Verbindung ab, bleibt der Platz 20 Sekunden reserviert und das Match
+**pausiert**. Der Client verbindet sich von selbst neu, zeigt das Token vor und sitzt wieder
+auf seinem Platz. Die unterbrochene Runde beginnt neu, der Punktestand bleibt.
+
+Warum ein Token? Damit niemand anderes den Platz übernehmen kann, nur weil er den Raumcode kennt.
+
+> **Experiment:** Starte ein Match in zwei Fenstern und lade ein Fenster neu (`Cmd + R`). Das
+> andere zeigt „Pause“, das neu geladene ist nach einem Moment wieder im Spiel.
+
+---
+
 ## Spickzettel
 
 | Begriff | In einem Satz | Wo im Code |
@@ -199,6 +261,10 @@ Snapshot als nicht `clean`).
 | Desync | Unerwartete Abweichung = Bug | `netStats.ts`, Bot-Report |
 | Interpolation | Gegner 100 ms verzögert und geglättet anzeigen | `netcode/interpolation.ts` |
 | Ping / RTT | Zeit für Hin- und Rückweg einer Nachricht | F3-Anzeige |
+| Lag-Kompensation / Rewind | Server prüft Treffer dort, wo der Angreifer das Ziel gesehen hat | `shared/combat/lagCompensation.ts` |
+| viewTick | Der Server-Tick, den ein Client gerade anzeigt (steht in jedem Input) | `shared/input.ts` |
+| Interaktion | Etwas zwischen zwei Spielern – entscheidet nur der Server | Teil 2 von `shared/sim/stepWorld.ts` |
+| Reconnect-Token | Geheimnis, mit dem man nach einem Abbruch seinen Platz zurückbekommt | `server/game/room.ts` |
 
 ## Wenn du tiefer einsteigen willst
 

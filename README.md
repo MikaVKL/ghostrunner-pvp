@@ -1,10 +1,14 @@
-# Multiplayer Game Template
+# Neonklinge – 1v1-Schwertduell im Browser
 
-Wiederverwendbares Fundament für **1v1-Online-Spiele im Browser**: autoritativer Server,
-Client-Side-Prediction mit Rollback, Lobby mit Raumcodes, 3D-Bewegung (Laufen, Springen, Dash,
-Wall-Run), Schwertkampf-Gerüst mit Parry, Test-Bots und automatische Tests.
+Schnelles **1-gegen-1-Schwertduell** in der Ich-Perspektive, inspiriert vom Genre der
+Cyber-Ninja-Parkour-Spiele: **ein Treffer tötet**, Parry betäubt den Gegner, dazu Dash,
+Wall-Run und Wandsprung über Abgründe. Best-of-5, drei Parkour-Maps, alles im Browser.
 
-Technik: TypeScript · Three.js · Vite · Node.js · WebSockets (`ws`) · Vitest
+Unter der Haube: autoritativer Server (60 Hz), Client-Side-Prediction mit Rollback,
+Lag-Kompensation, Reconnect, Test-Bots und automatische Tests. Keine externen Grafiken oder
+Sounddateien – Figuren, Himmel und alle Geräusche werden im Code erzeugt.
+
+Technik: TypeScript · Three.js · Web Audio · Vite · Node.js · WebSockets (`ws`) · Vitest · Playwright
 
 ## Start auf macOS (Schritt für Schritt)
 
@@ -26,11 +30,11 @@ brew install node
 ### 2. Projekt holen und Abhängigkeiten installieren
 
 ```bash
-git clone https://github.com/mikavkl/multiplayer-game-template.git
+git clone https://github.com/mikavkl/ghostrunner-pvp.git
 ```
 
 ```bash
-cd multiplayer-game-template
+cd ghostrunner-pvp
 ```
 
 ```bash
@@ -46,68 +50,74 @@ npm run dev
 Dann im Browser (Chrome oder Safari) öffnen: **<http://localhost:5173>**
 
 Zum Testen allein: zwei Browser-**Fenster** nebeneinander öffnen (nicht zwei Tabs im selben
-Fenster – Hintergrund-Tabs werden vom Browser pausiert). Im ersten „Create room“ klicken, den
-4-stelligen Code im zweiten Fenster eingeben und „Join room“ klicken.
+Fenster – Hintergrund-Tabs werden vom Browser pausiert). Im ersten eine Map wählen und
+„Raum erstellen“ klicken, den 4-stelligen Code im zweiten Fenster eingeben und „Raum beitreten“
+klicken. Oder in beiden „Schnelles Spiel“.
 
 Beenden: im Terminal `Ctrl + C`.
 
-### Steuerung
+## So wird gespielt
 
 | Aktion | Taste |
 |---|---|
-| Bewegen | `W` `A` `S` `D` |
+| Laufen | `W` `A` `S` `D` |
 | Umsehen | Maus (erst ins Spiel klicken; `Esc` gibt die Maus frei) |
-| Springen | `Leertaste` |
+| Springen · Wandsprung | `Leertaste` |
 | Dash | `Shift` |
-| Angriff | Linksklick oder `J` |
+| Schwertschlag | Linksklick oder `J` |
 | Parry | Rechtsklick (Trackpad: Zwei-Finger-Klick) oder `F` / `K` |
-| Wall-Run | In der Luft an einer Wand entlang, `W` halten. `Leertaste` = Wandsprung |
-| Debug-Anzeige | `F3` (auf dem MacBook `fn + F3`) oder die Taste `` ` `` |
+| Dash-Angriff | Schlag während eines Dashes (oder `Shift` + Schlag gleichzeitig) |
+| Wall-Run | Im Sprung an eine Wand und `W` halten |
+| Rematch | `R` (nach dem Match, beide müssen drücken) |
+| Ton an/aus · Hilfe · Netzwerk-Anzeige | `M` · `H` · `F3` (MacBook: `fn + F3`, oder die Taste `` ` ``) |
 
-Tasten ändern: `src/client/input/bindings.ts`.
+Regeln in Kürze:
+
+- **Ein Treffer tötet.** Der leuchtende Bogen zeigt genau die Reichweite deines Schlags.
+- **Parry** kurz vor dem Einschlag (und zum Gegner schauen): Der Angreifer ist 1 Sekunde
+  betäubt und leuchtet gelb – dein freier Treffer. Ein Parry ins Leere hat eine Abklingzeit.
+- **Sturz in den Abgrund** tötet; der Punkt geht an den Gegner.
+- **Best-of-5:** Wer zuerst 3 Runden gewinnt. Sterben beide, zählt die Runde nicht.
+- Bricht die Verbindung ab, pausiert das Match bis zu 20 Sekunden und der Spieler kommt von
+  selbst zurück.
+
+Tasten ändern: `src/client/input/bindings.ts`. Werte ändern (Tempo, Reichweite, Zeiten):
+siehe `HOW_TO_EXTEND.md`, Rezept 1.
 
 ## Mit einem Freund spielen
 
-**Im selben WLAN:** Beim Start zeigt der Server eine Zeile wie
-`same Wi-Fi: http://192.168.x.x:3000`. Am einfachsten:
-
 ```bash
-npm run build
+npm run host
 ```
 
-```bash
-npm start
-```
+baut das Spiel und startet den Server auf Port 3000 (Seite und WebSocket über denselben Port).
 
-Dein Freund öffnet dann `http://DEINE-IP:3000` (du selbst `http://localhost:3000`).
-macOS fragt beim ersten Mal, ob Node eingehende Verbindungen annehmen darf → erlauben.
-
-**Über das Internet:** Der Server muss von außen erreichbar sein. Zwei einfache Wege:
-
-- *Tunnel* (schnell zum Testen): z. B. `brew install cloudflared`, dann
-  `cloudflared tunnel --url http://localhost:3000` und die angezeigte `https://…`-Adresse teilen.
-- *Hosting* (dauerhaft): das Repo bei einem Node-Hoster (z. B. Render, Railway, Fly.io)
-  deployen. Build-Befehl `npm install && npm run build`, Start-Befehl `npm start`.
-  Der Server liest den Port aus der Umgebungsvariable `PORT` und liefert Client und WebSocket
-  über denselben Port aus.
-
-Beides habe ich in diesem Template **nicht** für dich eingerichtet oder getestet.
+- **Im selben WLAN:** Der Server zeigt eine Zeile wie `same Wi-Fi: http://192.168.x.x:3000` –
+  diese Adresse öffnet dein Freund.
+- **Über das Internet:** per Tunnel (z. B. `cloudflared tunnel --url http://localhost:3000`)
+  oder Hosting. Die ausführliche Anleitung mit allen Varianten steht in
+  **[INTERNET.md](INTERNET.md)** – dort steht auch ehrlich, was davon getestet ist.
 
 ## Alle Befehle
 
 | Befehl | Was passiert |
 |---|---|
 | `npm run dev` | Entwicklungsmodus: Server (Port 3000) + Client (Port 5173), lädt bei Änderungen neu |
-| `npm test` | Typprüfung + alle automatischen Tests |
-| `npm run bots:sim` | 20 Bot-Matches in ~2 Sekunden (simuliertes Netzwerk mit Lag) |
+| `npm run host` | Client bauen und Server starten (zum Spielen mit anderen, Port 3000) |
+| `npm test` | Typprüfung + alle automatischen Tests (~20 s) |
+| `npm run bots:sim` | 20 Bot-Matches auf allen Maps in ~3 Sekunden (simuliertes Netzwerk mit Lag) |
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server |
+| `npm run test:browser` | Browser-Tests: zwei echte Chromium-Tabs spielen gegeneinander (~90 s) |
 | `npm run check` | `npm test` + `npm run bots:sim` (vor jedem Commit) |
-| `npm run build` | Client für den Produktivbetrieb bauen (`dist/client`) |
-| `npm start` | Server starten, der auch den gebauten Client ausliefert (Port 3000) |
+| `npm run check:all` | alles zusammen: `check` + `bots` + `test:browser` |
+| `npm run build` / `npm start` | Client bauen / Server starten (einzeln; `host` macht beides) |
+
+Einmalig für die Browser-Tests auf dem eigenen Rechner: `npx playwright install chromium`.
 
 Nützlich:
 
 - `FAST_MATCH=1 npm run dev` – sehr kurze Runden zum Testen.
+- `MAP=reaktor npm run dev` – alle Räume auf dieser Map (`schlucht`, `daecher`, `reaktor`, `arena`).
 - `PORT=3001 npm run dev` – anderer Port.
 - `http://localhost:5173/?lag=100` – 100 ms künstliche Verzögerung pro Richtung.
 - `http://localhost:5173/?predict=0` – Prediction aus (zum Spüren, wozu sie gut ist).
@@ -116,15 +126,19 @@ Nützlich:
 ## Bot-Report lesen
 
 ```
-match   bot   result  rounds  time(s)  snaps  corrections  maxCorr(m)  desyncs  rtt(ms)
-sim#1   botA  win     2       8.9      263    10           0.459       0        153
+match   map       bot   result  rounds  time(s)  snaps  corrections  maxCorr(m)  desyncs  rtt(ms)
+sim#1   schlucht  botA  win     3       13.6     404    12           0.121       0        140
 ...
-server: 24557 ticks, avg 0.010 ms, p99 0.030 ms, max 1.839 ms, overruns 0, errors 0
+mechanics used by the bots: wall-run 1103 ticks, wall-jumps 14, dashes 74, swings 110 (dash attacks 17), parries 4, kills 48
+server: 14089 ticks, avg 0.010 ms, p99 0.028 ms, max 2.129 ms, overruns 0, errors 0
 RESULT: OK - no desyncs, no errors.
 ```
 
 - **desyncs** muss `0` sein. Sonst rechnen Client und Server unterschiedlich → Bug.
-- **corrections** sind normal (Treffer, Respawn, Lag); **maxCorr** ist die größte davon in Metern.
+- **corrections** sind normal (Treffer, Respawn, Lag, Gegner berührt); **maxCorr** ist die
+  größte davon in Metern.
+- **mechanics used** zeigt, dass die Bots die Mechaniken wirklich benutzen – nur was die Bots
+  tun, wird auch auf Desyncs geprüft.
 - **server … avg/p99/max** ist die Rechenzeit pro Tick. Ein Tick darf höchstens 16,67 ms
   dauern; **overruns** zählt Überschreitungen.
 
@@ -132,17 +146,27 @@ RESULT: OK - no desyncs, no errors.
 
 | Datei | Inhalt |
 |---|---|
-| [LEARNING.md](LEARNING.md) | Die Konzepte einfach erklärt: Tick-Rate, Prediction, Rollback, Interpolation |
+| [STATUS.md](STATUS.md) | Was fertig ist, was offen ist, welche Entscheidungen getroffen wurden |
+| [INTERNET.md](INTERNET.md) | Mit Freunden spielen: WLAN, Tunnel, Hosting |
+| [LEARNING.md](LEARNING.md) | Die Konzepte einfach erklärt: Tick-Rate, Prediction, Rollback, Interpolation, Lag-Kompensation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Aufbau, Datenfluss, Diagramme |
-| [HOW_TO_EXTEND.md](HOW_TO_EXTEND.md) | Schritt-für-Schritt: Features, Waffen, Maps, Buttons hinzufügen |
+| [HOW_TO_EXTEND.md](HOW_TO_EXTEND.md) | Schritt-für-Schritt: Features, Waffen, Maps, Sounds, Effekte hinzufügen |
 | [CLAUDE.md](CLAUDE.md) | Regeln, Konventionen und Fallstricke für KI-Assistenten |
 
 ## Probleme?
 
 | Problem | Lösung |
 |---|---|
-| `Cannot reach the game server` im Browser | Läuft `npm run dev` noch? Terminal auf Fehler prüfen |
+| „Der Spielserver ist nicht erreichbar“ im Browser | Läuft `npm run dev` noch? Terminal auf Fehler prüfen |
 | `EADDRINUSE` / Port belegt | Altes Terminal beenden oder `PORT=3001 npm run dev` |
 | Maus bewegt die Kamera nicht | Einmal ins Spielfeld klicken (Pointer-Lock) |
+| Kein Ton | Einmal klicken oder eine Taste drücken (Browser erlauben Ton erst danach); `M` schaltet stumm; Lautstärke im Menü |
 | Zweiter Spieler steht nur herum | Sein Tab ist im Hintergrund → eigenes Fenster benutzen |
 | `node: command not found` oder Syntaxfehler beim Start | Node.js ≥ 22 installieren (Schritt 1) |
+| Browser-Tests: „Executable doesn't exist“ | `npx playwright install chromium` |
+
+## Hinweis zum Namen
+
+Das Repo heißt `ghostrunner-pvp`, weil es als „Ghostrunner-artiges PvP“ geplant wurde. Das
+Spiel selbst heißt **Neonklinge**: Name, Maps, Figuren, Grafik und Sound sind eigene
+Entwürfe; übernommen wurden nur genretypische Mechaniken (One-Hit-Kill, Parry, Dash, Wall-Run).

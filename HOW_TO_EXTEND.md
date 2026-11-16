@@ -47,7 +47,11 @@ Kein Code nötig, nur Zahlen:
 | Lebenspunkte | `MAX_HP` in `src/shared/sim/playerState.ts` |
 | Spielergröße, Augenhöhe | `src/shared/physics/collision.ts` |
 | Tasten, Mausempfindlichkeit | `src/client/input/bindings.ts` |
-| Sichtfeld (FOV), Himmel, Licht | `src/client/render/sceneSetup.ts` |
+| Sichtfeld (FOV), Licht, Nebel | `src/client/render/sceneSetup.ts` |
+| Farben (Spieler, Himmel, Effekte) | `src/client/render/palette.ts` |
+| Kamera-Effekte (Wackeln, Neigung, Sichtfeld beim Dash) | `src/client/render/cameraFx.ts` |
+| Geräusche | `src/client/audio/sounds.ts` |
+| Texte im Spiel | `src/client/ui/hudTexts.ts`, `index.html` |
 
 Zeiten immer als `secondsToTicks(0.25)` schreiben. Danach `npm test` – ein paar Tests prüfen
 physikalische Werte relativ zur Config und sollten weiter grün sein.
@@ -280,7 +284,8 @@ Größere Fähigkeiten (Grappling Hook, Slide, Zeitlupe) bekommen eine eigene Da
 3. In der Spiellogik abfragen: `wasPressed(input, p.prevButtons, Button.Heavy)` für
    „gerade gedrückt“, `isDown(input, Button.Heavy)` für „wird gehalten“.
 4. Optional: Bots drücken lassen – `this.press(Button.Heavy)` in `src/bots/brain.ts`.
-5. Hinweistext im HUD anpassen (`#hint` in `index.html`).
+5. Steuerungshilfe anpassen (Tabelle in `#help` in `index.html`) und, falls die Fähigkeit
+   eine Abklingzeit hat, eine Anzeige in `#abilities` ergänzen (Rezept 10).
 
 ---
 
@@ -329,18 +334,41 @@ Reihenfolge-Regel: Erst alle Kontakte **sammeln**, dann **anwenden** (wie `findC
 
 ## 7. Neues Event + Effekt
 
-Events sind Nachrichten „das ist gerade passiert“ für Effekte. Sie ändern nie die Simulation.
+Es gibt zwei Quellen für „es ist etwas passiert“ – nimm die passende:
 
-1. `src/shared/sim/events.ts`: Typ ergänzen, z. B. `| { type: 'dash'; slot: number }`.
-2. Dort erzeugen, wo es passiert, per `events.push({...})`. (Events entstehen in Teil 2 von
-   `stepWorld`, also in `resolveCombat`, `stepMatch` oder deiner eigenen Interaktions-Funktion.
-   Für Dinge aus Teil 1 – wie ein Dash – das Event in `stepWorld` aus dem Vorher/Nachher-Zustand
-   ableiten oder im Client direkt am `PlayerState` ablesen, z. B. `p.dashTicks > 0`.)
-3. `src/client/app/gameApp.ts`, Funktion `showEventFeedback`: neuen `case` ergänzen und dort
-   Text (`hud.toast('...')`), Sound oder Partikel auslösen.
+| Quelle | Wofür | Wo |
+|---|---|---|
+| **Moment** | etwas, das ein Spieler selbst beginnt (Sprung, Dash, Schwung …). Kommt ohne Verzögerung, weil es aus dem vorhergesagten Zustand abgelesen wird | `src/client/app/stateWatcher.ts` |
+| **GameEvent** | etwas, das der Server entscheidet (Treffer, Parry, Tod, Rundenende) | `src/shared/sim/events.ts` |
 
-Sound: am einfachsten `new Audio('/sounds/hit.mp3').play()` in `showEventFeedback`; Dateien
-in einen Ordner `public/sounds/` legen (Vite liefert `public/` automatisch aus).
+Alle sichtbaren und hörbaren Reaktionen stehen in **`src/client/app/effects.ts`**.
+
+**Neuer Moment** (Beispiel: Doppelsprung):
+
+1. `stateWatcher.ts`: `'doubleJump'` zum Typ `Moment` hinzufügen und in `detectMoments`
+   erkennen, z. B. `if (after.airJumpsLeft < before.airJumpsLeft) moments.push('doubleJump');`
+2. `effects.ts`: in `MOMENT_SOUNDS` einen Sound zuordnen und/oder in `moment()` Partikel
+   auslösen (`this.view.particles.burst({...})`).
+
+**Neues GameEvent:**
+
+1. `src/shared/sim/events.ts`: Typ ergänzen, z. B. `| { type: 'pickup'; slot: number }`.
+2. Dort erzeugen, wo es passiert, per `events.push({...})` – immer in Teil 2 von `stepWorld`
+   (`resolveCombat`, `stepMatch` oder deine eigene Interaktions-Funktion).
+3. `effects.ts`, Funktion `gameEvent`: neuen `case` ergänzen.
+
+**Neuer Sound** (es gibt keine Sounddateien – jeder Sound ist ein Rezept aus Tönen und Rauschen):
+
+1. `src/client/audio/sounds.ts`: Name zu `SoundName` hinzufügen und ein Rezept in `RECIPES`
+   schreiben. `a.tone(...)` = Ton, dessen Tonhöhe von `from` nach `to` gleitet;
+   `a.noise(...)` = gefiltertes Rauschen (Zischen, Rumpeln). Am besten ein ähnliches Rezept kopieren.
+2. Abspielen: `playSound(this.audio, 'meinSound')` in `effects.ts`.
+
+**Neuer Text:** in `TEXT` (`src/client/ui/hudTexts.ts`) eintragen, anzeigen mit
+`this.hud.toast(TEXT.meinText)`.
+
+**Kamera:** `this.view.cameraFx.shake(0.2)` (Wackeln), `.bump(0.1)` (kurzes Absacken).
+Dauerhafte Effekte (Sichtfeld, Neigung) in `src/client/render/cameraFx.ts`.
 
 ---
 
@@ -355,6 +383,7 @@ Beispiel: Chat-Emote vom Client an den Server.
 3. `src/server/net/messageRouter.ts`: `case 'emote':` – was soll der Server tun?
 4. `src/netcode/gameClient.ts`: Methode zum Senden (`sendEmote(id)`) und – falls der Server
    antwortet – ein `case` in `handleServerMessage` plus ein Callback wie `onEmote`.
+   Vorbilder im Code: `rematch` (einfach, ohne Antwort) und `rejoin` (mit Antwort/Fehler).
 5. `PROTOCOL_VERSION` in `src/shared/config.ts` erhöhen.
 6. Tests: `tests/unit/protocol.test.ts` (gültig + ungültig) und `tests/unit/lobby.test.ts` /
    `server.test.ts` mit dem `TestClient` aus `tests/serverHelpers.ts`.
@@ -383,11 +412,17 @@ TypeScript hilft: Die `switch`-Blöcke in `messageRouter.ts` und `gameClient.ts`
 
 1. `index.html`: Element in `<div id="hud">` einfügen, mit einer `id`.
 2. `src/client/style.css`: Position/Aussehen.
-3. `src/client/ui/hud.ts`: Element im Konstruktor-Bereich holen (`element('meine-id')`) und in
+3. `src/client/ui/hud.ts`: Element oben in der Klasse holen (`element('meine-id')`) und in
    `update()` aus `client.localPlayer` / `client.snapshot` befüllen.
+4. Texte gehören nach `src/client/ui/hudTexts.ts` (alles Deutsch, an einer Stelle).
 
 Das HUD **liest** nur. Wenn ein Wert fehlt, gehört er in `PlayerState` oder `MatchState`
 (dann kommt er automatisch mit jedem Snapshot an).
+
+Menü (`#lobby` in `index.html`, Logik in `ui/lobbyUi.ts`), Steuerungshilfe (`#help` in
+`index.html`, reines HTML) und Einstellungen (`app/settings.ts`) funktionieren genauso.
+Nach Änderungen an Menü/HUD: `npm run test:browser` (die Tests suchen Elemente über ihre `id`
+und prüfen einige deutsche Texte).
 
 ---
 
