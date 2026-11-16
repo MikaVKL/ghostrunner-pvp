@@ -4,6 +4,10 @@ Schnelles **1-gegen-1-Schwertduell** in der Ich-Perspektive, inspiriert vom Genr
 Cyber-Ninja-Parkour-Spiele: **ein Treffer tötet**, Parry betäubt den Gegner, dazu Dash,
 Wall-Run und Wandsprung über Abgründe. Best-of-5, drei Parkour-Maps, alles im Browser.
 
+Zwei Spielarten: **Mehrspieler** über einen Server (Raumcode oder schnelles Spiel) und
+**Solo gegen Bot** – das läuft komplett im Browser, ohne Server, und lässt sich deshalb als
+statische Seite auf GitHub Pages veröffentlichen.
+
 Unter der Haube: autoritativer Server (60 Hz), Client-Side-Prediction mit Rollback,
 Lag-Kompensation, Reconnect, Test-Bots und automatische Tests. Keine externen Grafiken oder
 Sounddateien – Figuren, Himmel und alle Geräusche werden im Code erzeugt.
@@ -49,7 +53,9 @@ npm run dev
 
 Dann im Browser (Chrome oder Safari) öffnen: **<http://localhost:5173>**
 
-Zum Testen allein: zwei Browser-**Fenster** nebeneinander öffnen (nicht zwei Tabs im selben
+**Allein spielen:** im Menü Map und Schwierigkeit wählen und „Solo gegen Bot“ klicken.
+
+Zum Testen des Mehrspielers allein: zwei Browser-**Fenster** nebeneinander öffnen (nicht zwei Tabs im selben
 Fenster – Hintergrund-Tabs werden vom Browser pausiert). Im ersten eine Map wählen und
 „Raum erstellen“ klicken, den 4-stelligen Code im zweiten Fenster eingeben und „Raum beitreten“
 klicken. Oder in beiden „Schnelles Spiel“.
@@ -84,6 +90,42 @@ Regeln in Kürze:
 Tasten ändern: `src/client/input/bindings.ts`. Werte ändern (Tempo, Reichweite, Zeiten):
 siehe `HOW_TO_EXTEND.md`, Rezept 1.
 
+## Solo gegen Bot
+
+Im Hauptmenü: Map wählen, Schwierigkeit wählen (**Leicht**, **Mittel**, **Schwer**), „Solo
+gegen Bot“ klicken. Es gelten exakt dieselben Regeln wie im Mehrspieler (Best-of-5, Parry,
+Dash, Wall-Run, Abgrund). Nach dem Match ist der Bot immer für ein Rematch bereit – `R` drücken.
+
+Wie das funktioniert: Im Browser-Tab läuft derselbe Server-Kern wie beim Mehrspieler, nur
+über eine Verbindung im Arbeitsspeicher statt über das Internet (`src/solo/`). Der Gegner ist
+einer der Test-Bots. Deshalb braucht der Solo-Modus keinen Server und kein Internet – und
+pausiert von selbst, wenn der Tab im Hintergrund ist.
+
+Die Schwierigkeit sind nur Zahlen (wie schnell dreht sich der Bot, wie oft schlägt und
+pariert er): `src/solo/difficulty.ts`.
+
+Ist kein Spielserver erreichbar (z. B. auf GitHub Pages), sind die Mehrspieler-Knöpfe grau
+und ein Hinweis erklärt, warum. Solo funktioniert trotzdem.
+
+### Als Webseite veröffentlichen (GitHub Pages)
+
+Die Solo-Version lässt sich kostenlos als statische Seite veröffentlichen. Der Workflow
+`.github/workflows/pages.yml` baut und veröffentlicht sie bei jedem Push. Einmalig nötig:
+im Repo **Settings → Pages → Source: „GitHub Actions“** auswählen. Alle Schritte und
+Stolpersteine: **[INTERNET.md](INTERNET.md), Variante E**.
+
+Lokal ansehen, was veröffentlicht würde:
+
+```bash
+npm run build:pages
+```
+
+```bash
+npm run preview:pages
+```
+
+Dann <http://localhost:4173/ghostrunner-pvp/> öffnen.
+
 ## Mit einem Freund spielen
 
 ```bash
@@ -104,10 +146,12 @@ baut das Spiel und startet den Server auf Port 3000 (Seite und WebSocket über d
 |---|---|
 | `npm run dev` | Entwicklungsmodus: Server (Port 3000) + Client (Port 5173), lädt bei Änderungen neu |
 | `npm run host` | Client bauen und Server starten (zum Spielen mit anderen, Port 3000) |
-| `npm test` | Typprüfung + alle automatischen Tests (~20 s) |
+| `npm run build:pages` | Statische Solo-Version für GitHub Pages bauen (`dist/pages`) |
+| `npm run preview:pages` | Die gebaute Pages-Version lokal ansehen (Port 4173) |
+| `npm test` | Typprüfung + alle automatischen Tests inkl. Solo-Matches (~25 s) |
 | `npm run bots:sim` | 20 Bot-Matches auf allen Maps in ~3 Sekunden (simuliertes Netzwerk mit Lag) |
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server |
-| `npm run test:browser` | Browser-Tests: zwei echte Chromium-Tabs spielen gegeneinander (~90 s) |
+| `npm run test:browser` | Browser-Tests: echte Chromium-Tabs spielen gegeneinander und solo gegen den Bot, auch ohne Server (~2,5 min) |
 | `npm run check` | `npm test` + `npm run bots:sim` (vor jedem Commit) |
 | `npm run check:all` | alles zusammen: `check` + `bots` + `test:browser` |
 | `npm run build` / `npm start` | Client bauen / Server starten (einzeln; `host` macht beides) |
@@ -147,7 +191,7 @@ RESULT: OK - no desyncs, no errors.
 | Datei | Inhalt |
 |---|---|
 | [STATUS.md](STATUS.md) | Was fertig ist, was offen ist, welche Entscheidungen getroffen wurden |
-| [INTERNET.md](INTERNET.md) | Mit Freunden spielen: WLAN, Tunnel, Hosting |
+| [INTERNET.md](INTERNET.md) | Mit Freunden spielen: WLAN, Tunnel, Hosting – und die Solo-Version auf GitHub Pages |
 | [LEARNING.md](LEARNING.md) | Die Konzepte einfach erklärt: Tick-Rate, Prediction, Rollback, Interpolation, Lag-Kompensation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Aufbau, Datenfluss, Diagramme |
 | [HOW_TO_EXTEND.md](HOW_TO_EXTEND.md) | Schritt-für-Schritt: Features, Waffen, Maps, Sounds, Effekte hinzufügen |
@@ -157,7 +201,7 @@ RESULT: OK - no desyncs, no errors.
 
 | Problem | Lösung |
 |---|---|
-| „Der Spielserver ist nicht erreichbar“ im Browser | Läuft `npm run dev` noch? Terminal auf Fehler prüfen |
+| „Kein Spielserver erreichbar“ im Menü, Mehrspieler-Knöpfe grau | Läuft `npm run dev` noch? Terminal auf Fehler prüfen, dann „Erneut verbinden“. Auf GitHub Pages ist das normal – dort gibt es nur Solo |
 | `EADDRINUSE` / Port belegt | Altes Terminal beenden oder `PORT=3001 npm run dev` |
 | Maus bewegt die Kamera nicht | Einmal ins Spielfeld klicken (Pointer-Lock) |
 | Kein Ton | Einmal klicken oder eine Taste drücken (Browser erlauben Ton erst danach); `M` schaltet stumm; Lautstärke im Menü |

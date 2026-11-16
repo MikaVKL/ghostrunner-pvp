@@ -1,4 +1,4 @@
-# INTERNET.md – Mit Freunden spielen (WLAN, Tunnel, Hosting)
+# INTERNET.md – Mit Freunden spielen (WLAN, Tunnel, Hosting) und Solo auf GitHub Pages
 
 Das Spiel braucht genau **einen** Server-Prozess. Er liefert die Webseite **und** die
 WebSocket-Verbindung über **denselben Port** aus (Standard: 3000). Wer diese eine Adresse im
@@ -20,6 +20,12 @@ Welche Variante passt?
 | B – Tunnel | schnell mal übers Internet spielen | 2 Minuten | kostenlos |
 | C – Hosting | dauerhaft erreichbar, auch wenn dein PC aus ist | 15–30 Minuten | kostenlos bis wenige €/Monat |
 | D – Portfreigabe im Router | wer seinen Router kennt | mittel | – |
+| E – GitHub Pages | **nur Solo gegen Bot**, als öffentliche Webseite | 5 Minuten, einmalig | kostenlos |
+
+Wichtig für die Wahl: **Mehrspieler braucht immer den Server-Prozess** (Varianten A–D).
+GitHub Pages kann nur fertige Dateien ausliefern, keinen Server betreiben – dort läuft
+deshalb nur der Solo-Modus (Variante E). Der Solo-Modus selbst funktioniert überall, auch
+in den Varianten A–D und ganz ohne Internet.
 
 ---
 
@@ -131,6 +137,54 @@ ist einfacher und sicherer.
 
 ---
 
+## Variante E: GitHub Pages (nur Solo gegen Bot)
+
+GitHub Pages veröffentlicht einen Ordner mit fertigen Dateien als Webseite unter
+`https://DEIN-NAME.github.io/REPO-NAME/`. Der Solo-Modus braucht nichts anderes: Server-Kern
+und Bot laufen im Browser (`src/solo/`). Die Mehrspieler-Knöpfe sind dort grau, mit dem
+Hinweis „Kein Spielserver erreichbar“.
+
+**Einmalig einrichten:**
+
+1. Auf GitHub im Repo: **Settings → Pages → „Build and deployment“ → Source: „GitHub Actions“**.
+2. Etwas pushen (oder im Tab **Actions** den Workflow „Deploy to GitHub Pages“ mit
+   „Run workflow“ von Hand starten).
+3. Im Tab **Actions** zusehen: erst läuft „build“, dann „deploy“. Danach steht die Adresse
+   beim Job „deploy“ und unter Settings → Pages.
+
+Ab dann wird bei **jedem Push** neu gebaut und veröffentlicht
+(`.github/workflows/pages.yml`). Der Workflow prüft vorher Typen und Tests (Unit +
+Bot-Simulation inklusive Solo-Matches) – schlägt etwas fehl, wird nicht veröffentlicht.
+
+**Wenn der „deploy“-Job rot wird:**
+
+| Meldung (sinngemäß) | Ursache / Lösung |
+|---|---|
+| „Get Pages site failed“ / „Not Found“ bei „Pages vorbereiten“ | Schritt 1 fehlt: Pages ist noch nicht auf „GitHub Actions“ gestellt |
+| „Branch … is not allowed to deploy to github-pages due to environment protection rules“ | GitHub erlaubt das Veröffentlichen standardmäßig nur vom Standard-Branch. Entweder den Arbeits-Branch in den Standard-Branch mergen, oder unter **Settings → Environments → github-pages → Deployment branches** den Branch hinzufügen bzw. „No restriction“ wählen |
+| Seite lädt, bleibt aber leer/weiß; im Browser-Log 404 für `/assets/…` | Der `base`-Pfad passt nicht zum Repo-Namen. Der Workflow setzt ihn automatisch (`BASE_PATH`); bei eigenem Build: `BASE_PATH=/REPO-NAME/ npm run build:pages` |
+
+Mehrere Branches: Der Workflow läuft auf jedem Branch, und der zuletzt veröffentlichte Stand
+gewinnt. Wer nur einen Branch veröffentlichen will, ergänzt in `pages.yml` unter `push:` die
+Zeile `branches: [main]` (bzw. den Namen des gewünschten Branches).
+
+**Lokal ausprobieren, was veröffentlicht würde:**
+
+```bash
+npm run build:pages
+```
+
+```bash
+npm run preview:pages
+```
+
+Dann <http://localhost:4173/ghostrunner-pvp/> öffnen (genau mit dem Unterordner).
+
+Eigener Server statt Pages? Nicht nötig: `npm run host` (Varianten A–D) liefert dieselbe
+Seite aus – dort funktionieren Solo **und** Mehrspieler.
+
+---
+
 ## Was davon getestet ist (ehrlich)
 
 | Was | Getestet? |
@@ -138,6 +192,10 @@ ist einfacher und sicherer.
 | Produktionsmodus: ein Port liefert Seite + WebSocket (`npm run build`, `npm start`) | ✅ automatisch – die Browser-Tests (`npm run test:browser`) laufen genau so |
 | Betrieb hinter einem Reverse-Proxy (das macht jeder Tunnel und jeder Hoster): Seite, `/health` und ein ganzes Bot-Match über den Proxy | ✅ automatisch – `tests/integration/behindProxy.test.ts` (Teil von `npm test`) |
 | Spielen mit künstlichem Ping bis 300 ms + Jitter, Verbindungsabbruch und Wiederkehr | ✅ automatisch – `tests/sim/botMatch.test.ts` |
+| Solo-Matches ohne Server: alle Maps × alle Schwierigkeiten bis zum Match-Ende, Rematch | ✅ automatisch – `tests/sim/soloMatch.test.ts` (Teil von `npm test`) |
+| Die Pages-Version (`npm run build:pages`) als rein statische Seite im Unterordner, **ohne** Server: Menü, Mehrspieler deaktiviert, Solo-Runde | ✅ automatisch – Browser-Test „Ohne Server (wie GitHub Pages)“ |
+| Die Befehle des Workflows (Typprüfung, Tests, Build mit `BASE_PATH`) | ✅ lokal von Hand ausgeführt |
+| Der Workflow **auf GitHub** und die echte Pages-Seite | ❌ **nicht bestätigt.** Der Workflow ist gepusht, aber Pages muss erst von dir in den Repo-Einstellungen aktiviert werden (Schritt 1 oben); das kann nur der Besitzer des Repos. Stand dazu: siehe `STATUS.md`. |
 | Ein **echter** Tunnel (cloudflared / localtunnel / ngrok) | ❌ **nicht getestet.** Die Umgebung, in der das Spiel gebaut wurde, erlaubt keine Tunnel ins Internet. Die Befehle oben sind die normalen, dokumentierten Aufrufe dieser Programme – bitte beim ersten Mal selbst ausprobieren. |
 | Hosting bei einem Anbieter, `docker build` | ❌ **nicht getestet** (kein Konto, kein Docker in der Bau-Umgebung). Das `Dockerfile` ist kurz und Standard, aber ungeprüft. |
 
@@ -156,7 +214,7 @@ den Ping über den Tunnel.
 
 | Problem | Ursache / Lösung |
 |---|---|
-| Seite lädt, aber „Der Spielserver ist nicht erreichbar“ | Der Tunnel/Hoster leitet keine WebSockets weiter, oder der Server-Prozess läuft nicht mehr |
+| Seite lädt, aber „Kein Spielserver erreichbar“ und Mehrspieler ist grau | Der Tunnel/Hoster leitet keine WebSockets weiter, oder der Server-Prozess läuft nicht mehr. (Auf GitHub Pages ist das normal: dort gibt es nur Solo.) |
 | Freund sieht „Diesen Raum gibt es nicht“ | Er ist auf einer anderen Adresse (anderer Server) oder der Code ist falsch. Beide müssen denselben Server benutzen |
 | Seite nicht erreichbar | Läuft `npm run host` noch? Läuft der Tunnel noch? Firewall-Abfrage erlaubt? |
 | Alles ruckelt / Treffer wirken verspätet | `F3` drücken: Ping über ~200 ms? Dann Hosting in eurer Nähe statt Tunnel probieren |
