@@ -10,7 +10,7 @@ import { MOVE } from '../../shared/movement/movementConfig';
 import type { PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
 import { teamColor } from '../render/palette';
-import { centerMessage, secondsLeft, TEXT } from './hudTexts';
+import { centerMessage, secondsLeft } from './hudTexts';
 
 function element(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -122,4 +122,3 @@ export class Hud {
   }
 }
 
-export { TEXT };
