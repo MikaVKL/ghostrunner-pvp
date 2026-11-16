@@ -17,7 +17,7 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
 | 8 | Sound: 18 prozedurale Geräusche mit Web Audio (`client/audio/`) – im Browser nur per Code geprüft, nicht „gehört“ | ✅ |
 | 9 | Deutsche Oberfläche: Hauptmenü mit Map-Wahl und Einstellungen, HUD, Steuerungshilfe (H), Rematch (R), automatisches Neuverbinden | ✅ |
 | 10 | Bots nutzen Wall-Run, Wandsprung, Parry, Dash-Angriff (Zähler im Bot-Report, Test in `tests/sim`) | ✅ |
-| 11 | Tests erweitert + Playwright-Browser-Tests als eigenes Skript | ⬜ |
+| 11 | Tests: 262 Unit-/Sim-/Integrationstests in `npm test`; 7 Playwright-Browser-Tests als `npm run test:browser` (`tests/browser/`) | ✅ |
 | 12 | Anleitung „Spielen übers Internet“ + Tunnel-Test | ⬜ |
 
 ## Entscheidungen (bei Unklarheit die einfachere Variante)

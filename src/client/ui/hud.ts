@@ -9,6 +9,7 @@ import { getMap } from '../../shared/maps';
 import { MOVE } from '../../shared/movement/movementConfig';
 import type { PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
+import { teamColor } from '../render/palette';
 import { centerMessage, secondsLeft, TEXT } from './hudTexts';
 
 function element(id: string): HTMLElement {
@@ -76,6 +77,11 @@ export class Hud {
     const enemySlot = 1 - room.slot;
     const enemyInfo = room.players.find((p) => p.slot === enemySlot);
     const inMatch = match.phase !== 'waiting';
+
+    // Names and score pips glow in the same color as the fighters in the world.
+    const css = (slot: number) => `#${teamColor(slot).toString(16).padStart(6, '0')}`;
+    this.root.style.setProperty('--me', css(room.slot));
+    this.root.style.setProperty('--enemy', css(enemySlot));
 
     this.roomCode.textContent = room.code;
     this.mapName.textContent = getMap(room.mapId).name;

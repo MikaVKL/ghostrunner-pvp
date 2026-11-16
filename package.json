@@ -18,7 +18,9 @@
     "test:watch": "vitest",
     "bots": "tsx src/bots/cli.ts live",
     "bots:sim": "tsx src/bots/cli.ts sim",
-    "check": "npm test && npm run bots:sim"
+    "test:browser": "vite build && tsx tests/browser/run.ts",
+    "check": "npm test && npm run bots:sim",
+    "check:all": "npm run check && npm run bots && npm run test:browser"
   },
   "dependencies": {
     "three": "^0.187.0",
@@ -30,6 +32,7 @@
     "@types/three": "^0.187.0",
     "@types/ws": "^8.18.2",
     "concurrently": "^10.0.7",
+    "playwright": "1.63.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"

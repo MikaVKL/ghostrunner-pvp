@@ -357,14 +357,15 @@ body.stunned #vignette {
   letter-spacing: 3px;
 }
 
+/* --me / --enemy are set by hud.ts to the players' glow colors. */
 .side.me .pips,
 .side.me .name {
-  color: var(--cyan);
+  color: var(--me, var(--cyan));
 }
 
 .side.enemy .pips,
 .side.enemy .name {
-  color: var(--pink);
+  color: var(--enemy, var(--pink));
 }
 
 #round-info {
@@ -405,7 +406,7 @@ body.stunned #vignette {
 
 #message.countdown {
   font-size: 110px;
-  color: var(--cyan);
+  color: var(--me, var(--cyan));
   text-shadow: 0 0 30px rgba(37, 216, 255, 0.8);
 }
 
@@ -436,7 +437,7 @@ body.stunned #vignette {
 
 .ability.ready {
   opacity: 1;
-  border-color: var(--cyan);
+  border-color: var(--me, var(--cyan));
 }
 
 .ability .key {
@@ -460,7 +461,7 @@ body.stunned #vignette {
 .ability .fill {
   height: 100%;
   width: 100%;
-  background: var(--cyan);
+  background: var(--me, var(--cyan));
 }
 
 #hint,
@@ -489,10 +490,12 @@ body.stunned #vignette {
 #room-panel {
   position: absolute;
   bottom: 14px;
-  right: 14px;
+  left: 14px;
+  max-width: 250px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 6px 10px;
   background: var(--panel);
   border: 1px solid var(--border);
