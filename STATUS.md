@@ -69,6 +69,41 @@ Nicht getestet bei dieser Aufgabe: die echte Pages-Seite (s. o.); wie sich die d
 Schwierigkeitsstufen für einen Menschen anfühlen (die Zahlen sind geschätzt – geprüft ist
 nur, dass „schwer“ gegen „leicht“ gewinnt und jeder Bot einen stillstehenden Spieler besiegt).
 
+## Dritte Aufgabe (läuft): Bot-Fehler, mehr Mechaniken, unterschiedlichere Maps, lebendigere Bot-KI
+
+Auftrag des Besitzers nach dem ersten Spielen auf GitHub Pages: „Bot funktioniert manchmal
+nicht richtig“, „Maps sind zu ähnlich/basic“, „Mechaniken ausbauen“, „Bot-KI erweitern und
+mehr Bot-Tests, damit es sich dynamisch anfühlt“.
+
+GitHub Pages ist inzwischen bestätigt: Der Workflow-Lauf Nr. 3 war komplett grün und der
+Besitzer hat die Seite gespielt.
+
+Reihenfolge (⬜ offen · 🔧 in Arbeit · ✅ fertig) – wer weitermacht, nimmt den ersten Punkt
+ohne ✅:
+
+| # | Schritt | Stand |
+|---|---|---|
+| A | Bot-Fehler beheben (Befund unten) + Qualitäts-Tests „Bot stürzt nicht von selbst ab / bleibt nicht stehen“ | 🔧 |
+| B | Mechanik: Doppelsprung (Rezept 4 in `HOW_TO_EXTEND.md`; Feld `airJumpsLeft` in `PlayerState`) | ⬜ |
+| C | Mechanik: Klingen-Clash – zwei fast gleichzeitige Treffer prallen ab statt Doppel-K.O. (`resolveCombat.ts`, Event `clash`) | ⬜ |
+| D | Mechanik: Sprungfelder als Map-Element (`MapDef.pads`, vorhersagbar → `movement/`) | ⬜ |
+| E | Maps überarbeiten: echte Höhenunterschiede, Sprungfelder, eigenes Farbthema je Map (`MapDef.theme`) | ⬜ |
+| F | Bot-KI: Ausweich-Dash, Fehlschläge/Stun bestrafen, Vor-und-Zurück, Kampfstil je Runde, Reaktionszeit je Schwierigkeit | ⬜ |
+| G | Mehr Bot-Tests (Qualität, Nutzung der neuen Mechaniken, Reihenfolge der Schwierigkeiten) + Browser-Tests + Doku | ⬜ |
+
+**Befund zu A (gemessen mit simulierten Solo-Matches gegen einen stillstehenden Spieler):**
+
+1. *Bot springt kurz nach Rundenstart grundlos und stürzt ab* (auf „Dächer“ dreimal an
+   derselben Stelle). Ursache: `BotBrain.unstick` zählt auch die Zeit, in der der Bot im
+   Countdown eingefroren ist, als „ich stecke fest“ und drückt dann im vollen Lauf Springen.
+   Lösung: Im eingefrorenen Zustand nicht zählen (`Bot.tick` weiß die Phase).
+2. *Zufällige Sprünge/Dashes ins Leere:* `moveRandomly` springt ohne zu prüfen, wo der Bot
+   landet, und 10 % der Zufalls-Dashes sind absichtlich ungeprüft (Altlast aus dem Template).
+   Lösung: Landepunkt prüfen (`canStandAt`).
+3. *Bot bleibt für immer stehen,* wenn er ganz am Rand einer Plattform landet: Von dort gilt
+   kein Weg als „sicher begehbar“, `planRoute` liefert „bleib stehen“. Lösung: zum nächsten
+   sicheren Punkt gehen (`nav.ts`).
+
 ## Was NICHT oder nur teilweise umgesetzt ist (ehrlich)
 
 - **Echter Tunnel nicht getestet.** Die Bau-Umgebung hat das Öffnen eines Tunnels ins
