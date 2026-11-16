@@ -3,7 +3,8 @@
  *
  * Order inside a tick:
  *   1. every player moves/acts from its own input   (predictable by its client)
- *   2. combat between players is resolved            (NOT predictable)
+ *   2. combat between players is resolved, players  (NOT predictable)
+ *      standing inside each other are pushed apart
  *   3. match rules run: deaths, scores, phase changes (NOT predictable)
  *
  * Steps 2 and 3 are "interactions". We detect which players they changed and report
@@ -13,6 +14,7 @@ import { recordPositions } from '../combat/lagCompensation';
 import { resolveCombat } from '../combat/resolveCombat';
 import { neutralInput, type InputCmd } from '../input';
 import { stepMatch } from '../match/stepMatch';
+import { separatePlayers } from '../physics/playerCollision';
 import type { GameEvent } from './events';
 import { clonePlayer } from './playerState';
 import { stateDifference } from './stateDiff';
@@ -41,7 +43,10 @@ export function stepWorld(world: WorldState, inputs: InputsBySlot, ctx: SimConte
   const predicted = world.players.map(clonePlayer);
 
   // 2. + 3. Interactions.
-  if (phaseBefore === 'playing') resolveCombat(world, inputs, events);
+  if (phaseBefore === 'playing') {
+    resolveCombat(world, inputs, events);
+    separatePlayers(world.players, ctx.map);
+  }
   stepMatch(world, ctx, events);
 
   const phaseChanged = world.match.phase !== phaseBefore;

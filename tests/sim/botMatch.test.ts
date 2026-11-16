@@ -90,10 +90,12 @@ describe('bot matches over a simulated network', () => {
     expect(second.bots.map((b) => b.corrections)).toEqual(first.bots.map((b) => b.corrections));
   });
 
-  it('really fights: rounds end by kills or falls, not only by the timer', () => {
-    const reports = [1, 2, 3, 4, 5].map((seed) => runSimulatedMatch({ seed, latencyMs: 30 }));
+  it('really fights: most matches have a winner and rounds end by sword kills', () => {
+    const reports = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seed) => runSimulatedMatch({ seed, latencyMs: 30 }));
+    // With one-hit kills, trades (both die) happen - so a few matches end in a draw.
     const decided = reports.filter((r) => r.winner !== null && r.winner >= 0);
-    expect(decided.length).toBeGreaterThanOrEqual(4);
+    expect(decided.length).toBeGreaterThanOrEqual(6);
+    expect(totalUsage(reports).kills).toBeGreaterThan(15);
   });
 
   it('frees the room on the server after the bots disconnect', () => {

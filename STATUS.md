@@ -11,7 +11,7 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
 | 2 | Rundensystem: Best-of-5, Countdown, Punktestand, Rematch (Regeln + Netzwerk; Anzeige kommt mit Schritt 9) | ✅ |
 | 3 | 3 Parkour-Maps (`schlucht`, `daecher`, `reaktor`) + Map-Wahl beim Raum-Erstellen, Quick-Match rotiert; Parkour-Links für Bots | ✅ |
 | 4 | Lag-Kompensation: Treffer gegen die Position, die der Angreifer sah; Parry zählt, wenn er gedrückt wurde, bevor der Verteidiger den Treffer sah (max. 0,3 s) | ✅ |
-| 5 | Kollision zwischen Spielern | ⬜ |
+| 5 | Kollision zwischen Spielern (`physics/playerCollision.ts`, Teil 2 von `stepWorld`) | ✅ |
 | 6 | Reconnect nach Verbindungsabbruch | ⬜ |
 | 7 | Optik (Figuren, Schwung-Animation, Partikel, Kamera, Sky, Nebel) | ⬜ |
 | 8 | Sound (Web Audio, prozedural) | ⬜ |
