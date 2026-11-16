@@ -16,21 +16,7 @@ import { stepWorld, type InputsBySlot } from '../../shared/sim/stepWorld';
 import { addPlayer, createWorld, removePlayer, type SimContext } from '../../shared/sim/world';
 import type { Session } from '../net/session';
 import { InputQueue } from './inputQueue';
-
-/** A player's place in the room. */
-interface Seat {
-  slot: number;
-  name: string;
-  /** Null while the client is disconnected and the seat is reserved for it. */
-  session: Session | null;
-  /** Secret for taking this seat again after a connection loss. */
-  token: string;
-  /** How long the seat has been without a connection. */
-  disconnectedTicks: number;
-  inputs: InputQueue;
-  /** True if something unpredictable happened to this player since the last snapshot. */
-  disturbed: boolean;
-}
+import { createSeat, type Seat } from './seat';
 
 export class Room {
   readonly world;
@@ -67,15 +53,7 @@ export class Room {
   /** Add a player. The caller must check `isFull` first. */
   join(session: Session): void {
     const slot = this.seats.some((s) => s.slot === 0) ? 1 : 0;
-    const seat: Seat = {
-      slot,
-      name: session.name,
-      session,
-      token: this.createToken(),
-      disconnectedTicks: 0,
-      inputs: new InputQueue(),
-      disturbed: true,
-    };
+    const seat = createSeat(slot, session, this.createToken());
     this.seats.push(seat);
     session.room = this;
     addPlayer(this.world, slot, this.ctx.map);

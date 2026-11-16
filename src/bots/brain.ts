@@ -15,6 +15,7 @@ import { forwardFromYaw, horizontalDistance, yawToward, type Vec3 } from '../sha
 import { getWeapon } from '../shared/combat/weapons';
 import type { PlayerState } from '../shared/sim/playerState';
 import { FightHabits } from './brainFight';
+import { ButtonHolder } from './buttonHolder';
 import { ARRIVE_DISTANCE, canStandAt, isWalkable, planRoute, type NavStep } from './nav';
 import { LinkRunner } from './parkour';
 
@@ -63,8 +64,7 @@ export class BotBrain {
   /** Set while the bot is taking a parkour link. */
   private runner: LinkRunner | null = null;
   private ticks = 0;
-  /** Buttons that are being held, with the number of ticks left. */
-  private held = new Map<number, number>();
+  private readonly buttons = new ButtonHolder();
   private strafe = 1;
   private stuckChecks = 0;
   private stuckPos: Vec3 | null = null;
@@ -123,12 +123,12 @@ export class BotBrain {
     if (fighting) {
       const aimError = Math.abs(angleDifference(this.yaw, yawToward(me.pos, target.pos)));
       const pathIsSafe = () => isWalkable(map, me.pos, target.pos);
-      this.press(this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe }));
+      this.buttons.press(this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe }));
     }
     this.moveRandomly(me, map, moveZ);
     this.unstick(me, moveX !== 0 || moveZ !== 0);
 
-    return { moveX, moveZ, yaw: this.yaw, pitch: 0, buttons: this.heldButtons() };
+    return { moveX, moveZ, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() };
   }
 
   /** Let the LinkRunner steer until the parkour link is done. */
@@ -136,12 +136,12 @@ export class BotBrain {
     const mayWallJump = this.rng() < this.personality.wallJumpChance;
     const out = runner.step(me, map, this.yaw, mayWallJump);
     this.turnToward(out.yaw);
-    if (out.jump) this.press(Button.Jump);
+    if (out.jump) this.buttons.press(Button.Jump);
     if (out.done) {
       this.runner = null;
       this.route = null;
     }
-    return { moveX: out.moveX, moveZ: out.moveZ, yaw: this.yaw, pitch: 0, buttons: this.heldButtons() };
+    return { moveX: out.moveX, moveZ: out.moveZ, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() };
   }
 
   /** Turn toward `desiredYaw` as fast as allowed. Returns how far off the bot was. */
@@ -163,12 +163,12 @@ export class BotBrain {
 
   /** Random jumps and dashes so that all movement code gets exercised. */
   private moveRandomly(me: PlayerState, map: MapDef, moveZ: number): void {
-    if (me.grounded && this.rng() < this.personality.jumpChance) this.press(Button.Jump);
+    if (me.grounded && this.rng() < this.personality.jumpChance) this.buttons.press(Button.Jump);
     if (moveZ > 0 && this.rng() < this.personality.dashChance) {
       // Only dash if the landing spot (about 3.5 m ahead) has floor. Mostly.
       const forward = forwardFromYaw(this.yaw);
       const safe = canStandAt(map, me.pos.x + forward.x * 3.5, me.pos.z + forward.z * 3.5, me.pos.y);
-      if (safe || this.rng() < 0.1) this.press(Button.Dash);
+      if (safe || this.rng() < 0.1) this.buttons.press(Button.Dash);
     }
   }
 
@@ -196,7 +196,7 @@ export class BotBrain {
     this.stuckPos = { ...me.pos };
     this.stuckChecks = wantsToMove && moved < 0.3 ? this.stuckChecks + 1 : 0;
     if (this.stuckChecks >= 2) {
-      this.press(Button.Jump);
+      this.buttons.press(Button.Jump);
       this.strafe = -this.strafe;
       this.route = null;
     }
@@ -208,21 +208,4 @@ export class BotBrain {
     return points[Math.floor(this.ticks / 240) % points.length];
   }
 
-  /** Hold the given buttons (bit flags) for a few ticks. */
-  private press(buttons: number, ticks = 3): void {
-    for (const button of Object.values(Button)) {
-      if (buttons & button) this.held.set(button, ticks);
-    }
-  }
-
-  /** Combine all currently held buttons and count their timers down. */
-  private heldButtons(): number {
-    let buttons = 0;
-    for (const [button, left] of this.held) {
-      buttons |= button;
-      if (left <= 1) this.held.delete(button);
-      else this.held.set(button, left - 1);
-    }
-    return buttons;
-  }
 }
