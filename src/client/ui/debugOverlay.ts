@@ -20,7 +20,8 @@ export class DebugOverlay {
     });
   }
 
-  update(client: GameClient): void {
+  /** `client` is null while no connection and no solo match exists. */
+  update(client: GameClient | null): void {
     this.frames++;
     const now = performance.now();
     if (now - this.lastFpsAt >= 500) {
@@ -28,7 +29,7 @@ export class DebugOverlay {
       this.frames = 0;
       this.lastFpsAt = now;
     }
-    if (!this.visible) return;
+    if (!this.visible || !client) return;
 
     const me = client.localPlayer;
     const stats = client.stats;

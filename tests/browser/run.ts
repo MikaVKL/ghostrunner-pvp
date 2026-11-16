@@ -6,10 +6,13 @@
  * 3D view starts without errors, and that keyboard input leads to kills, parries, falls,
  * a rematch and a reconnect - all the way through server, netcode and HUD.
  *
+ * The solo mode is tested twice: on the normal server, and on a purely static copy of the
+ * game without any server (what GitHub Pages serves).
+ *
  * Screenshots of every test end up in tests/browser/screenshots/.
  * First time on your own computer: `npx playwright install chromium`.
  */
-import { assert, assertEqual, openTwo, startDuel, startEnv, type GamePage, type TestEnv } from './harness';
+import { assert, assertEqual, openOne, openTwo, startDuel, startEnv, type GamePage, type TestEnv } from './harness';
 
 const YAW_MINUS_Z = 0; // from spawn 0 on "schlucht" this looks along the platform edge
 
@@ -64,6 +67,12 @@ test('Hauptmenü: deutsch, alle Maps, Steuerungshilfe', async (env) => {
   assertEqual(await a.text('#create-button'), 'Raum erstellen', 'create button');
   const maps = await a.page.locator('.map-card b').allInnerTexts();
   assertEqual(maps, ['Neonschlucht', 'Dächer', 'Reaktor', 'Arena'], 'map cards');
+  assertEqual(await a.text('#solo-button'), 'Solo gegen Bot', 'solo button');
+  assertEqual(await a.page.locator('#difficulty-list button').allInnerTexts(), ['Leicht', 'Mittel', 'Schwer'], 'difficulty buttons');
+  await a.page.click('#difficulty-list button[data-difficulty="schwer"]');
+  await a.expectText('#difficulty-description', 'pariert die meisten Schläge');
+  assert(await a.page.isEnabled('#quick-button'), 'multiplayer is enabled while a server is connected');
+  assertEqual(await a.text('#online-status'), '', 'no warning while online');
 
   await a.page.click('#help-button');
   assert(await a.page.isVisible('#help'), 'help opens');
@@ -230,12 +239,104 @@ test('Schnelles Spiel und Verlassen', async (env) => {
   noErrors(a, b);
 });
 
+/** Start a solo match from the menu and wait until the first round runs. */
+async function startSolo(player: GamePage, mapId: string, difficulty: string): Promise<void> {
+  await player.page.click(`.map-card[data-map="${mapId}"]`);
+  await player.page.click(`#difficulty-list button[data-difficulty="${difficulty}"]`);
+  await player.page.click('#solo-button');
+  await player.waitFor('solo round running', (s) => s.inRoom && s.phase === 'playing' && s.enemy !== null);
+  await player.installEventLog(); // the solo match has its own client
+}
+
+/** Wait until rooms of earlier tests are gone (a closed tab keeps its seat reserved for a while). */
+async function serverIsEmpty(env: TestEnv): Promise<void> {
+  for (let i = 0; i < 300 && env.server.game.stats().rooms > 0; i++) await new Promise((r) => setTimeout(r, 100));
+  assertEqual(env.server.game.stats().rooms, 0, 'rooms left over from earlier tests');
+}
+
+test('Solo gegen Bot: ganzes Match im Browser, Bot kämpft, Rematch mit R', async (env) => {
+  await serverIsEmpty(env);
+  const a = await openOne(env, env.url);
+  await startSolo(a, 'schlucht', 'schwer');
+  assert(await a.page.isVisible('#hud'), 'HUD visible');
+  await a.expectText('#solo-info', 'Solo · Schwer');
+  await a.expectText('#enemy-name', 'Bot Schwer');
+  await a.expectText('#my-pips', '◇◇◇'); // the normal best-of-5 rules
+  assertEqual(env.server.game.stats().rooms, 0, 'rooms on the real server (solo must not use it)');
+  await a.screenshot('09-solo-start');
+
+  // 1) We do nothing: the bot comes over (bridge or wall-run) and kills us with its sword.
+  await a.waitFor('the bot wins a round by a sword kill', (s) => s.scores[1] >= 1, 90_000);
+  await a.page.waitForFunction(() =>
+    (window as unknown as { gameEvents: { type: string; attacker?: number }[] }).gameEvents.some((e) => e.type === 'hit' && e.attacker === 1),
+  );
+
+  // 2) Lose the rest quickly by jumping into the abyss, until the match is over.
+  for (let i = 0; i < 6 && (await a.state()).phase !== 'matchEnd'; i++) {
+    const s = await a.waitFor('next round or match end', (v) => v.phase === 'matchEnd' || (v.phase === 'playing' && v.me !== null && v.me.alive));
+    if (s.phase === 'playing') await jumpIntoAbyss(a);
+    await a.waitFor('round decided', (v) => v.phase !== 'playing');
+  }
+  await a.waitFor('match over', (s) => s.phase === 'matchEnd', 60_000);
+  await a.expectText('#message', 'NIEDERLAGE');
+  await a.expectText('#sub-message', 'Dein Gegner will ein Rematch'); // the bot always votes yes
+  await a.screenshot('10-solo-match-end');
+
+  // 3) Rematch with R, then leave.
+  await a.page.keyboard.press('KeyR');
+  const fresh = await a.waitFor('new match', (s) => s.round === 1 && (s.phase === 'countdown' || s.phase === 'playing'));
+  assertEqual(fresh.scores, [0, 0], 'scores are reset');
+  await a.page.click('#leave-button');
+  await a.page.waitForSelector('#lobby', { state: 'visible' });
+  assert(!(await a.page.isVisible('#hud')), 'HUD hidden after leaving');
+  assert(await a.page.isEnabled('#quick-button'), 'multiplayer still available after a solo match');
+  assertEqual(env.server.game.stats().rooms, 0, 'rooms on the real server after the solo match');
+  noErrors(a);
+});
+
+test('Solo und Mehrspieler nacheinander im selben Tab', async (env) => {
+  const { a, b } = await openTwo(env);
+  await startSolo(a, 'arena', 'leicht');
+  await a.page.click('#leave-button');
+  await a.page.waitForSelector('#lobby', { state: 'visible' });
+  await a.installEventLog();
+  await startDuel(a, b);
+  await a.expectText('#enemy-name', 'Ben');
+  assert(await a.page.isVisible('#room-info'), 'room code is shown again');
+  assert(!(await a.page.isVisible('#solo-info')), 'solo label is gone');
+  noErrors(a, b);
+  await noDesyncs(a, b);
+});
+
+test('Ohne Server (wie GitHub Pages): Mehrspieler deaktiviert, Solo läuft', async (env) => {
+  const a = await openOne(env, env.staticUrl, false);
+  assert((await a.page.title()).includes('Neonklinge'), 'the page loads from the sub-folder');
+  for (const id of ['#quick-button', '#create-button', '#join-button', '#code-input']) {
+    assert(await a.page.isDisabled(id), `${id} is disabled without a server`);
+  }
+  await a.expectText('#online-status', 'Kein Spielserver erreichbar');
+  assert(await a.page.isVisible('#retry-button'), 'retry button is offered');
+  await a.page.click('#retry-button');
+  await a.page.waitForSelector('#multiplayer[data-state="offline"]');
+  await a.screenshot('11-pages-menu');
+
+  await startSolo(a, 'daecher', 'mittel');
+  await a.expectText('#solo-info', 'Solo · Mittel');
+  await a.expectText('#map-name', 'Dächer');
+  await jumpIntoAbyss(a);
+  await a.waitFor('the bot gets the point', (s) => s.scores[1] === 1);
+  await a.waitFor('round 2 starts', (s) => s.round === 2 && s.phase === 'playing', 30_000);
+  await a.screenshot('12-pages-solo');
+  assertEqual((await a.state()).desyncs, 0, 'desyncs');
+  noErrors(a);
+});
+
 // ---------- runner ----------
 
 const only = process.argv[2]; // optional: run only tests whose name contains this text
 const env = await startEnv();
 let failed = 0;
-console.log(`Browser tests against ${env.url}\n`);
+console.log(`Browser tests against ${env.url} and the static site ${env.staticUrl}\n`);
 for (const { name, run } of tests) {
   if (only && !name.toLowerCase().includes(only.toLowerCase())) continue;
   const startedAt = Date.now();
@@ -253,5 +354,6 @@ console.log(`\nserver: errors ${stats.errors}, invalid messages ${stats.badMessa
 if (stats.errors > 0) failed++;
 await env.browser.close();
 await env.server.close();
+env.staticSite.close();
 console.log(failed === 0 ? '\nRESULT: OK - all browser tests passed.' : `\nRESULT: ${failed} browser test(s) FAILED.`);
 process.exit(failed === 0 ? 0 : 1);

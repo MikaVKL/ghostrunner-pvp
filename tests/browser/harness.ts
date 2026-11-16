@@ -5,8 +5,10 @@
  * In a page, `window.game` is the GameClient and `window.gameInput` the InputController
  * (both are set by the client as debugging aids).
  */
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { extname, join, normalize } from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { startServer, type RunningServer } from '../../src/server/startServer';
 import { secondsToTicks } from '../../src/shared/config';
@@ -31,7 +33,42 @@ const BROWSER_TEST_CONFIG: MatchConfig = {
 export interface TestEnv {
   server: RunningServer;
   browser: Browser;
+  /** Address of the real game server (page + WebSocket). */
   url: string;
+  /** Address of the static copy of the game WITHOUT any game server (like GitHub Pages). */
+  staticUrl: string;
+  staticSite: Server;
+}
+
+/** Must match `PAGES_BASE` in vite.config.ts. */
+const PAGES_BASE = process.env.BASE_PATH ?? '/ghostrunner-pvp/';
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+};
+
+/**
+ * Serves the GitHub Pages build (dist/pages) the way GitHub Pages does: plain files
+ * below the repository's sub-folder, 404 for everything else, and no WebSocket.
+ */
+async function startStaticSite(): Promise<Server> {
+  const root = 'dist/pages';
+  if (!existsSync(join(root, 'index.html'))) throw new Error('dist/pages is missing - run "npm run build:pages" first');
+  const site = createServer((req, res) => {
+    const path = (req.url ?? '/').split('?')[0];
+    const inside = path.startsWith(PAGES_BASE) ? normalize(path.slice(PAGES_BASE.length)) : null;
+    const file = inside === null || inside.startsWith('..') ? null : join(root, inside === '.' ? 'index.html' : inside);
+    if (!file || !existsSync(file) || statSync(file).isDirectory()) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' }).end('404 - not found');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream' });
+    res.end(readFileSync(file));
+  });
+  await new Promise<void>((resolve) => site.listen(0, resolve));
+  return site;
 }
 
 export async function startEnv(): Promise<TestEnv> {
@@ -41,7 +78,9 @@ export async function startEnv(): Promise<TestEnv> {
     // Lets WebGL work without a graphics card (software rendering).
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
   });
-  return { server, browser, url: `http://localhost:${server.port}` };
+  const staticSite = await startStaticSite();
+  const staticUrl = `http://localhost:${(staticSite.address() as AddressInfo).port}${PAGES_BASE}`;
+  return { server, browser, url: `http://localhost:${server.port}`, staticUrl, staticSite };
 }
 
 /** What a test sees of the game inside one page. */
@@ -73,15 +112,23 @@ export class GamePage {
     });
   }
 
-  async open(url: string): Promise<void> {
+  /**
+   * Open the game and wait for the menu.
+   * @param expectServer wait until the game server is connected (false for the static site)
+   */
+  async open(url: string, expectServer = true): Promise<void> {
     await this.page.goto(url);
     await this.page.waitForSelector('#map-list .map-card');
-    await this.page.waitForFunction(() => 'game' in window);
     await this.page.fill('#name-input', this.name);
+    await this.page.waitForSelector(`#multiplayer[data-state="${expectServer ? 'online' : 'offline'}"]`);
     // Record all game events of this page, so tests can ask "was there a parry?".
-    await this.installEventLog();
+    if (expectServer) await this.installEventLog();
   }
 
+  /**
+   * Start recording the game events of the CURRENT client (`window.game`). Call it again
+   * after starting a solo match - that one has its own client.
+   */
   async installEventLog(): Promise<void> {
     await this.page.evaluate(() => {
       const w = window as unknown as { game: { onGameEvent: (e: unknown) => void }; gameEvents: unknown[] };
@@ -100,10 +147,10 @@ export class GamePage {
 
   state(): Promise<GameView> {
     return this.page.evaluate(() => {
-      const game = (window as unknown as { game: import('../../src/netcode/gameClient').GameClient }).game;
-      const me = game.localPlayer;
-      const enemy = game.opponent;
-      const match = game.snapshot?.match ?? null;
+      const game = (window as unknown as { game: import('../../src/netcode/gameClient').GameClient | null }).game;
+      const me = game?.localPlayer ?? null;
+      const enemy = game?.opponent ?? null;
+      const match = game?.snapshot?.match ?? null;
       return {
         phase: match?.phase ?? null,
         scores: match?.scores ?? [],
@@ -112,9 +159,9 @@ export class GamePage {
         me,
         enemy,
         distance: me && enemy ? Math.hypot(me.pos.x - enemy.pos.x, me.pos.z - enemy.pos.z) : Infinity,
-        connected: game.connected,
-        inRoom: game.room !== null,
-        desyncs: game.stats.desyncs,
+        connected: game?.connected ?? false,
+        inRoom: game !== null && game.room !== null,
+        desyncs: game?.stats.desyncs ?? 0,
       };
     });
   }
@@ -162,6 +209,14 @@ export class GamePage {
   async screenshot(label: string): Promise<void> {
     await this.page.screenshot({ path: join(SCREENSHOT_DIR, `${label}.png`) });
   }
+}
+
+/** One fresh tab. `url` is the game server (env.url) or the static site (env.staticUrl). */
+export async function openOne(env: TestEnv, url: string, expectServer = true): Promise<GamePage> {
+  const context = await env.browser.newContext({ viewport: { width: 960, height: 540 } });
+  const player = new GamePage(await context.newPage(), 'Anna');
+  await player.open(url, expectServer);
+  return player;
 }
 
 /** Two fresh tabs (separate storage, like two different players). */

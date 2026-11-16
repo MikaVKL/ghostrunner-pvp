@@ -40,6 +40,8 @@ export class Hud {
   private readonly dashBar = element('dash-bar');
   private readonly hint = element('hint');
   private readonly roomCode = element('room-code');
+  private readonly roomInfo = element('room-info');
+  private readonly soloInfo = element('solo-info');
   private readonly mapName = element('map-name');
   private readonly ping = element('ping');
   private readonly flashEl = element('flash');
@@ -63,6 +65,13 @@ export class Hud {
     this.flashEl.className = '';
     void this.flashEl.offsetWidth; // restart the CSS animation
     this.flashEl.className = `flash-${kind}`;
+  }
+
+  /** In a solo match there is no room code: show this text instead (null = online match). */
+  setSoloLabel(label: string | null): void {
+    this.soloInfo.textContent = label ?? '';
+    this.soloInfo.classList.toggle('hidden', label === null);
+    this.roomInfo.classList.toggle('hidden', label !== null);
   }
 
   /** Banner while our own connection is broken and we try to get it back. */

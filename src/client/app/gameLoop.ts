@@ -21,7 +21,10 @@ import { detectMoments } from './stateWatcher';
 const MAX_TICKS_PER_FRAME = 5;
 
 export interface LoopParts {
-  client: GameClient;
+  /** The client whose match is on screen: online or solo. Null = neither exists. */
+  getClient: () => GameClient | null;
+  /** Called after every 60 Hz tick (the solo mode steps its local server here). */
+  afterTick: () => void;
   input: InputController;
   view: GameView;
   hud: Hud;
@@ -36,7 +39,8 @@ export interface FrameInfo {
   players: PlayerState[];
 }
 
-export function startGameLoop({ client, input, view, hud, debug, effects }: LoopParts): () => FrameInfo | null {
+export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
+  const { getClient, afterTick, input, view, hud, debug, effects } = parts;
   let lastFrameAt = performance.now();
   let accumulator = 0;
   /** Position of the local player before the most recent tick. */
@@ -44,14 +48,16 @@ export function startGameLoop({ client, input, view, hud, debug, effects }: Loop
   /** Other players as shown in the previous frame (to notice when they start something). */
   const shownBefore = new Map<number, PlayerState>();
   let lastFrame: FrameInfo | null = null;
+  let shownClient: GameClient | null = null;
 
   /** One 60 Hz step: send the input, predict, and react to what our player just started. */
-  const tick = () => {
+  const tick = (client: GameClient) => {
     const before = client.localPlayer ? clonePlayer(client.localPlayer) : null;
     previousPos = before ? cloneVec3(before.pos) : null;
     client.tick(input.sample());
     const after = client.localPlayer;
     if (before && after) for (const moment of detectMoments(before, after)) effects.moment(moment, after, null);
+    afterTick();
   };
 
   const frame = (now: number) => {
@@ -59,16 +65,23 @@ export function startGameLoop({ client, input, view, hud, debug, effects }: Loop
     lastFrameAt = now;
     accumulator += deltaMs;
 
+    const client = getClient();
+    if (client !== shownClient) {
+      // Switched between online and solo: forget everything about the old match.
+      shownClient = client;
+      previousPos = null;
+      shownBefore.clear();
+    }
     let ticks = 0;
     while (accumulator >= TICK_MS) {
-      tick();
+      if (client) tick(client);
       accumulator -= TICK_MS;
       if (++ticks >= MAX_TICKS_PER_FRAME) accumulator = 0;
     }
-    client.renderClock.advance(deltaMs);
+    client?.renderClock.advance(deltaMs);
 
-    const me = client.localPlayer;
-    if (me && client.room) {
+    const me = client?.localPlayer ?? null;
+    if (client && me && client.room) {
       const mySlot = client.room.slot;
       const remotes = (client.snapshot?.players ?? [])
         .filter((p) => p.slot !== mySlot)

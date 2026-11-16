@@ -36,7 +36,8 @@
       <div id="connection-lost" class="hidden">Verbindung verloren – verbinde neu …</div>
 
       <div id="room-panel">
-        <span>Raum <b id="room-code"></b></span>
+        <span id="room-info">Raum <b id="room-code"></b></span>
+        <span id="solo-info" class="hidden"></span>
         <span id="map-name"></span>
         <span id="ping"></span>
         <button id="hud-help-button">Steuerung (H)</button>
@@ -47,20 +48,34 @@
 
     <!-- Hauptmenü. Wird von src/client/ui/lobbyUi.ts gesteuert. -->
     <div id="lobby">
-      <div class="card">
+      <div class="card menu">
         <h1>NEON<span>KLINGE</span></h1>
         <p class="tagline">1 gegen 1 · Ein Treffer tötet · Best-of-5</p>
 
-        <label>Dein Name <input id="name-input" maxlength="16" placeholder="Spieler" /></label>
-        <button id="quick-button" class="primary">Schnelles Spiel</button>
+        <div class="menu-columns">
+          <div class="column">
+            <label>Dein Name <input id="name-input" maxlength="16" placeholder="Spieler" /></label>
+            <div class="section-title">Map</div>
+            <div id="map-list"></div>
+          </div>
 
-        <div class="section">
-          <div class="section-title">Mit einem Freund spielen</div>
-          <div id="map-list"></div>
-          <button id="create-button">Raum erstellen</button>
-          <div class="row">
-            <input id="code-input" maxlength="4" placeholder="CODE" />
-            <button id="join-button">Raum beitreten</button>
+          <div class="column">
+            <div class="section-title">Solo – läuft ohne Server</div>
+            <div id="difficulty-list"></div>
+            <p id="difficulty-description" class="note"></p>
+            <button id="solo-button" class="primary">Solo gegen Bot</button>
+
+            <div class="section" id="multiplayer">
+              <div class="section-title">Mehrspieler</div>
+              <p id="online-status" class="note"></p>
+              <button id="retry-button" class="hidden">Erneut verbinden</button>
+              <button id="quick-button">Schnelles Spiel</button>
+              <button id="create-button">Raum erstellen</button>
+              <div class="row">
+                <input id="code-input" maxlength="4" placeholder="CODE" />
+                <button id="join-button">Raum beitreten</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -96,6 +111,7 @@
           <li><b>Wall-Run:</b> Im Sprung an eine Wand und vorwärts halten. Du läufst bis zu 1,5 Sekunden an der Wand entlang – auch über den Abgrund.</li>
           <li><b>Sturz in den Abgrund tötet.</b> Der Punkt geht an den Gegner.</li>
           <li><b>Best-of-5:</b> Wer zuerst 3 Runden gewinnt, gewinnt das Match. Sterben beide, zählt die Runde nicht.</li>
+          <li><b>Solo gegen Bot:</b> dieselben Regeln, aber alles läuft in deinem Browser – ohne Server und ohne Internet. Der Bot ist immer für ein Rematch bereit.</li>
         </ul>
         <button id="help-close" class="primary">Schließen (Esc)</button>
       </div>

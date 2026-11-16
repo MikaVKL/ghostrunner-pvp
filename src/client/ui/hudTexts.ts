@@ -17,8 +17,10 @@ export const TEXT = {
   opponent: 'Gegner',
   connectionLost: 'Verbindung verloren – verbinde neu …',
   connectionGaveUp: 'Der Server ist nicht erreichbar. Bitte lade die Seite neu.',
-  serverUnreachable: 'Der Spielserver ist nicht erreichbar. Läuft er? (npm run dev)',
   restoringSeat: 'Kehre ins laufende Spiel zurück …',
+  onlineConnecting: 'Verbinde mit dem Spielserver …',
+  onlineOffline:
+    'Kein Spielserver erreichbar – Mehrspieler ist hier nicht verfügbar. „Solo gegen Bot“ funktioniert trotzdem.',
   clickToPlay: 'Klicke ins Spiel, um die Maus zu fangen · H = Steuerung',
 };
 

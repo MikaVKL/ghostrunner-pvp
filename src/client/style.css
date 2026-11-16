@@ -84,6 +84,68 @@ body.stunned #game {
   width: 640px;
 }
 
+/* The main menu: two columns next to each other, stacked on narrow screens. */
+.card.menu {
+  width: 780px;
+}
+
+.menu-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .menu-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.note:empty {
+  display: none;
+}
+
+#online-status.warning {
+  color: var(--yellow);
+}
+
+button:disabled,
+input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  background: #1a2148;
+  border-color: var(--border);
+}
+
+#difficulty-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+#difficulty-list button.selected {
+  border-color: var(--pink);
+  background: #3a1640;
+  box-shadow: 0 0 10px rgba(255, 61, 154, 0.3);
+}
+
 .card h1 {
   margin: 0;
   font-size: 34px;
@@ -198,8 +260,8 @@ button.primary:hover {
 }
 
 #map-list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 

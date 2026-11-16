@@ -1,8 +1,15 @@
 /**
- * Connects the pieces of the browser client: network client, input, renderer, sound and
- * UI. Effects for things that happen are in effects.ts.
+ * Connects the pieces of the browser client: input, renderer, sound, UI and the game
+ * clients. Effects for things that happen are in effects.ts.
+ *
+ * There can be two GameClients:
+ *   online - connected to a game server over the network (null if none is reachable)
+ *   solo   - connected to a local server + bot inside this tab (see src/solo/soloMatch.ts)
+ * Everything on screen works with `current()`, whichever of the two is being played.
  */
-import type { GameClient } from '../../netcode/gameClient';
+import { GameClient } from '../../netcode/gameClient';
+import { DIFFICULTIES, type Difficulty } from '../../solo/difficulty';
+import { SoloMatch } from '../../solo/soloMatch';
 import { AudioEngine } from '../audio/audioEngine';
 import { playSound } from '../audio/sounds';
 import { UI_KEYS } from '../input/bindings';
@@ -13,12 +20,26 @@ import { HelpOverlay } from '../ui/helpOverlay';
 import { Hud } from '../ui/hud';
 import { errorText, TEXT } from '../ui/hudTexts';
 import { LobbyUi } from '../ui/lobbyUi';
-import { forgetSeat, reconnectLoop, rememberedSeat, rememberSeat, type ConnectionOptions } from './connection';
+import {
+  forgetSeat,
+  openTransport,
+  reconnectLoop,
+  rememberedSeat,
+  rememberSeat,
+  type ConnectionOptions,
+} from './connection';
 import { Effects } from './effects';
 import { startGameLoop } from './gameLoop';
 import { loadSettings, saveSettings, type Settings } from './settings';
 
-export function startGameApp(client: GameClient, connection: ConnectionOptions, debugInfo: string): void {
+export interface AppOptions {
+  connection: ConnectionOptions;
+  /** False turns client-side prediction off (URL option ?predict=0). */
+  predict: boolean;
+  debugInfo: string;
+}
+
+export function startGameApp(options: AppOptions): void {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   const settings = loadSettings();
   const input = new InputController(canvas);
@@ -27,7 +48,13 @@ export function startGameApp(client: GameClient, connection: ConnectionOptions, 
   const audio = new AudioEngine();
   const help = new HelpOverlay();
   const effects = new Effects(view, hud, audio);
-  const debug = new DebugOverlay(debugInfo);
+  const debug = new DebugOverlay(options.debugInfo);
+
+  let online: GameClient | null = null;
+  let solo: SoloMatch | null = null;
+  let connecting = false;
+  /** The client of the match on screen (a solo match wins over the idle online client). */
+  const current = (): GameClient | null => solo?.client ?? online;
 
   const applySettings = (next: Settings) => {
     audio.setVolume(next.volume);
@@ -35,10 +62,6 @@ export function startGameApp(client: GameClient, connection: ConnectionOptions, 
     saveSettings(next);
   };
   applySettings(settings);
-  const lobby = new LobbyUi(client, settings, {
-    onSettingsChange: applySettings,
-    onOpenHelp: () => help.setVisible(true),
-  });
 
   // Browsers allow sound only after a click or key press.
   window.addEventListener('pointerdown', () => audio.unlock());
@@ -47,11 +70,6 @@ export function startGameApp(client: GameClient, connection: ConnectionOptions, 
     if (event.target instanceof HTMLButtonElement) playSound(audio, 'click');
   });
 
-  /** Look the way the spawn point faces (the server resets the player there). */
-  const faceSpawnDirection = () => {
-    if (client.map && client.room) input.setView(client.map.spawns[client.room.slot].yaw, 0);
-  };
-
   const showGame = (inGame: boolean) => {
     lobby.setVisible(!inGame);
     hud.setVisible(inGame);
@@ -59,60 +77,147 @@ export function startGameApp(client: GameClient, connection: ConnectionOptions, 
     if (!inGame && document.pointerLockElement) document.exitPointerLock();
   };
 
-  client.onRoomJoined = (room) => {
-    view.setMap(client.map!);
-    faceSpawnDirection();
-    rememberSeat(room);
-    lobby.setStatus('');
-    hud.setConnectionLost(false);
-    showGame(true);
+  /** Look the way the spawn point faces (the server resets the player there). */
+  const faceSpawnDirection = (client: GameClient) => {
+    if (client.map && client.room) input.setView(client.map.spawns[client.room.slot].yaw, 0);
   };
-  client.onRoomLeft = () => {
-    forgetSeat();
-    hud.setConnectionLost(false);
-    showGame(false);
+
+  /** Connect a client's callbacks to the screen. Works the same for online and solo. */
+  const bind = (client: GameClient, kind: 'online' | 'solo') => {
+    client.onRoomJoined = (room) => {
+      view.setMap(client.map!);
+      faceSpawnDirection(client);
+      if (kind === 'online') rememberSeat(room); // a solo match cannot be rejoined after a reload
+      lobby.setStatus('');
+      hud.setConnectionLost(false);
+      showGame(true);
+    };
+    client.onRoomLeft = () => {
+      if (kind === 'online') forgetSeat();
+      else endSolo();
+      hud.setConnectionLost(false);
+      showGame(false);
+    };
+    client.onError = (_message, code) => lobby.setStatus(errorText(code));
+    client.onPhaseChange = (phase, previous) => {
+      if (phase === 'countdown') faceSpawnDirection(client);
+      if (phase === 'waiting' && previous !== null) faceSpawnDirection(client);
+    };
+    client.onGameEvent = (event) => {
+      const frame = lastFrame();
+      if (frame && client.room && current() === client) {
+        effects.gameEvent(event, client.room.slot, frame.players, frame.listener);
+      }
+    };
+    if (kind === 'online') client.onClose = () => onlineConnectionLost(client);
   };
-  client.onError = (_message, code) => lobby.setStatus(errorText(code));
-  client.onClose = () => {
-    // Connection lost: keep the picture, show a banner and try to get back in.
-    hud.setConnectionLost(true);
-    lobby.setStatus(TEXT.connectionLost);
-    void reconnectLoop(client, connection).then((ok) => {
+
+  // ---------- online ----------
+
+  /** Try to reach a game server. Without one, only the solo mode is offered. */
+  const connectOnline = async () => {
+    if (connecting || online) return;
+    connecting = true;
+    lobby.setOnlineState('connecting');
+    try {
+      const client = new GameClient(await openTransport(options.connection), { predict: options.predict });
+      bind(client, 'online');
+      online = client;
+      lobby.setOnlineState('online');
+      // After a page reload: take our old seat again, if the server still keeps it.
+      const seat = rememberedSeat();
+      if (seat && !solo) {
+        lobby.setStatus(TEXT.restoringSeat);
+        client.rejoinRoom(seat.code, seat.token);
+      }
+    } catch {
+      lobby.setOnlineState('offline');
+    } finally {
+      connecting = false;
+    }
+  };
+
+  /** The network connection broke: keep the picture, show a banner and try to get back in. */
+  const onlineConnectionLost = (client: GameClient) => {
+    const wasPlaying = current() === client && client.room !== null;
+    if (wasPlaying) hud.setConnectionLost(true);
+    lobby.setOnlineState('connecting');
+    void reconnectLoop(client, options.connection).then((ok) => {
       if (ok) {
-        if (!client.room) lobby.setStatus('');
+        lobby.setOnlineState('online');
+        if (!client.room) hud.setConnectionLost(false);
         return;
       }
-      showGame(false);
-      lobby.setStatus(TEXT.connectionGaveUp);
+      // Gave up: multiplayer is off until the player retries. A solo match is not affected.
+      online = null;
+      lobby.setOnlineState('offline');
+      hud.setConnectionLost(false);
+      if (wasPlaying) {
+        showGame(false);
+        lobby.setStatus(TEXT.connectionGaveUp);
+      }
     });
   };
-  client.onPhaseChange = (phase, previous) => {
-    if (phase === 'countdown') faceSpawnDirection();
-    if (phase === 'waiting' && previous !== null) faceSpawnDirection();
+
+  // ---------- solo ----------
+
+  const startSolo = (name: string, mapId: string, difficulty: Difficulty) => {
+    if (solo || online?.room) return; // already in a match
+    solo = new SoloMatch({
+      playerName: name,
+      mapId,
+      difficulty,
+      seed: Math.floor(Math.random() * 2 ** 31), // every match is different
+      predict: options.predict,
+    });
+    bind(solo.client, 'solo');
+    hud.setSoloLabel(`Solo · ${DIFFICULTIES[difficulty].label}`);
+    solo.start();
   };
 
-  const lastFrame = startGameLoop({ client, input, view, hud, debug, effects });
-  client.onGameEvent = (event) => {
-    const frame = lastFrame();
-    if (frame && client.room) effects.gameEvent(event, client.room.slot, frame.players, frame.listener);
+  const endSolo = () => {
+    const match = solo;
+    solo = null;
+    hud.setSoloLabel(null);
+    match?.dispose();
   };
 
-  document.getElementById('leave-button')!.addEventListener('click', () => client.leaveRoom());
+  // ---------- menu, keys, loop ----------
+
+  const lobby = new LobbyUi(settings, {
+    onSolo: startSolo,
+    onQuickMatch: (name) => online?.quickMatch(name),
+    onCreateRoom: (name, mapId) => online?.createRoom(name, mapId),
+    onJoinRoom: (code, name) => online?.joinRoom(code, name),
+    onRetryOnline: () => void connectOnline(),
+    onSettingsChange: applySettings,
+    onOpenHelp: () => help.setVisible(true),
+  });
+
+  const lastFrame = startGameLoop({
+    getClient: current,
+    afterTick: () => solo?.step(),
+    input,
+    view,
+    hud,
+    debug,
+    effects,
+  });
+
+  document.getElementById('leave-button')!.addEventListener('click', () => current()?.leaveRoom());
   document.getElementById('hud-help-button')!.addEventListener('click', () => help.toggle());
   window.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLInputElement) return; // typing a name or code
     if (event.code === UI_KEYS.help) help.toggle();
     if (event.code === UI_KEYS.mute) hud.toast(audio.toggleMute() ? TEXT.soundOff : TEXT.soundOn, 700);
-    if (event.code === UI_KEYS.rematch && client.snapshot?.match.phase === 'matchEnd') client.requestRematch();
+    const client = current();
+    if (event.code === UI_KEYS.rematch && client?.snapshot?.match.phase === 'matchEnd') client.requestRematch();
   });
 
-  // After a page reload: take our old seat again, if the server still keeps it.
-  const seat = rememberedSeat();
-  if (seat) {
-    lobby.setStatus(TEXT.restoringSeat);
-    client.rejoinRoom(seat.code, seat.token);
-  }
-
-  // Debugging aid (also used by the browser tests): `gameInput.setView(yaw, pitch)`.
+  // Debugging aids (also used by the browser tests): in the browser console,
+  // `game` is the client of the current match and `gameInput.setView(yaw, pitch)` turns the camera.
+  Object.defineProperty(window, 'game', { get: current, configurable: true });
   (window as unknown as { gameInput: InputController }).gameInput = input;
+
+  void connectOnline();
 }

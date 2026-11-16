@@ -1,18 +1,16 @@
 /**
- * Browser entry point. Connects to the server and starts the app.
+ * Browser entry point. Reads the URL options and starts the app. The app itself tries
+ * to reach a game server; if there is none (e.g. on GitHub Pages), the solo mode still works.
  *
  * URL options for experimenting (see LEARNING.md):
- *   ?lag=100      add 100 ms artificial delay in each direction (ping +200 ms)
- *   ?jitter=30    add 0-30 ms random extra delay per message
+ *   ?lag=100      add 100 ms artificial delay in each direction (ping +200 ms), online only
+ *   ?jitter=30    add 0-30 ms random extra delay per message, online only
  *   ?predict=0    turn client-side prediction off, to feel what it is good for
  */
-import { GameClient } from '../netcode/gameClient';
-import { openTransport, type ConnectionOptions } from './app/connection';
 import { startGameApp } from './app/gameApp';
-import { TEXT } from './ui/hudTexts';
 
 const params = new URLSearchParams(location.search);
-const connection: ConnectionOptions = {
+const connection = {
   lagMs: Number(params.get('lag') ?? 0),
   jitterMs: Number(params.get('jitter') ?? 0),
 };
@@ -23,11 +21,4 @@ const debugInfo = [
   predict ? '' : 'PREDICTION OFF',
 ].join(' ');
 
-try {
-  const client = new GameClient(await openTransport(connection), { predict });
-  startGameApp(client, connection, debugInfo);
-  // Debugging aid: type `game.stats` or `game.localPlayer` in the browser console.
-  (window as unknown as { game: GameClient }).game = client;
-} catch {
-  document.getElementById('lobby-status')!.textContent = TEXT.serverUnreachable;
-}
+startGameApp({ connection, predict, debugInfo });
