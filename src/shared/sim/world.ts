@@ -2,7 +2,9 @@
  * The complete game state of one room: all players plus the match state.
  * Like PlayerState this is plain JSON data and is sent to clients as-is.
  */
+import type { AttackKind } from '../combat/weapons';
 import type { MapDef } from '../maps/mapTypes';
+import type { Vec3 } from '../math/vec3';
 import type { MatchConfig } from '../match/matchConfig';
 import { createPlayer, type PlayerState } from './playerState';
 
@@ -30,12 +32,32 @@ export interface MatchState {
   rematchVotes: boolean[];
 }
 
+/** Where every player stood at the end of one tick (for lag compensation). */
+export interface PositionRecord {
+  tick: number;
+  /** Feet position by player slot. */
+  positions: Record<number, Vec3>;
+}
+
+/** A swing that connected but is not decided yet: the target may still parry it. */
+export interface PendingHit {
+  attacker: number;
+  target: number;
+  /** Server tick at which the swing connected. */
+  tick: number;
+  kind: AttackKind;
+}
+
 export interface WorldState {
   /** Number of simulation steps since the room was created. */
   tick: number;
   mapId: string;
   players: PlayerState[];
   match: MatchState;
+  /** Server-only (not sent to clients): recent positions, newest last. */
+  history: PositionRecord[];
+  /** Server-only (not sent to clients): see combat/lagCompensation.ts. */
+  pendingHits: PendingHit[];
 }
 
 /** Static data the simulation needs but that never changes during a match. */
@@ -58,6 +80,8 @@ export function createWorld(mapId: string): WorldState {
       matchWinner: -1,
       rematchVotes: [false, false],
     },
+    history: [],
+    pendingHits: [],
   };
 }
 

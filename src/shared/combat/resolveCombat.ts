@@ -3,33 +3,35 @@
  *
  * Only the SERVER's result counts. The client cannot predict this (it does not know the
  * opponent's real state), it just receives the outcome in the next snapshot.
+ *
+ * Two steps per tick (lag compensation, see lagCompensation.ts):
+ *   1. findContacts:  a swing that reaches its target becomes a "pending hit"
+ *   2. decideHits:    a pending hit is decided once the target has seen it: parry or hit
  */
 import { forwardFromYaw } from '../math/vec3';
+import type { InputCmd } from '../input';
 import type { GameEvent } from '../sim/events';
 import type { PlayerState } from '../sim/playerState';
+import type { PendingHit, WorldState } from '../sim/world';
 import { currentAttack, isAttackActive, isParryActive, setAction } from './actions';
 import { COMBAT } from './combatConfig';
 import { isFacing, isInMeleeRange } from './hitDetection';
-import type { AttackProfile } from './weapons';
+import { effectiveViewTick, positionAt } from './lagCompensation';
+import { getWeapon } from './weapons';
 
-interface Contact {
-  attacker: PlayerState;
-  target: PlayerState;
-  attack: AttackProfile;
-  parried: boolean;
-}
+type Inputs = Record<number, InputCmd | undefined>;
 
-/** Find every swing that connects this tick. Does not modify anything. */
-function findContacts(players: PlayerState[]): Contact[] {
-  const contacts: Contact[] = [];
-  for (const attacker of players) {
+/** Step 1: every active swing that reaches a target (where the attacker saw it) connects. */
+function findContacts(world: WorldState, inputs: Inputs): PendingHit[] {
+  const contacts: PendingHit[] = [];
+  for (const attacker of world.players) {
     if (!attacker.alive || attacker.attackConnected || !isAttackActive(attacker)) continue;
-    const attack = currentAttack(attacker);
-    for (const target of players) {
+    const seenTick = effectiveViewTick(world, inputs[attacker.slot]?.viewTick);
+    for (const target of world.players) {
       if (target === attacker || !target.alive) continue;
-      if (!isInMeleeRange(attacker, target, attack)) continue;
-      const parried = isParryActive(target) && isFacing(target, attacker);
-      contacts.push({ attacker, target, attack, parried });
+      const seenPos = positionAt(world, target.slot, seenTick) ?? target.pos;
+      if (!isInMeleeRange(attacker, target, currentAttack(attacker), seenPos)) continue;
+      contacts.push({ attacker: attacker.slot, target: target.slot, tick: world.tick, kind: attacker.attackKind });
     }
   }
   return contacts;
@@ -44,8 +46,8 @@ function directionBetween(from: PlayerState, to: PlayerState): { x: number; z: n
   return { x: dx / dist, z: dz / dist };
 }
 
-function applyHit(c: Contact, events: GameEvent[]): void {
-  const { attacker, target, attack } = c;
+function applyHit(hit: PendingHit, attacker: PlayerState, target: PlayerState, events: GameEvent[]): void {
+  const attack = getWeapon(attacker.weaponId).attacks[hit.kind];
   target.hp = Math.max(0, target.hp - attack.damage);
   // Push the target away from the attacker.
   const dir = directionBetween(attacker, target);
@@ -56,20 +58,21 @@ function applyHit(c: Contact, events: GameEvent[]): void {
     type: 'hit',
     attacker: attacker.slot,
     target: target.slot,
-    kind: attacker.attackKind,
+    kind: hit.kind,
     damage: attack.damage,
     hpLeft: target.hp,
   });
 }
 
 /** The attacker is stunned and pushed back; the defender may act again immediately. */
-function applyParry(c: Contact, events: GameEvent[]): void {
-  const { attacker, target } = c;
-  setAction(attacker, 'stunned');
-  attacker.dashTicks = 0;
-  const away = directionBetween(target, attacker);
-  attacker.vel.x = away.x * COMBAT.parryPushback;
-  attacker.vel.z = away.z * COMBAT.parryPushback;
+function applyParry(attacker: PlayerState, target: PlayerState, events: GameEvent[]): void {
+  if (attacker.alive) {
+    setAction(attacker, 'stunned');
+    attacker.dashTicks = 0;
+    const away = directionBetween(target, attacker);
+    attacker.vel.x = away.x * COMBAT.parryPushback;
+    attacker.vel.z = away.z * COMBAT.parryPushback;
+  }
   setAction(target, 'idle');
   target.parryCooldown = 0;
   target.attackCooldown = 0;
@@ -77,15 +80,35 @@ function applyParry(c: Contact, events: GameEvent[]): void {
 }
 
 /**
- * Resolve all melee contacts of this tick.
- * All contacts are collected first and applied afterwards, so the result does not depend
+ * Step 2: decide every pending hit whose target has seen it by now.
+ * Returns the hits that are still undecided.
+ */
+function decideHits(world: WorldState, inputs: Inputs, events: GameEvent[]): PendingHit[] {
+  const undecided: PendingHit[] = [];
+  for (const hit of world.pendingHits) {
+    const attacker = world.players.find((p) => p.slot === hit.attacker);
+    const target = world.players.find((p) => p.slot === hit.target);
+    if (!attacker || !target || !target.alive) continue;
+    if (effectiveViewTick(world, inputs[target.slot]?.viewTick) < hit.tick) {
+      undecided.push(hit); // the target has not seen this swing land yet - it may still parry
+      continue;
+    }
+    if (isParryActive(target) && isFacing(target, attacker)) applyParry(attacker, target, events);
+    else applyHit(hit, attacker, target, events);
+  }
+  return undecided;
+}
+
+/**
+ * Resolve melee combat for this tick.
+ * All contacts are collected first and decided afterwards, so the result does not depend
  * on the order of the players (two simultaneous hits both count).
  */
-export function resolveCombat(players: PlayerState[], events: GameEvent[]): void {
-  const contacts = findContacts(players);
-  for (const contact of contacts) {
-    if (contact.parried) applyParry(contact, events);
-    else applyHit(contact, events);
-    contact.attacker.attackConnected = true;
+export function resolveCombat(world: WorldState, inputs: Inputs, events: GameEvent[]): void {
+  for (const contact of findContacts(world, inputs)) {
+    const attacker = world.players.find((p) => p.slot === contact.attacker);
+    if (attacker) attacker.attackConnected = true; // one result per swing
+    world.pendingHits.push(contact);
   }
+  world.pendingHits = decideHits(world, inputs, events);
 }

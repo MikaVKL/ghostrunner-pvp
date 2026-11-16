@@ -19,7 +19,7 @@ function simulateRandomMatch(seed: number, ticks: number): number {
   addPlayer(world, 0, ARENA);
   addPlayer(world, 1, ARENA);
   startMatch(world, ARENA_CTX);
-  const inputs: InputCmd[] = [0, 1].map(() => ({ seq: 0, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0 }));
+  const inputs: InputCmd[] = [0, 1].map(() => ({ seq: 0, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, viewTick: 0 }));
   for (let tick = 0; tick < ticks; tick++) {
     for (const cmd of inputs) {
       if (rng() < 0.1) {
@@ -27,6 +27,7 @@ function simulateRandomMatch(seed: number, ticks: number): number {
         cmd.moveZ = Math.floor(rng() * 3) - 1;
         cmd.yaw = rng() * 6 - 3;
         cmd.buttons = Math.floor(rng() * (ALL_BUTTONS + 1));
+        cmd.viewTick = Math.max(0, tick - Math.floor(rng() * 25)); // random lag, sometimes too much
       }
     }
     stepWorld(world, { 0: { ...inputs[0] }, 1: { ...inputs[1] } }, ARENA_CTX);

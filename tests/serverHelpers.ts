@@ -3,7 +3,7 @@
  * (synchronously) to a GameServer and records every message it receives.
  */
 import { GameServer } from '../src/server/gameServer';
-import type { InputSample } from '../src/shared/input';
+import type { InputCmd } from '../src/shared/input';
 import { FAST_MATCH_CONFIG } from '../src/shared/match/matchConfig';
 import { encodeMessage, parseServerMessage } from '../src/shared/protocol/codec';
 import type { ClientMessage, ServerMessage, SnapshotMessage } from '../src/shared/protocol/messages';
@@ -41,11 +41,11 @@ export class TestClient {
     this.serverEnd.onMessage(text);
   }
 
-  sendInput(sample: Partial<InputSample> = {}): void {
+  sendInput(sample: Partial<InputCmd> = {}): void {
     this.seq++;
     this.send({
       type: 'input',
-      cmd: { seq: this.seq, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, ...sample },
+      cmd: { seq: this.seq, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, viewTick: 0, ...sample },
     });
   }
 

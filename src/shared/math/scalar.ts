@@ -15,10 +15,19 @@ export function moveToward(current: number, target: number, maxDelta: number): n
   return current + Math.sign(diff) * maxDelta;
 }
 
-/** Wrap an angle in radians into the range [-PI, PI). */
+/**
+ * Wrap an angle in radians into the range [-PI, PI).
+ *
+ * IMPORTANT: wrapping an already wrapped angle must return exactly the same number
+ * (the client wraps an input before predicting, the server wraps it again). Float
+ * rounding right at +-PI would break that, hence the early return and the clamps.
+ */
 export function wrapAngle(angle: number): number {
+  if (angle >= -Math.PI && angle < Math.PI) return angle;
   const twoPi = Math.PI * 2;
-  return angle - twoPi * Math.floor((angle + Math.PI) / twoPi);
+  const wrapped = angle - twoPi * Math.floor((angle + Math.PI) / twoPi);
+  if (wrapped >= Math.PI) return wrapped - twoPi < -Math.PI ? -Math.PI : wrapped - twoPi;
+  return wrapped < -Math.PI ? -Math.PI : wrapped;
 }
 
 /** Shortest signed difference from angle `a` to angle `b` (radians). */

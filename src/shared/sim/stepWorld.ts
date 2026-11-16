@@ -9,6 +9,7 @@
  * Steps 2 and 3 are "interactions". We detect which players they changed and report
  * them as `disturbed`, so each client knows whether a prediction error was expected.
  */
+import { recordPositions } from '../combat/lagCompensation';
 import { resolveCombat } from '../combat/resolveCombat';
 import { neutralInput, type InputCmd } from '../input';
 import { stepMatch } from '../match/stepMatch';
@@ -40,7 +41,7 @@ export function stepWorld(world: WorldState, inputs: InputsBySlot, ctx: SimConte
   const predicted = world.players.map(clonePlayer);
 
   // 2. + 3. Interactions.
-  if (phaseBefore === 'playing') resolveCombat(world.players, events);
+  if (phaseBefore === 'playing') resolveCombat(world, inputs, events);
   stepMatch(world, ctx, events);
 
   const phaseChanged = world.match.phase !== phaseBefore;
@@ -48,5 +49,6 @@ export function stepWorld(world: WorldState, inputs: InputsBySlot, ctx: SimConte
   world.players.forEach((player, i) => {
     if (phaseChanged || stateDifference(predicted[i], player) !== 0) disturbed.push(player.slot);
   });
+  recordPositions(world); // for lag compensation in later ticks
   return { events, disturbed };
 }

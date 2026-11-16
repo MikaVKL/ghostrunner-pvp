@@ -1,6 +1,7 @@
 /**
  * A bot = the normal GameClient (same netcode as a human) + a BotBrain pressing the buttons.
  */
+import { TICK_MS } from '../shared/config';
 import type { Transport } from '../shared/protocol/transport';
 import { GameClient } from '../netcode/gameClient';
 import { BotBrain, type BotPersonality } from './brain';
@@ -74,12 +75,16 @@ export class Bot {
   tick(): void {
     try {
       const { client } = this;
+      client.renderClock.advance(TICK_MS);
       const me = client.localPlayer;
       if (!me || !client.map) {
         client.tick({ moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0 });
         return;
       }
-      client.tick(this.brain.think(me, client.opponent, client.map));
+      // Like a human, the bot sees the opponent interpolated, slightly in the past.
+      const enemySlot = client.opponent?.slot;
+      const enemy = enemySlot === undefined ? null : (client.sampleRemote(enemySlot) ?? client.opponent);
+      client.tick(this.brain.think(me, enemy, client.map));
       this.countUsage();
     } catch (error) {
       this.errors.push(error instanceof Error ? (error.stack ?? error.message) : String(error));

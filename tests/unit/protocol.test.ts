@@ -10,7 +10,7 @@ import {
 
 describe('sanitizeInput', () => {
   it('accepts a normal input unchanged', () => {
-    const cmd = { seq: 3, moveX: 1, moveZ: -1, yaw: 0.5, pitch: -0.2, buttons: 5 };
+    const cmd = { seq: 3, moveX: 1, moveZ: -1, yaw: 0.5, pitch: -0.2, buttons: 5, viewTick: 120.25 };
     expect(sanitizeInput(cmd)).toEqual(cmd);
   });
 
@@ -32,6 +32,13 @@ describe('sanitizeInput', () => {
     expect(sanitizeInput({ seq: 1, moveX: 0, moveZ: 0, yaw: Infinity, pitch: 0, buttons: 0 })).toBeNull();
     expect(sanitizeInput({ seq: 0, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0 })).toBeNull();
     expect(sanitizeInput({ seq: 1.5, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0 })).toBeNull();
+    expect(sanitizeInput({ seq: 1, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, viewTick: 'now' })).toBeNull();
+    expect(sanitizeInput({ seq: 1, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, viewTick: NaN })).toBeNull();
+  });
+
+  it('viewTick is optional (0 = unknown) and never negative', () => {
+    expect(sanitizeInput({ seq: 1, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0 })!.viewTick).toBe(0);
+    expect(sanitizeInput({ seq: 1, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, viewTick: -50 })!.viewTick).toBe(0);
   });
 
   it('drops unknown extra fields (a client cannot smuggle in a position)', () => {
@@ -52,7 +59,7 @@ describe('parseClientMessage', () => {
     expect(parseClientMessage('{"type":"leaveRoom"}')).toEqual({ type: 'leaveRoom' });
     expect(parseClientMessage('{"type":"rematch"}')).toEqual({ type: 'rematch' });
     expect(parseClientMessage('{"type":"ping","t":12}')).toEqual({ type: 'ping', t: 12 });
-    const inputMessage = { type: 'input' as const, cmd: { seq: 1, moveX: 0, moveZ: 1, yaw: 0, pitch: 0, buttons: 0 } };
+    const inputMessage = { type: 'input' as const, cmd: { seq: 1, moveX: 0, moveZ: 1, yaw: 0, pitch: 0, buttons: 0, viewTick: 12.5 } };
     expect(parseClientMessage(encodeMessage(inputMessage))).toEqual(inputMessage);
   });
 

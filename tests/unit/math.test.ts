@@ -61,3 +61,16 @@ describe('seeded rng', () => {
     expect(same).toBeLessThan(5);
   });
 });
+
+describe('wrapAngle near the boundary (regression: desync found by the bots)', () => {
+  it('always lands in [-PI, PI) and wrapping twice changes nothing', () => {
+    const tricky = [Math.PI, -Math.PI, 3.1415926535897936, -3.1415926535897936, 3.1415926535897927, 9.42477796076938, -9.42477796076938];
+    for (let i = -2000; i <= 2000; i++) tricky.push(i * 0.0031415926535897934, Math.PI * i, Math.PI * i + 4.4e-16, Math.PI * i - 4.4e-16);
+    for (const angle of tricky) {
+      const once = wrapAngle(angle);
+      expect(once).toBeGreaterThanOrEqual(-Math.PI);
+      expect(once).toBeLessThan(Math.PI);
+      expect(Object.is(wrapAngle(once), once)).toBe(true);
+    }
+  });
+});

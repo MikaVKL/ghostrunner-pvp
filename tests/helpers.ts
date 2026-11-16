@@ -36,8 +36,8 @@ export const TEST_MAP: MapDef = {
 export const TEST_CTX: SimContext = { map: TEST_MAP, matchConfig: FAST_MATCH_CONFIG };
 
 /** Build an input command. Unspecified fields are neutral. */
-export function input(partial: Partial<InputSample> = {}, seq = 1): InputCmd {
-  return { seq, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, ...partial };
+export function input(partial: Partial<InputCmd> = {}, seq = 1): InputCmd {
+  return { seq, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, viewTick: 0, ...partial };
 }
 
 /** A player standing on the floor of the test map (already grounded). */
@@ -77,6 +77,6 @@ export function runWorld(
 }
 
 /** Input that keeps a player looking the way it currently looks. */
-export function hold(p: PlayerState, partial: Partial<InputSample> = {}): InputCmd {
+export function hold(p: PlayerState, partial: Partial<InputCmd> = {}): InputCmd {
   return input({ yaw: p.yaw, pitch: p.pitch, ...partial });
 }

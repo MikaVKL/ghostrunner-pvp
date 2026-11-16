@@ -8,19 +8,16 @@ import type { SimContext, WorldState } from '../sim/world';
 import { assertNever } from '../util/assertNever';
 import { endRound, startMatch, startRound } from './lifecycle';
 
-/** Mark players as dead if they ran out of HP or fell out of the map. Returns true if any died. */
-function applyDeaths(world: WorldState, ctx: SimContext, events: GameEvent[]): boolean {
-  let anyDied = false;
+/** Mark players as dead if they ran out of HP or fell out of the map. */
+function applyDeaths(world: WorldState, ctx: SimContext, events: GameEvent[]): void {
   for (const p of world.players) {
     if (!p.alive) continue;
     const fell = p.pos.y < ctx.map.killY;
     if (p.hp > 0 && !fell) continue;
     p.alive = false;
     p.hp = 0;
-    anyDied = true;
     events.push({ type: 'death', slot: p.slot, cause: fell ? 'fall' : 'hp' });
   }
-  return anyDied;
 }
 
 /** Slot of the single survivor, or -1 if nobody or more than one player is alive. */
@@ -37,8 +34,11 @@ function healthLeader(players: PlayerState[]): number {
 }
 
 function stepPlaying(world: WorldState, ctx: SimContext, events: GameEvent[]): void {
-  if (applyDeaths(world, ctx, events)) {
-    endRound(world, ctx, soleSurvivor(world.players), events);
+  applyDeaths(world, ctx, events);
+  if (world.players.some((p) => !p.alive)) {
+    // A swing of the dead player may still be undecided (lag compensation, at most
+    // COMBAT.maxRewindTicks). Wait for it, so that a real trade ends in a draw.
+    if (world.pendingHits.length === 0) endRound(world, ctx, soleSurvivor(world.players), events);
     return;
   }
   world.match.phaseTicksLeft--;

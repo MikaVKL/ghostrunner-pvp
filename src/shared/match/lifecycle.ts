@@ -8,6 +8,9 @@ import type { SimContext, WorldState } from '../sim/world';
 
 function respawnAll(world: WorldState, ctx: SimContext): void {
   for (const player of world.players) resetPlayer(player, ctx.map.spawns[player.slot]);
+  // Everyone teleported: old positions and undecided hits are meaningless now.
+  world.history = [];
+  world.pendingHits = [];
 }
 
 /** Put everyone on their spawn and begin the countdown for the next round. */

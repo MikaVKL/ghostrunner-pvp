@@ -19,7 +19,7 @@ const maps = Object.values(MAPS);
 
 function playerAt(map: MapDef, x: number, y: number, z: number, yaw: number): PlayerState {
   const p = createPlayer(0, { pos: { x, y, z }, yaw });
-  stepPlayer(p, { seq: 1, moveX: 0, moveZ: 0, yaw, pitch: 0, buttons: 0 }, map, 'playing');
+  stepPlayer(p, { seq: 1, moveX: 0, moveZ: 0, yaw, pitch: 0, buttons: 0, viewTick: 0 }, map, 'playing');
   return p;
 }
 
@@ -33,7 +33,7 @@ function runLink(map: MapDef, link: ParkourLink, wallJump: boolean): { p: Player
     const out = runner.step(p, map, yaw, wallJump);
     if (out.done) break;
     yaw += clamp(angleDifference(yaw, out.yaw), -0.2, 0.2);
-    const cmd: InputCmd = { seq: tick + 2, moveX: out.moveX, moveZ: out.moveZ, yaw, pitch: 0, buttons: out.jump ? Button.Jump : 0 };
+    const cmd: InputCmd = { seq: tick + 2, moveX: out.moveX, moveZ: out.moveZ, yaw, pitch: 0, buttons: out.jump ? Button.Jump : 0, viewTick: 0 };
     stepPlayer(p, cmd, map, 'playing');
     wallRan ||= p.wallRunning;
   }
@@ -133,7 +133,7 @@ describe.each(maps)('map "$id"', (map) => {
       let arrived = false;
       for (let tick = 0; tick < 60 * 40 && !arrived; tick++) {
         const sample = brain.think(me, enemy, map);
-        stepPlayer(me, { ...sample, seq: tick + 2 }, map, 'playing');
+        stepPlayer(me, { ...sample, seq: tick + 2, viewTick: 0 }, map, 'playing');
         expect(me.pos.y, `fell at tick ${tick}`).toBeGreaterThan(map.killY);
         arrived = horizontalDistance(me.pos, enemy.pos) < 2.5;
       }

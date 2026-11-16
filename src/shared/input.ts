@@ -32,13 +32,19 @@ export interface InputCmd {
   pitch: number;
   /** Bit flags from `Button`. */
   buttons: number;
+  /**
+   * Lag compensation: the server tick at which this client was DISPLAYING the other
+   * players when it made this input (they are shown slightly in the past). 0 = unknown.
+   * Only combat resolution on the server uses it - it never affects the own movement.
+   */
+  viewTick: number;
 }
 
-/** Input without a sequence number (what the keyboard/bot produces each tick). */
-export type InputSample = Omit<InputCmd, 'seq'>;
+/** What the keyboard/bot produces each tick (GameClient adds `seq` and `viewTick`). */
+export type InputSample = Omit<InputCmd, 'seq' | 'viewTick'>;
 
 export function neutralInput(yaw = 0, pitch = 0): InputCmd {
-  return { seq: 0, moveX: 0, moveZ: 0, yaw, pitch, buttons: 0 };
+  return { seq: 0, moveX: 0, moveZ: 0, yaw, pitch, buttons: 0, viewTick: 0 };
 }
 
 export function isDown(input: InputCmd, button: number): boolean {
@@ -65,6 +71,7 @@ export function sanitizeInput(raw: unknown): InputCmd | null {
   if (!isFiniteNumber(r.seq) || !isFiniteNumber(r.moveX) || !isFiniteNumber(r.moveZ)) return null;
   if (!isFiniteNumber(r.yaw) || !isFiniteNumber(r.pitch) || !isFiniteNumber(r.buttons)) return null;
   if (!Number.isInteger(r.seq) || r.seq < 1 || r.seq > 2 ** 31) return null;
+  if (r.viewTick !== undefined && !isFiniteNumber(r.viewTick)) return null;
   return {
     seq: r.seq,
     moveX: clamp(Math.round(r.moveX), -1, 1),
@@ -72,5 +79,6 @@ export function sanitizeInput(raw: unknown): InputCmd | null {
     yaw: wrapAngle(r.yaw),
     pitch: clamp(r.pitch, -MAX_PITCH, MAX_PITCH),
     buttons: Math.trunc(r.buttons) & ALL_BUTTONS,
+    viewTick: clamp(r.viewTick ?? 0, 0, 2 ** 31),
   };
 }

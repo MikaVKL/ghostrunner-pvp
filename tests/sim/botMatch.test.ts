@@ -51,6 +51,15 @@ describe('the bots really use the mechanics (so the desync check covers them)', 
   });
 });
 
+describe('lag compensation in whole matches', () => {
+  it('at 100 ms ping swings still kill (most rounds end by a sword hit)', () => {
+    const reports = [1, 2, 3, 4, 5, 6].map((seed) => runSimulatedMatch({ seed, latencyMs: 50, jitterMs: 10 }));
+    for (const report of reports) expectHealthy(report);
+    const rounds = reports.reduce((sum, r) => sum + r.rounds, 0);
+    expect(totalUsage(reports).kills).toBeGreaterThan(rounds * 0.5);
+  });
+});
+
 describe('bot matches over a simulated network', () => {
   it('finishes matches on a perfect connection without any desync', () => {
     for (let seed = 1; seed <= 5; seed++) expectHealthy(runSimulatedMatch({ seed }));

@@ -18,7 +18,7 @@ export const TICK_MS = 1000 / TICK_RATE;
 export const SNAPSHOT_EVERY_TICKS = 2;
 
 /** Bump this when the network protocol changes in an incompatible way. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** This template is 1v1. */
 export const MAX_PLAYERS_PER_ROOM = 2;

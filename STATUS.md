@@ -10,7 +10,7 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
 | 1 | Kampfregeln: One-Hit-Kill, Parry-Fenster/-Cooldown/-Stun, Dash-Angriff, Cooldowns (alles Daten in `combat/weapons.ts` + `combat/combatConfig.ts`) | ✅ |
 | 2 | Rundensystem: Best-of-5, Countdown, Punktestand, Rematch (Regeln + Netzwerk; Anzeige kommt mit Schritt 9) | ✅ |
 | 3 | 3 Parkour-Maps (`schlucht`, `daecher`, `reaktor`) + Map-Wahl beim Raum-Erstellen, Quick-Match rotiert; Parkour-Links für Bots | ✅ |
-| 4 | Lag-Kompensation für Treffer | ⬜ |
+| 4 | Lag-Kompensation: Treffer gegen die Position, die der Angreifer sah; Parry zählt, wenn er gedrückt wurde, bevor der Verteidiger den Treffer sah (max. 0,3 s) | ✅ |
 | 5 | Kollision zwischen Spielern | ⬜ |
 | 6 | Reconnect nach Verbindungsabbruch | ⬜ |
 | 7 | Optik (Figuren, Schwung-Animation, Partikel, Kamera, Sky, Nebel) | ⬜ |
@@ -37,6 +37,13 @@ Legende: ✅ fertig und getestet · 🔧 in Arbeit · ⬜ offen
 - **Maps:** Die alte `arena` bleibt als Übungs-/Test-Map. Jede Map hat einen sicheren Fußweg
   (Brücke/Steg) UND Wall-Run-Abkürzungen. `links` in der Map sagen den Bots, wo sie
   springen bzw. an der Wand laufen können; `tests/unit/maps.test.ts` spielt jeden Link durch.
+
+- **Lag-Kompensation:** Jeder Input trägt `viewTick` (welchen Server-Tick der Client gerade
+  anzeigt). Treffer werden gegen die gespeicherte Position zu diesem Tick geprüft (Abschnitt 13).
+  Zusätzlich (weil Parry die Kernmechanik ist): Ein Treffer wird erst entschieden, wenn der
+  Verteidiger ihn *gesehen* hat – bis dahin kann er noch parieren. Kills kommen dadurch
+  ~0,1 s + Ping später, dafür ist Parry bei jedem Ping gleich schwer. Grenze: 0,3 s.
+- **Gefundener Template-Bug:** `wrapAngle` war bei ±π nicht idempotent → seltener Desync. Behoben.
 
 ## Nächste Schritte
 

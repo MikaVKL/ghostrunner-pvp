@@ -155,7 +155,9 @@ export class GameClient {
 
     // Inputs are only sent once we know our starting state (first snapshot received).
     if (!this.room || !this.map || !this.snapshot || !this.predictor.state) return;
-    const cmd = sanitizeInput({ ...sample, seq: this.nextSeq });
+    // viewTick tells the server which moment of the other players we are looking at (lag compensation).
+    const viewTick = Math.round(this.renderClock.renderTick * 100) / 100;
+    const cmd = sanitizeInput({ ...sample, seq: this.nextSeq, viewTick });
     if (!cmd) return;
     this.nextSeq++;
     this.send({ type: 'input', cmd });

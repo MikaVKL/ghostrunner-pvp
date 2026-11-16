@@ -27,6 +27,14 @@ export const COMBAT = {
   /** An attack started while dashing, or up to N ticks after the dash ended, is a dash attack. */
   dashAttackGraceTicks: secondsToTicks(0.1),
 
+  // --- lag compensation (see combat/lagCompensation.ts) ---
+  /**
+   * How far back in time the server looks when checking a hit or a parry. Covers the
+   * interpolation delay (100 ms) plus the ping. Players with more lag than this simply
+   * lose the part beyond it.
+   */
+  maxRewindTicks: secondsToTicks(0.3),
+
   // --- hit geometry ---
   /** A hit only connects if the height difference between the players is at most this. */
   verticalReach: 1.8,
