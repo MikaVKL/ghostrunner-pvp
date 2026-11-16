@@ -2,7 +2,7 @@
  * Guards for the project rules in CLAUDE.md. These tests read the source files and fail
  * if someone breaks a rule that would cause desyncs or tangle the folders together.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -37,7 +37,7 @@ function forbiddenImports(folder: string, forbidden: string[]): string[] {
 
 describe('folder import rules', () => {
   it('shared imports nothing from the other folders', () => {
-    expect(forbiddenImports('shared', ['server', 'client', 'netcode', 'bots'])).toEqual([]);
+    expect(forbiddenImports('shared', ['server', 'client', 'netcode', 'bots', 'solo'])).toEqual([]);
   });
 
   it('shared does not use Three.js, the DOM-only client or Node APIs', () => {
@@ -50,18 +50,70 @@ describe('folder import rules', () => {
   });
 
   it('server and client never import each other', () => {
-    expect(forbiddenImports('server', ['client', 'bots'])).toEqual([]);
+    expect(forbiddenImports('server', ['client', 'bots', 'solo'])).toEqual([]);
     expect(forbiddenImports('client', ['server', 'bots'])).toEqual([]);
   });
 
+  it('solo (server core + bot in one program) is the only bridge, and knows nothing about the browser client', () => {
+    expect(forbiddenImports('solo', ['client'])).toEqual([]);
+  });
+
   it('netcode stays independent of browser, server and bots', () => {
-    expect(forbiddenImports('netcode', ['client', 'server', 'bots'])).toEqual([]);
+    expect(forbiddenImports('netcode', ['client', 'server', 'bots', 'solo'])).toEqual([]);
     const usesThree = sourceFiles(join(SRC, 'netcode')).filter((f) => importsOf(f).includes('three'));
     expect(usesThree).toEqual([]);
   });
 
   it('bots do not depend on the browser client', () => {
-    expect(forbiddenImports('bots', ['client'])).toEqual([]);
+    expect(forbiddenImports('bots', ['client', 'solo'])).toEqual([]);
+  });
+});
+
+describe('everything the browser loads is browser-safe', () => {
+  /** The file a relative import points to. */
+  function resolveImport(fromFile: string, path: string): string {
+    const base = join(fromFile, '..', path);
+    for (const candidate of [`${base}.ts`, join(base, 'index.ts')]) if (existsSync(candidate)) return candidate;
+    throw new Error(`cannot resolve import '${path}' in ${relative(SRC, fromFile)}`);
+  }
+
+  /** All files reachable from `entry` by following imports, with the packages each one uses. */
+  function reachableFrom(entry: string): Map<string, string[]> {
+    const seen = new Map<string, string[]>();
+    const todo = [entry];
+    while (todo.length > 0) {
+      const file = todo.pop()!;
+      if (seen.has(file)) continue;
+      const imports = importsOf(file);
+      seen.set(file, imports.filter((path) => !path.startsWith('.')));
+      for (const path of imports) if (path.startsWith('.') && !path.endsWith('.css')) todo.push(resolveImport(file, path));
+    }
+    return seen;
+  }
+
+  it('the client (including the solo mode with server core and bot) never pulls in Node modules or "ws"', () => {
+    const reachable = reachableFrom(join(SRC, 'client/main.ts'));
+    const problems = [...reachable].flatMap(([file, packages]) =>
+      packages.filter((name) => name.startsWith('node:') || name === 'ws').map((name) => `${relative(SRC, file)} imports ${name}`),
+    );
+    expect(problems).toEqual([]);
+    // Sanity check of the test itself: the solo mode really is part of the client bundle.
+    const files = [...reachable.keys()].map((file) => relative(SRC, file).replaceAll('\\', '/'));
+    expect(files).toContain('solo/soloMatch.ts');
+    expect(files).toContain('server/game/room.ts');
+    expect(files).toContain('bots/brain.ts');
+  });
+
+  it('only the network/file parts of the server use Node APIs', () => {
+    const nodeOnly = ['server/main.ts', 'server/startServer.ts', 'server/http/staticFiles.ts', 'server/net/wsTransport.ts'];
+    const problems = sourceFiles(join(SRC, 'server')).flatMap((file) => {
+      const name = relative(SRC, file).replaceAll('\\', '/');
+      if (nodeOnly.includes(name)) return [];
+      return importsOf(file)
+        .filter((path) => path.startsWith('node:') || path === 'ws')
+        .map((path) => `${name} imports ${path}`);
+    });
+    expect(problems).toEqual([]);
   });
 });
 

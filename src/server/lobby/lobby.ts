@@ -5,7 +5,6 @@
  * - quickMatch: join any public room that is waiting for an opponent, or open a new one
  * - rejoin:     take a reserved seat again after a connection loss
  */
-import { randomBytes } from 'node:crypto';
 import { DEFAULT_MAP_ID, getMap, MAP_ROTATION } from '../../shared/maps';
 import type { MatchConfig } from '../../shared/match/matchConfig';
 import type { ErrorCode } from '../../shared/protocol/messages';
@@ -13,8 +12,15 @@ import { Room } from '../game/room';
 import type { Session } from '../net/session';
 import { generateUniqueRoomCode } from './roomCodes';
 
-/** A secret, unguessable token for reconnecting (not part of the simulation). */
-const createToken = () => randomBytes(16).toString('hex');
+/**
+ * A secret, unguessable token for reconnecting (not part of the simulation).
+ * Uses the Web Crypto API, which exists in Node AND in browsers - the server core must
+ * also run inside the browser for the solo mode (see src/solo/).
+ */
+function createToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 export interface LobbyOptions {
   matchConfig: MatchConfig;

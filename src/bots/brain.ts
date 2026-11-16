@@ -19,8 +19,6 @@ import { ButtonHolder } from './buttonHolder';
 import { ARRIVE_DISTANCE, canStandAt, isWalkable, planRoute, type NavStep } from './nav';
 import { LinkRunner } from './parkour';
 
-/** Fastest the bot can turn, in radians per tick. */
-const MAX_TURN_PER_TICK = 0.2;
 /** Closer than this, the bot looks at the enemy instead of at its waypoint. */
 const FIGHT_DISTANCE = 6.5;
 const REPATH_EVERY_TICKS = 10;
@@ -30,6 +28,8 @@ const LEDGE_LOOKAHEAD = 0.9;
 const TELEPORT_DISTANCE = 3;
 
 export interface BotPersonality {
+  /** Fastest the bot can turn, in radians per tick (0.2 = a half turn in a quarter second). */
+  turnSpeed: number;
   /** Chance per tick to start a swing when the enemy is in range. */
   attackChance: number;
   /** Chance per tick to start a dash attack when the enemy is a few meters away. */
@@ -46,6 +46,7 @@ export interface BotPersonality {
 }
 
 export const DEFAULT_PERSONALITY: BotPersonality = {
+  turnSpeed: 0.2,
   attackChance: 0.12,
   dashAttackChance: 0.05,
   parryChance: 0.4,
@@ -147,7 +148,7 @@ export class BotBrain {
   /** Turn toward `desiredYaw` as fast as allowed. Returns how far off the bot was. */
   private turnToward(desiredYaw: number): number {
     const turn = angleDifference(this.yaw, desiredYaw);
-    this.yaw += clamp(turn, -MAX_TURN_PER_TICK, MAX_TURN_PER_TICK);
+    this.yaw += clamp(turn, -this.personality.turnSpeed, this.personality.turnSpeed);
     return turn;
   }
 

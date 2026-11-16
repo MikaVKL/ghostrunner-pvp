@@ -7,6 +7,7 @@ import { TICK_MS } from '../shared/config';
 import { FAST_MATCH_CONFIG, type MatchConfig } from '../shared/match/matchConfig';
 import { GameServer } from '../server/gameServer';
 import { Bot } from './bot';
+import type { BotPersonality } from './brain';
 import { MemoryNetwork } from './memoryNetwork';
 import { botReport, type MatchReport } from './report';
 
@@ -29,6 +30,8 @@ export interface SimOptions {
   mapId?: string;
   /** Reuse an existing server (to collect statistics over several matches). */
   server?: GameServer;
+  /** Behavior of botA and botB (default: DEFAULT_PERSONALITY for both). */
+  personalities?: [BotPersonality?, BotPersonality?];
   /**
    * Simulate a connection loss: the link of bot `bot` (0 or 1) breaks at `atMs` and the
    * bot reconnects `forMs` later with a new link (see GameClient.reconnect).
@@ -55,7 +58,8 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
   const links = [net.createLink(), net.createLink()];
   const bots = ['botA', 'botB'].map((name, i) => {
     server.attach(links[i].server);
-    return new Bot(links[i].client, { name, seed: options.seed * 2 + i, now });
+    const personality = options.personalities?.[i];
+    return new Bot(links[i].client, { name, seed: options.seed * 2 + i, now, personality });
   });
   const [host, guest] = bots;
 
