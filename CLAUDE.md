@@ -2,7 +2,8 @@
 
 Dieses Repo ist **Ghostrunner-PvP**: ein 1v1-Schwertkampf im Browser (ein Treffer tötet,
 Parry, Dash, Wall-Run), gebaut auf einem Multiplayer-Template (autoritativer Server,
-Client-Side-Prediction). Lies diese Datei komplett, bevor du etwas änderst. Der Besitzer ist
+Client-Side-Prediction). Zwei Spielarten: Mehrspieler über den Server und „Solo gegen Bot“,
+bei dem derselbe Server-Kern im Browser-Tab läuft (`src/solo/`, veröffentlichbar auf GitHub Pages). Lies diese Datei komplett, bevor du etwas änderst. Der Besitzer ist
 Programmieranfänger: erkläre, was du tust, und halte Änderungen klein.
 
 Weitere Doku: `ARCHITECTURE.md` (wie alles zusammenhängt), `HOW_TO_EXTEND.md` (Rezepte für
@@ -20,7 +21,8 @@ ist, welche Entscheidungen getroffen wurden).
 | `npm test` | Typecheck + alle Tests (Unit, Bot-Simulation, echter Server). ~20 s |
 | `npm run bots:sim` | 20 Bot-Matches auf allen Maps im Speicher mit Lag/Jitter. ~3 s. **Schnellster Desync-Check** |
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server. ~20 s |
-| `npm run test:browser` | Playwright: zwei echte Chromium-Tabs spielen gegeneinander. ~90 s. Nach Client-/UI-Änderungen ausführen |
+| `npm run test:browser` | Playwright: echte Chromium-Tabs spielen gegeneinander und solo gegen den Bot (auch ohne Server). ~2,5 min. Nach Client-/UI-Änderungen ausführen |
+| `npm run build:pages` / `npm run preview:pages` | Statische Solo-Version für GitHub Pages bauen (`dist/pages`) / lokal ansehen |
 | `npm run check` | `npm test` + `npm run bots:sim` – vor jedem Commit ausführen |
 | `npm run check:all` | `check` + `bots` + `test:browser` – vor größeren Abgaben |
 | `npm run typecheck` | Nur TypeScript prüfen |
@@ -54,14 +56,21 @@ src/client/    Nur Browser. Darf shared + netcode importieren.
                audio/  Web Audio: audioEngine.ts + sounds.ts (alle Geräusche als Rezepte)
                ui/     Menü (lobbyUi), HUD (hud + hudTexts), Hilfe, Debug-Anzeige
                input/  Tastatur/Maus → InputSample
-src/bots/      Test-Bots (brain, brainFight, nav, parkour), simuliertes Netzwerk, Reports.
-               Darf alles außer client importieren.
+src/bots/      Bots (brain, brainFight, nav, parkour), simuliertes Netzwerk, Reports.
+               Darf alles außer client und solo importieren. brain/bot/nav/parkour laufen auch im Browser.
+src/solo/      Solo-Modus: GameServer + Bot + GameClient in EINEM Programm, verbunden per
+               Loopback (soloMatch.ts, loopback.ts), Schwierigkeitsstufen (difficulty.ts).
+               Darf shared, netcode, server (nur den Kern) und bots importieren – nie client.
 tests/         unit/ (einzelne Funktionen), sim/ (Bot-Matches), integration/ (echter Server,
                auch hinter einem Reverse-Proxy), browser/ (Playwright, eigenes Skript).
 ```
 
 Import-Regeln (nicht brechen): `shared` importiert **nichts** aus den anderen Ordnern.
-`server` und `client` importieren sich **nie** gegenseitig.
+`server` und `client` importieren sich **nie** gegenseitig. Die einzige Brücke ist `solo`:
+`client` → `solo` → Server-Kern + Bot.
+**Alles, was `client` (auch über `solo`) erreicht, muss im Browser laufen:** kein `node:…`,
+kein `ws`. Node-APIs sind nur erlaubt in `server/main.ts`, `server/startServer.ts`,
+`server/http/` und `server/net/wsTransport.ts`.
 Diese Regeln und das `Math.random()`-Verbot prüft `tests/unit/architecture.test.ts` automatisch.
 
 ## Die 7 goldenen Regeln (Netcode)
@@ -154,6 +163,17 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 - **Funktionen in `page.evaluate`:** keine benannten inneren Funktionen/Pfeilfunktionen in
   Variablen (`tsx` fügt dort einen Helfer `__name` ein, den es im Browser nicht gibt).
   Größere Skripte als Text übergeben (siehe `PARRY_ON_SIGHT` in `tests/browser/run.ts`).
+- **Zwei Clients im Browser:** `gameApp.ts` kennt `online` (Netzwerk, kann `null` sein) und
+  `solo` (lokal). Alles Sichtbare benutzt `current()`. Nie direkt auf „den“ Client zugreifen,
+  und nichts voraussetzen, was es ohne Server nicht gibt (das Menü muss offline funktionieren).
+- **Solo hat keinen Timer:** `SoloMatch.step()` wird von der Spielschleife nach jedem
+  `client.tick()` aufgerufen (Server-Tick + Bot-Tick). Wer woanders Ticks auslöst, bringt
+  Mensch und Server aus dem Takt.
+- **Loopback ist synchron:** Eine Nachricht kommt an, noch bevor `send()` zurückkehrt.
+  Callbacks deshalb VOR `solo.start()` setzen.
+- **Neuer Pfad zu Dateien im Client?** Nie mit `/` am Anfang fest verdrahten – auf GitHub
+  Pages liegt die Seite in einem Unterordner (`base` in `vite.config.ts`). Links in
+  `index.html` schreibt Vite selbst um; in Code `import.meta.env.BASE_URL` benutzen.
 - **Port belegt:** `PORT=3001 npm run dev` (Vite liest dieselbe Variable für den Proxy).
 - Die Integrationstests starten einen echten Server auf einem freien Port – keine festen Ports
   in Tests verwenden.

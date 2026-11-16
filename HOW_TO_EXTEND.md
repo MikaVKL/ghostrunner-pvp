@@ -46,6 +46,7 @@ Kein Code nötig, nur Zahlen:
 | Rundenzahl (Best-of), Rundenzeit, Countdown, Rematch, Reconnect-Zeit | `src/shared/match/matchConfig.ts` |
 | Lebenspunkte | `MAX_HP` in `src/shared/sim/playerState.ts` |
 | Spielergröße, Augenhöhe | `src/shared/physics/collision.ts` |
+| Schwierigkeit der Solo-Bots (leicht/mittel/schwer) | `src/solo/difficulty.ts` |
 | Tasten, Mausempfindlichkeit | `src/client/input/bindings.ts` |
 | Sichtfeld (FOV), Licht, Nebel | `src/client/render/sceneSetup.ts` |
 | Farben (Spieler, Himmel, Effekte) | `src/client/render/palette.ts` |
@@ -435,6 +436,13 @@ und prüfen einige deutsche Texte).
 - Wegfindung: `src/bots/nav.ts` + `navPoints` und `links` der Map.
 - Parkour: `src/bots/parkour.ts` (`LinkRunner`) läuft einen `link` der Map ab
   (ausrichten → anlaufen → abspringen → Wall-Run/Flug → landen).
+- **Die Bots sind auch die Gegner im Solo-Modus.** Die drei Schwierigkeitsstufen sind
+  `BotPersonality`-Werte in `src/solo/difficulty.ts`. Neue Stufe: Eintrag in `DIFFICULTIES`
+  + Name im Typ `Difficulty` – der Knopf im Menü entsteht von selbst. Ein neuer Parameter
+  (z. B. Reaktionszeit) kommt in `BotPersonality` (`brain.ts`) mit einem Standardwert in
+  `DEFAULT_PERSONALITY`. `tests/sim/difficulty.test.ts` prüft, dass „schwer“ gegen „leicht“ gewinnt.
+- Bot-Code, den der Solo-Modus benutzt (`brain`, `brainFight`, `nav`, `parkour`, `bot`),
+  muss im Browser laufen: keine Node-Module importieren.
 - Der Bot-Report zeigt, wie oft die Bots jede Mechanik benutzt haben („mechanics used by the
   bots“). Steht dort bei deiner neuen Mechanik 0, testen die Bots sie nicht.
 - Bots benutzen den normalen `GameClient`. Neue Fähigkeiten testen sie nur, wenn das Brain die
@@ -477,6 +485,7 @@ Der Report sagt z. B.:
 | Spieler-gegen-Spieler-Kollision | `shared/physics/playerCollision.ts` (Teil 2 von `stepWorld`) | `tests/unit/playerCollision.test.ts` |
 | Reconnect | `server/game/room.ts` (`disconnect`/`rejoin`), `match/lifecycle.ts` (`pauseMatch`), `netcode/gameClient.ts` (`reconnect`), `client/app/connection.ts` | `tests/unit/reconnect.test.ts` |
 | Map-Auswahl in der Lobby | `createRoom.mapId`, `server/lobby/lobby.ts` | `tests/unit/lobby.test.ts` |
+| Solo gegen Bot ohne Server, GitHub Pages | `src/solo/`, `client/app/gameApp.ts`, `vite.config.ts`, `.github/workflows/pages.yml` | `tests/sim/soloMatch.test.ts`, Browser-Tests |
 | Figuren, Partikel, Kamera-Effekte | `client/render/` | `npm run test:browser` |
 | Sound (prozedural, Web Audio) | `client/audio/` | – |
 

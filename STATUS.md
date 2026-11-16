@@ -21,8 +21,53 @@ Legende: ✅ fertig und automatisch getestet · ⚠️ fertig, aber nur teilweis
 | 11 | `npm test` erweitert + Playwright als eigenes Skript | ✅ | 264 Tests in `npm test`; 7 Browser-Tests in `npm run test:browser` |
 | 12 | Anleitung „übers Internet“ + Tunnel testen | ⚠️ | `INTERNET.md`, `Dockerfile`. **Ein echter Tunnel wurde NICHT getestet** (siehe unten). Ersatz: Test hinter lokalem Reverse-Proxy. |
 
-Letzter Komplettlauf (`npm run check:all`): 264/264 Tests grün, Bot-Simulation und Live-Bots
-ohne Desync, 7/7 Browser-Tests grün.
+Letzter Komplettlauf (`npm run check:all`, nach der zweiten Aufgabe): 291/291 Tests grün,
+Bot-Simulation und Live-Bots ohne Desync, 10/10 Browser-Tests grün.
+
+## Zweite Aufgabe: Solo gegen Bot + GitHub Pages
+
+| # | Anforderung | Stand | Wo / Nachweis |
+|---|---|---|---|
+| 1 | Button „Solo gegen Bot“: lokales Match, geteilte Spiellogik läuft im Browser, Gegner ist ein vorhandener Bot | ✅ | `src/solo/soloMatch.ts` (echter `GameServer` + `Bot` über Loopback), `client/app/gameApp.ts` |
+| 2 | Map und Schwierigkeit (leicht/mittel/schwer) über Bot-Parameter | ✅ | `src/solo/difficulty.ts`, Menü; `tests/sim/difficulty.test.ts` („schwer“ schlägt „leicht“) |
+| 3 | Alle Regeln gleich: Best-of-5, Parry, Dash, Wall-Run, Abgrund, Rematch mit R | ✅ | derselbe Code wie online; `tests/sim/soloMatch.test.ts`, Browser-Test „Solo gegen Bot“ |
+| 4 | Mehrspieler bleibt; ohne Server deaktiviert mit klarem Hinweis, kein Absturz | ✅ | `client/ui/lobbyUi.ts` (`setOnlineState`), Browser-Test „Ohne Server (wie GitHub Pages)“ |
+| 5 | Vite-Build mit `base`-Pfad für Pages + Actions-Workflow bei jedem Push | ⚠️ | `vite.config.ts` (`npm run build:pages`), `.github/workflows/pages.yml`. **Der Workflow läuft auf GitHub bis einschließlich Build durch, das Veröffentlichen scheitert noch** – siehe unten. |
+| 6 | Tests in `npm test` und Browser-Tests für Solo, Solo ohne Server fehlerfrei | ✅ | 27 neue Tests in `npm test` (291 gesamt), 3 neue Browser-Tests (10 gesamt) |
+| 7 | Doku in README, INTERNET, STATUS | ✅ | zusätzlich CLAUDE.md, ARCHITECTURE.md, HOW_TO_EXTEND.md |
+
+**Stand GitHub Pages (wichtig):** Der Workflow wurde gepusht und ist auf GitHub zweimal
+gelaufen. Beide Male waren Code holen, `npm ci`, Typprüfung, 285 Tests und der Build mit
+`/ghostrunner-pvp/` **grün**. Rot wurde der Schritt „Pages vorbereiten“ mit der Meldung
+*„Get Pages site failed. Please verify that the repository has Pages enabled and configured
+to build using GitHub Actions“*. Das ist kein Fehler im Code: Pages muss einmal vom
+Repo-Besitzer eingeschaltet werden (**Settings → Pages → Source: „GitHub Actions“**), das
+kann ein Workflow nicht selbst. **Bis dahin schlägt der Workflow bei jedem Push fehl** (und
+GitHub schickt dir dazu E-Mails). Die Schritte „Seite hochladen“ und „veröffentlichen“ sind
+deshalb auf GitHub noch **nie gelaufen** und unbestätigt.
+
+Mögliche zweite Hürde danach: Der Standard-Branch des Repos ist derzeit
+`claude/multiplayer-game-template-j5o8if`, die Arbeit liegt auf `ccr-604843d9-gwr2ie`.
+GitHub erlaubt das Veröffentlichen auf Pages üblicherweise nur vom Standard-Branch. Falls
+der „deploy“-Job das meldet: Branch mergen oder unter Settings → Environments →
+github-pages freigeben (genaue Schritte: `INTERNET.md`, Variante E).
+
+Entscheidungen zu dieser Aufgabe:
+
+- **Nichts nachgebaut:** Der Solo-Modus benutzt den echten Server-Kern im Browser statt einer
+  zweiten, vereinfachten Spielschleife. Dafür durfte der Kern keine Node-Module mehr benutzen
+  (das Reconnect-Token kommt jetzt aus der Web-Crypto-API). Ein Test wacht darüber.
+- **Neuer Ordner `src/solo/`** als einzige erlaubte Brücke zwischen Client und Server-Kern.
+- **Solo pausiert im Hintergrund-Tab** (der Takt kommt von der Bildschleife) – gewollt.
+- **Der Bot stimmt einem Rematch immer sofort zu;** es fehlt nur `R` vom Spieler.
+- **Workflow läuft auf jedem Branch** („bei jedem Push“). Vor dem Veröffentlichen laufen
+  Typprüfung, Unit- und Simulationstests, aber bewusst nicht die Echtzeit-Integrationstests
+  (auf CI-Rechnern wackelig) und nicht die Browser-Tests (bräuchten einen Browser-Download).
+- **Pages kann nur Solo.** Mehrspieler braucht einen Server-Prozess; die Seite zeigt das an.
+
+Nicht getestet bei dieser Aufgabe: die echte Pages-Seite (s. o.); wie sich die drei
+Schwierigkeitsstufen für einen Menschen anfühlen (die Zahlen sind geschätzt – geprüft ist
+nur, dass „schwer“ gegen „leicht“ gewinnt und jeder Bot einen stillstehenden Spieler besiegt).
 
 ## Was NICHT oder nur teilweise umgesetzt ist (ehrlich)
 
@@ -83,7 +128,9 @@ ohne Desync, 7/7 Browser-Tests grün.
 
 ## Nächste Schritte (Vorschlag, in dieser Reihenfolge)
 
-1. **Selbst spielen** (zwei Fenster, `npm run dev`) und aufschreiben, was sich falsch anfühlt:
+0. **GitHub Pages einschalten:** Settings → Pages → Source: „GitHub Actions“, dann im Tab
+   Actions den letzten Lauf mit „Re-run jobs“ neu starten und prüfen, ob „deploy“ grün wird.
+1. **Selbst spielen** (zuerst „Solo gegen Bot“, dann zwei Fenster, `npm run dev`) und aufschreiben, was sich falsch anfühlt:
    Tempo, Schwung-Timing, Parry-Fenster, Lautstärke/Klang der Sounds, Schwert-Position.
    Fast alles davon sind Zahlen (Rezept 1 in `HOW_TO_EXTEND.md`).
 2. **Tunnel ausprobieren** (`INTERNET.md`, Variante B) und mit

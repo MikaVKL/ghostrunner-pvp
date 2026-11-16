@@ -37,6 +37,8 @@ anderes sagt. (Die Konzepte dahinter erklärt `LEARNING.md`.)
 | `src/client` | Bild, Ton, Eingabe, UI | `app/gameApp.ts`, `app/effects.ts`, `render/gameView.ts`, `audio/sounds.ts`, `ui/hud.ts` |
 | `src/bots` | Automatische Spieler + Testnetz | `brain.ts`, `parkour.ts`, `simulation.ts`, `report.ts` |
 
+| `src/solo` | Solo gegen Bot ohne Netzwerk | `soloMatch.ts`, `loopback.ts`, `difficulty.ts` |
+
 Warum ist `netcode` vom `client` getrennt? Damit die Bots **exakt denselben Netzwerk-Code**
 benutzen wie echte Spieler. Was die Bots testen, ist das, was im Browser läuft.
 
@@ -234,11 +236,38 @@ Dazu `netcode/lagTransport.ts`: verzögert einen beliebigen Transport künstlich
 Deshalb können Tests komplette Matches mit 300 ms Lag in Millisekunden durchspielen: gleicher
 Server-Code, gleicher Client-Code, nur Netz und Uhr sind ausgetauscht.
 
+## 6b. Solo-Modus: derselbe Aufbau, nur ohne Netz (`src/solo/`)
+
+```
+ ONLINE                                         SOLO (alles im Browser-Tab)
+
+ GameClient ──WebSocket──► GameServer           GameClient ──Loopback──┐
+ (Browser)                 (Node-Prozess,       (Mensch)               ├─► GameServer
+                            eigener 60-Hz-      Bot = GameClient ──────┘    (derselbe Kern:
+                            Timer)                    + BotBrain  Loopback   Lobby, Room,
+                                                                             stepWorld)
+```
+
+`SoloMatch` baut genau das zusammen. Es wird nichts nachgebaut: Raum, Runden, Treffer,
+Lag-Kompensation, Rematch und sogar die Desync-Erkennung (`F3`) sind derselbe Code wie online.
+Unterschiede:
+
+- **Verbindung:** `loopback.ts` – was ein Ende sendet, kommt sofort beim anderen an.
+- **Takt:** kein eigener Timer. Die Spielschleife ruft nach jedem `client.tick()` einmal
+  `solo.step()` auf (Server-Tick, dann Bot-Tick). Tab im Hintergrund = Spiel pausiert.
+- **Rematch:** Der Bot stimmt am Match-Ende sofort zu; es fehlt nur noch `R` vom Menschen.
+- **Schwierigkeit:** `difficulty.ts` – drei Sätze von Bot-Parametern (`BotPersonality`).
+
+Damit das im Browser läuft, benutzt der Server-Kern keine Node-Module (nur `startServer.ts`,
+`main.ts`, `http/` und `net/wsTransport.ts` tun das). Ohne erreichbaren Server (z. B. auf
+GitHub Pages) deaktiviert das Menü die Mehrspieler-Knöpfe; Solo läuft trotzdem.
+
 ## 7. Browser-Client
 
 ```
 main.ts          verbindet, liest URL-Optionen (?lag ?jitter ?predict)
- └─ app/gameApp.ts       verdrahtet alles (Menü ↔ Spiel, Tasten R/M/H, Reconnect)
+ └─ app/gameApp.ts       verdrahtet alles (Menü ↔ Spiel, Tasten R/M/H, Reconnect);
+     │                   hält zwei Clients: `online` (Netz, evtl. null) und `solo` (lokal)
      ├─ app/gameLoop.ts      requestAnimationFrame + Akkumulator → feste 60-Hz-Ticks
      ├─ app/stateWatcher.ts  erkennt „Momente“ (Sprung, Dash, Schwung …) am PlayerState
      ├─ app/effects.ts       Momente + GameEvents → Partikel, Sound, Wackeln, Texte
@@ -283,5 +312,6 @@ Zufall für Optik (Partikel, Wackeln) darf `Math.random()` benutzen – er ist k
 | `tests/unit/maps.test.ts` | jede registrierte Map | Spawns, Abgrund, sicherer Fußweg, jeder Parkour-Link wird durchgespielt, Bots erreichen den Gegner |
 | `tests/unit/architecture.test.ts` | die Projektregeln selbst | keine verbotenen Imports zwischen Ordnern, kein `Math.random()`/`Date.now()` in der Simulation |
 | `tests/sim` | ganze Bot-Matches über simuliertes Netz | 0 Desyncs auf allen Maps bei 0/80/300 ms Lag, Verbindungsabbruch mitten im Match, „Bots benutzen alle Mechaniken“, „Detektor schlägt bei Manipulation an“ |
+| `tests/sim/soloMatch.test.ts`, `difficulty.test.ts` | Solo-Modus ohne Server | alle Maps × alle Schwierigkeiten bis zum Match-Ende, Rematch, Verlassen; „schwer“ schlägt „leicht“ |
 | `tests/integration` | echter Server + echte WebSockets | `/health`, Müll-Nachrichten, Live-Matches, Betrieb hinter einem Reverse-Proxy (wie ein Tunnel) |
-| `tests/browser` (eigenes Skript: `npm run test:browser`) | das echte Spiel in echtem Chromium, zwei Tabs | Menü, Raum erstellen/beitreten, Kill, Parry, Sturz, Match-Ende, Rematch, Reconnect, Seiten-Reload |
+| `tests/browser` (eigenes Skript: `npm run test:browser`) | das echte Spiel in echtem Chromium | Menü, Raum erstellen/beitreten, Kill, Parry, Sturz, Match-Ende, Rematch, Reconnect, Seiten-Reload; Solo-Match komplett; Solo auf einer rein statischen Seite ohne Server (wie GitHub Pages) |
