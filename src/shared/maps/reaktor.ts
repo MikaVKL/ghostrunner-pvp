@@ -4,9 +4,9 @@
  * Top view (X to the right, Z downward). Heights: ring y = 0, pit floor y = -3.
  *
  *   z=-17      +======= outer wall N (wall-run over floor) =======+
- *   z=-16 +[#]---------------------------------------------------------+
+ *   z=-16       (void)  +-----------------------------------+  (void)
  *         |                         ring N                             |
- *   z=-6.5|              +------------------------------+              |
+ *   z=-6.5|              +--------- pit wall (3 m) -----+              |
  *         |              | [PAD^]   pit floor    [PAD>] |              |
  *         | ring W       |            (y = -3)          |      ring E  |
  *         | spawn 0 -> ==+======= WALL (wall-run across the pit) ======+== <- spawn 1
@@ -14,7 +14,7 @@
  *         |              | [<PAD]               [PADv]  |              |
  *   z=6.5 |              +------------------------------+              |
  *         |                         ring S                             |
- *   z=16  +---------------------------------------------------------[#]+
+ *   z=16        (void)  +-----------------------------------+  (void)
  *   z=17       +======= outer wall S (wall-run over floor) =======+
  *       x=-16          x=-6.5       -5        5        x=6.5          x=16
  *
@@ -24,9 +24,11 @@
  *            between the spawns)
  *   through- drop into the pit (3 m down), fight there, and leave on one of the four jump
  *            pads in its corners. Without a pad there is no way out of the pit.
+ * The pit has solid walls all around: falling into it is safe, only the outer edge of the
+ * ring is deadly.
  * Point-symmetric: (x, z) -> (-x, -z).
  */
-import { at, boxFromBounds, jumpPad, type MapDef } from './mapTypes';
+import { at, boxFromBounds, boxFromCenter, jumpPad, type MapDef } from './mapTypes';
 
 const RING = 0x1f2937;
 const PIT = 0x2a3f3a;
@@ -35,6 +37,8 @@ const OUTER = 0x14b8d4;
 const CORNER = 0x6a3fd0;
 
 const PIT_Y = -3;
+/** The ring reaches below the pit floor, so the pit has solid walls and no gap at its edge. */
+const RING_BOTTOM = PIT_Y - 1;
 /** Out of the pit: 3 m up and 5.5 m to the side. */
 const PAD_UP = 13;
 const PAD_SIDE = 7.3;
@@ -42,20 +46,24 @@ const PAD_SIDE = 7.3;
 export const REAKTOR: MapDef = {
   id: 'reaktor',
   name: 'Reaktor',
-  description: 'Ein Ring um eine versenkte Kampfgrube. Außen herum, per Wall-Run quer hinüber – oder hinunter in die Grube und per Sprungfeld wieder hinaus.',
+  description: 'Ein Ring mit offenen Ecken um eine versenkte Kampfgrube. Außen herum, per Wall-Run quer hinüber – oder hinunter in die Grube und per Sprungfeld wieder hinaus.',
   killY: -18,
   theme: { skyTop: 0x020806, skyMiddle: 0x0a2a24, skyHorizon: 0x2fa86a, fog: 0x0c1f1c },
   boxes: [
-    boxFromBounds(-16, 16, -1, 0, -16, -6.5, RING), // ring N
-    boxFromBounds(-16, 16, -1, 0, 6.5, 16, RING), // ring S
-    boxFromBounds(-16, -6.5, -1, 0, -6.5, 6.5, RING), // ring W
-    boxFromBounds(6.5, 16, -1, 0, -6.5, 6.5, RING), // ring E
-    boxFromBounds(-5, 5, -4, PIT_Y, -5, 5, PIT), // the pit floor, 3 m below the ring
+    // The ring around the pit. Its four outer corners are cut away (abyss), so the deadly
+    // edges are close to every fight on the ring.
+    boxFromBounds(-10, 10, RING_BOTTOM, 0, -16, -6.5, RING), // ring N
+    boxFromBounds(-10, 10, RING_BOTTOM, 0, 6.5, 16, RING), // ring S
+    boxFromBounds(-16, -6.5, RING_BOTTOM, 0, -10, 10, RING), // ring W
+    boxFromBounds(6.5, 16, RING_BOTTOM, 0, -10, 10, RING), // ring E
+    // The pit floor fills the whole hole: whoever falls in, lands. (It used to be smaller,
+    // leaving a deadly 1.5 m gap along the pit walls - see STATUS.md.)
+    boxFromBounds(-6.5, 6.5, RING_BOTTOM, PIT_Y, -6.5, 6.5, PIT),
     boxFromBounds(-7.5, 7.5, -0.6, 6, -0.5, 0.5, WALL), // the wall across the pit (you can walk under it)
     boxFromBounds(-10, 10, -1, 5, -17, -16, OUTER), // outer wall N
     boxFromBounds(-10, 10, -1, 5, 16, 17, OUTER), // outer wall S
-    boxFromBounds(-16, -13, 0, 1, -16, -13, CORNER), // raised corner NW
-    boxFromBounds(13, 16, 0, 1, 13, 16, CORNER), // raised corner SE
+    boxFromCenter(-12.5, 0.6, -8, 2, 1.2, 2, CORNER), // cover on ring W (jumpable)
+    boxFromCenter(12.5, 0.6, 8, 2, 1.2, 2, CORNER), // cover on ring E
   ],
   pads: [
     jumpPad(-3.5, 3.5, PIT_Y, { x: -PAD_SIDE, y: PAD_UP, z: 0 }), // to ring W
@@ -70,10 +78,14 @@ export const REAKTOR: MapDef = {
   navPoints: [
     at(-12, 0),
     at(12, 0),
-    at(-12, -11), // ring corners
-    at(12, -11),
-    at(-12, 11),
-    at(12, 11),
+    at(-12, -6), // around the cut-away corners of the ring
+    at(-7.8, -12),
+    at(12, -6),
+    at(7.8, -12),
+    at(-12, 6),
+    at(-7.8, 12),
+    at(12, 6),
+    at(7.8, 12),
     at(0, -11), // ring N and S, middle
     at(0, 11),
     at(0, 2, PIT_Y), // pit, on both sides of the wall

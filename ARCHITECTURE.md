@@ -207,7 +207,7 @@ Eine Map (`MapDef`) besteht nur aus Daten – Kollision, Darstellung und Bots le
 |---|---|
 | `schlucht` | flach: Brücke, zwei Wall-Run-Wände, Katapulte über den Abgrund |
 | `daecher` | vertikal: Turm (4 m), Terrassen (2 m), unten Rundgang mit Stegen; Sprungfelder aufs Turmdach |
-| `reaktor` | Ring um eine versenkte Grube (−3 m); hinaus nur per Sprungfeld; Wand quer über die Grube |
+| `reaktor` | Ring mit offenen Ecken um eine versenkte Grube (−3 m, feste Wände); hinaus nur per Sprungfeld; Wand quer über die Grube |
 | `arena` | einfacher Übungsplatz; viele Tests benutzen seine Koordinaten – nicht umbauen |
 
 ## 5. Server-Aufbau

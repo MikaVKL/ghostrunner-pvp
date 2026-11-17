@@ -151,7 +151,12 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
   `theme` (Himmelsfarben) sind freiwillig. `tests/unit/maps.test.ts` prüft jede registrierte
   Map automatisch (Spawns, Fußweg, jeden Parkour-Link – auch Sprungfelder und Aufstiege).
 - **Map geändert?** Danach `npx vitest run tests/unit/maps.test.ts tests/sim/botQuality.test.ts`
-  – die zeigen sofort, ob Bots irgendwo abstürzen oder stehen bleiben.
+  – die zeigen sofort, ob Bots irgendwo abstürzen oder stehen bleiben. Und `npm run tune`:
+  Eine Map, auf der die Bot-Stufen kaum Unterschied machen (`BALANCE.md`, Spalte je Map),
+  hat fast immer eine Stelle, an der Spieler zufällig sterben.
+- **Versenkte Böden brauchen Wände:** Ein tiefer liegender Boden muss lückenlos an die
+  Böden daneben stoßen, und die müssen bis unter ihn reichen. Sonst entsteht ein tödlicher
+  Spalt (so geschehen auf Reaktor). `maps.test.ts` prüft das.
 - **Sprungfelder setzen die ganze Geschwindigkeit** (`movement/jumpPad.ts`), auch seitlich.
   Der Flug ist dadurch immer derselbe Bogen. Weite ≈ `launch.x * 2 * launch.y / 24` (gleiche
   Höhe). Ein Dash trägt über ein Feld hinweg, ohne auszulösen.

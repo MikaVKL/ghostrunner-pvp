@@ -69,18 +69,34 @@ describe.each(maps)('map "$id"', (map) => {
     expect(horizontalDistance(a.pos, b.pos)).toBeGreaterThan(15);
   });
 
-  it('has an abyss: a good part of the area between the spawns has no floor', () => {
-    const [a, b] = map.spawns;
+  it('has an abyss: a good part of the map area has no floor', () => {
+    // Sample the rectangle around all floors of the map.
+    const floors = map.boxes.filter((box) => box.max.y <= 4.1 && box.max.y - box.min.y < 30);
+    const minX = Math.min(...floors.map((b) => b.min.x));
+    const maxX = Math.max(...floors.map((b) => b.max.x));
+    const minZ = Math.min(...floors.map((b) => b.min.z));
+    const maxZ = Math.max(...floors.map((b) => b.max.z));
     let total = 0;
     let voidPoints = 0;
-    for (let x = Math.min(a.pos.x, b.pos.x); x <= Math.max(a.pos.x, b.pos.x); x += 0.5) {
-      for (let z = -6; z <= 6; z += 0.5) {
+    for (let x = minX; x <= maxX; x += 0.5) {
+      for (let z = minZ; z <= maxZ; z += 0.5) {
         total++;
         const covered = map.boxes.some((box) => x >= box.min.x && x <= box.max.x && z >= box.min.z && z <= box.max.z);
         if (!covered) voidPoints++;
       }
     }
     expect(voidPoints / total).toBeGreaterThan(0.1);
+  });
+
+  it('falling into a lower area is never deadly by itself: every floor below 0 has walls or floor around it', () => {
+    // Regression (Reaktor): a gap between a sunken floor and the floor around it killed players
+    // who were knocked off a wall-run. Every point next to a sunken floor must be covered.
+    for (const box of map.boxes.filter((b) => b.max.y < -0.5 && b.max.y > map.killY)) {
+      for (const [x, z] of [[box.min.x - 0.3, (box.min.z + box.max.z) / 2], [box.max.x + 0.3, (box.min.z + box.max.z) / 2], [(box.min.x + box.max.x) / 2, box.min.z - 0.3], [(box.min.x + box.max.x) / 2, box.max.z + 0.3]]) {
+        const covered = map.boxes.some((b) => x >= b.min.x && x <= b.max.x && z >= b.min.z && z <= b.max.z && b.min.y <= box.max.y);
+        expect(covered, `gap next to the sunken floor at x=${x}, z=${z}`).toBe(true);
+      }
+    }
   });
 
   it('nav points and link ends are places where a player can stand', () => {

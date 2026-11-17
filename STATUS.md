@@ -96,28 +96,27 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 
 | Paarung (Best-of-5, Bot gegen Bot, 160 Matches) | Ziel | gemessen |
 |---|---|---|
-| Leicht gegen Leicht (Kontrolle) | 50 % | 43 % |
-| Mittel gegen Leicht | 70 % | **76 %** |
-| Schwer gegen Mittel | 90 % | **88 %** |
-| Schwer gegen Leicht | – | 88 % |
+| Leicht gegen Leicht (Kontrolle) | 50 % | 44 % |
+| Mittel gegen Leicht | 70 % | **66 %** (je Map 60–70 %) |
+| Schwer gegen Mittel | 90 % | **95 %** (je Map 90–98 %) |
+| Schwer gegen Leicht | – | 98 % |
 
-Können-Werte (`SKILL`): leicht 0,05 · mittel 0,17 · schwer 0,99 (nach dem Ausbau der Bot-KI
-neu eingestellt; vorher lag Mittel mit 0,08 fast auf Leicht).
+Können-Werte (`SKILL`): leicht 0,05 · mittel 0,09 · schwer 0,55.
 
-- Die Ziele sind ungefähr getroffen. **Schwer liegt am oberen Rand (0,99)** – stärker kann
-  der Bot mit den jetzigen Regeln nicht werden. Soll Schwer noch stärker sein, muss
-  `STRONGEST` in `src/solo/difficulty.ts` stärker werden (z. B. `reactionTicks` 1–2), danach
-  `npm run tune`.
-- **„Reaktor“ fällt deutlich aus dem Rahmen:** Dort gewinnt Schwer nur ~55 % gegen Mittel
-  und ~51 % gegen Leicht, Mittel sogar nur 43 % gegen Leicht (auf den anderen Maps 85–100 %).
-  Auf dieser Map ist Können also fast egal. Vermutete Ursache: Die Kämpfe finden in/um die
-  Grube statt, wo Sprungfelder und Abstürze den Ausgang zufällig machen. **Nicht
-  untersucht** – nächster Schritt: mit `tests/soloHelpers.ts` (`playMatch`, Feld
-  `behavior`: `botFalls`, `humanFalls`, `botKills`) Schwer gegen Leicht auf `reaktor`
-  spielen und nachsehen, wie die Runden enden.
-- Auch „Leicht gegen Leicht“ ist mit 43 % (Arena: 30 %) nicht ganz ausgeglichen; bei 160
-  Matches sind ±4 Prozentpunkte Zufall, das ist etwas mehr. Möglicherweise hat Spawn-Seite 0
-  auf der Arena einen Vorteil.
+- **Reaktor-Befund (17.11., behoben):** Auf Reaktor machte die Stufe kaum einen Unterschied
+  (Schwer nur ~55 % gegen Mittel). Ursache war die Map-Geometrie, nicht die KI: Zwischen
+  Grubenboden (±5 m) und Ring (±6,5 m) lag ein 1,5 m breiter tödlicher Spalt, und unter
+  den 1 m dünnen Ring-Platten war offener Abgrund. Wenn zwei Bots sich beim Wall-Run über
+  der Grube begegnen, schiebt die Spieler-Kollision sie von der Wand; mit 9 m/s flogen sie
+  über die Grube hinaus in den Spalt. Der schwere Bot nimmt Wall-Runs am liebsten und
+  starb so 443-mal (der leichte 41-mal). Lösung: Der Grubenboden füllt jetzt das ganze Loch,
+  der Ring reicht bis unter den Grubenboden (die Grube hat feste Wände). Damit Reaktor
+  trotzdem tödliche Kanten hat, sind die vier äußeren Ecken des Rings offen. Danach: 0
+  Stürze; Test „falling into a lower area is never deadly by itself“ in
+  `tests/unit/maps.test.ts` verhindert, dass so ein Spalt wieder entsteht.
+- „Leicht gegen Leicht“ liegt mit 44 % (Arena: 30 %) etwas unter 50 %. Bei 160 Matches sind
+  ±4 Prozentpunkte Zufall; auf der Arena hat vermutlich eine Spawn-Seite einen Vorteil.
+  Nicht untersucht.
 - Die „Parry-Quote“ in `BALANCE.md` ist klein (2–3 %), weil sie durch *alle* Schwünge des
   Gegners geteilt wird, auch die außer Reichweite.
 - Gemessen wird Bot gegen Bot. Ob die Stufen für Menschen passen, ist ungeprüft.
