@@ -479,6 +479,11 @@ und prüfen einige deutsche Texte).
   Kampfentscheidungen in `src/bots/brainFight.ts`. `BotPersonality` steuert Angriffs-/
   Dash-Angriffs-/Parry-/Sprung-Häufigkeit und wie gern der Bot Parkour-Abkürzungen nimmt
   (`linkCost`).
+- **Je Modus:** `src/bots/modeTactics.ts` sagt, wie der Bot die Regeln eines Modus spielt
+  (Parry-/Ausweich-/Dash-Angriff-Faktor, Unverwundbarkeit abwarten, Konter nutzen). Das
+  Duell hat neutrale Werte (alles 1/aus) – so bleibt das Duell-Verhalten und seine Balance
+  unverändert. Ein neuer Modus braucht einen Eintrag in `MODE_TACTICS` (TypeScript meldet ihn).
+  `brain.think(..., mode)` bekommt den Modus vom `GameClient` des Bots.
 - Wegfindung: `src/bots/nav.ts` + `navPoints` und `links` der Map.
 - Parkour: `src/bots/parkour.ts` (`LinkRunner`) läuft einen `link` der Map ab
   (ausrichten → anlaufen → abspringen → Wall-Run/Flug → landen).
@@ -490,10 +495,12 @@ und prüfen einige deutsche Texte).
 - Bot-Code, den der Solo-Modus benutzt (`brain`, `brainFight`, `nav`, `parkour`, `bot`),
   muss im Browser laufen: keine Node-Module importieren.
 - **Balance prüfen/neu einstellen:** `npm run tune` lässt die Stufen gegeneinander spielen,
-  sucht die `SKILL`-Werte für „Mittel gewinnt ~70 % gegen Leicht, Schwer ~90 % gegen Mittel“
-  und schreibt `BALANCE.md`. Die ausgegebenen Werte in `SKILL` (`src/solo/difficulty.ts`)
-  eintragen, dann `npm run tune -- --quick` zur Kontrolle und beides committen. Die Ziele
-  stehen oben in `scripts/tune.ts` (`TARGET`).
+  sucht **für jeden Modus** die `SKILL`-Werte für „Mittel gewinnt ~70 % gegen Leicht, Schwer
+  ~90 % gegen Mittel“ und schreibt `BALANCE.md` (ein Abschnitt pro Modus). Die ausgegebenen
+  Werte in `SKILL` (`src/solo/difficulty.ts`, eine Zeile pro Modus) eintragen, dann
+  `npm run tune -- --quick` zur Kontrolle und beides committen. Die Ziele stehen oben in
+  `scripts/tune.ts` (`TARGET`). Nur einen Modus ausprobieren: `npm run tune -- --mode arena`
+  (schreibt `BALANCE.md` nicht).
 - **Benimmt sich der Bot vernünftig?** `tests/sim/botQuality.test.ts` misst Abstürze,
   Stehenbleiben und ob jede Runde mit einem Treffer endet. Neue „der Bot macht Quatsch“-
   Beobachtungen zuerst dort als Test nachstellen (Helfer: `tests/soloHelpers.ts`), dann beheben.

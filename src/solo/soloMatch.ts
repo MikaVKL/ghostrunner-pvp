@@ -15,10 +15,10 @@
 import { Bot } from '../bots/bot';
 import { GameClient } from '../netcode/gameClient';
 import { GameServer } from '../server/gameServer';
-import type { ModeId } from '../shared/match/gameModes';
+import { DEFAULT_MODE_ID, type ModeId } from '../shared/match/gameModes';
 import type { MatchConfig } from '../shared/match/matchConfig';
 import type { ReplayFile } from '../shared/replay/replayFormat';
-import { DIFFICULTIES, type Difficulty } from './difficulty';
+import { DIFFICULTIES, difficultyPersonality, type Difficulty } from './difficulty';
 import { createLoopback } from './loopback';
 
 export interface SoloOptions {
@@ -51,7 +51,8 @@ export class SoloMatch {
 
     const botLink = createLoopback();
     this.server.attach(botLink.server);
-    this.bot = new Bot(botLink.client, { name: level.botName, seed: options.seed, personality: level.personality });
+    const personality = difficultyPersonality(options.difficulty, options.modeId ?? DEFAULT_MODE_ID);
+    this.bot = new Bot(botLink.client, { name: level.botName, seed: options.seed, personality });
   }
 
   /**

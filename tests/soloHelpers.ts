@@ -73,7 +73,7 @@ function pilot(client: GameClient, script: HumanScript, brain: BotBrain | null, 
   const enemy = enemySlot === undefined ? null : (client.sampleRemote(enemySlot) ?? client.opponent);
   if (typeof script === 'function') return client.tick(script(me, enemy, tick));
   const canAct = me.alive && phaseAllowsAction(client.snapshot?.match.phase ?? 'waiting');
-  client.tick(brain!.think(me, enemy, client.map, canAct));
+  client.tick(brain!.think(me, enemy, client.map, canAct, client.mode ?? undefined));
 }
 
 function countEvent(behavior: BotBehavior, event: GameEvent): void {

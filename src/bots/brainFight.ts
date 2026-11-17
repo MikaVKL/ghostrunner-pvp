@@ -8,6 +8,8 @@
  *   - it punishes: a stunned opponent or one recovering from a missed swing gets hit at once
  *   - it sometimes dodges with a dash instead of parrying
  *   - every round it picks a fighting style that shifts all of these chances
+ *   - the game mode changes its tactics (modeTactics.ts), e.g. in the arena it parries
+ *     more, uses its counter bonus and does not waste swings on an invulnerable enemy
  */
 import { currentAttack, isAttackActive } from '../shared/combat/actions';
 import { getWeapon } from '../shared/combat/weapons';
@@ -17,6 +19,7 @@ import type { Rng } from '../shared/math/rng';
 import { MOVE } from '../shared/movement/movementConfig';
 import type { PlayerState } from '../shared/sim/playerState';
 import type { BotPersonality } from './brain';
+import type { ModeTactics } from './modeTactics';
 
 /** How far a dash carries the bot, in meters. */
 const DASH_DISTANCE = MOVE.dashSpeed * MOVE.dashTicks * TICK_DT;
@@ -44,6 +47,8 @@ export interface FightSituation {
   aimError: number;
   /** True if there is solid floor all the way to the enemy (checked only when needed). */
   pathIsSafe: () => boolean;
+  /** How to play the rules of the current game mode. */
+  tactics: ModeTactics;
 }
 
 export interface FightPlan {
@@ -59,6 +64,12 @@ export function isOpen(enemy: PlayerState): boolean {
   if (enemy.action !== 'attack') return false;
   const swing = currentAttack(enemy);
   return enemy.actionTicks >= swing.startupTicks + swing.activeTicks;
+}
+
+/** Ticks until the enemy's swing can no longer hit. */
+function ticksUntilSwingEnds(enemy: PlayerState): number {
+  const swing = currentAttack(enemy);
+  return swing.startupTicks + swing.activeTicks - enemy.actionTicks;
 }
 
 export class FightHabits {
@@ -88,13 +99,17 @@ export class FightHabits {
     return { buttons: this.decideAttack(s) | defense.buttons, dodge: defense.dodge };
   }
 
-  private decideAttack({ me, enemy, distance, aimError, pathIsSafe }: FightSituation): number {
+  private decideAttack({ me, enemy, distance, aimError, pathIsSafe, tactics }: FightSituation): number {
     if (me.action !== 'idle' || me.attackCooldown > 0) return 0;
     const { light, dash } = getWeapon(me.weaponId).attacks;
-    const open = isOpen(enemy);
+    // A swing that would land while the enemy cannot be hit is wasted (and leaves us open).
+    if (tactics.waitOutInvulnerability && enemy.invulnerableTicks > light.startupTicks) return 0;
+    // Our own parry counter (bonus damage) is used like a free hit.
+    const open = isOpen(enemy) || (tactics.useCounter && me.counterTicks > 0);
+    const eager = tactics.pressWhileInvulnerable && me.invulnerableTicks > 0 ? 2 : 1;
     if (aimError < 0.5 && distance < light.range) {
       // An opponent that cannot defend itself is hit at once ("punish").
-      const chance = open ? this.personality.punishChance : this.personality.attackChance * this.style.attack;
+      const chance = open ? this.personality.punishChance : this.personality.attackChance * this.style.attack * eager;
       if (this.rng() >= chance) return 0;
       if (open) this.stats.punishes++;
       return Button.Attack;
@@ -103,7 +118,8 @@ export class FightHabits {
     const dashReach = DASH_DISTANCE + dash.range - 0.5;
     const sameLevel = Math.abs(enemy.pos.y - me.pos.y) < 1;
     if (aimError < 0.2 && distance < dashReach && me.dashCooldown === 0 && me.grounded && sameLevel) {
-      const chance = open ? this.personality.punishChance : this.personality.dashAttackChance * this.style.attack;
+      const normal = this.personality.dashAttackChance * this.style.attack * tactics.dashAttack * eager;
+      const chance = open ? this.personality.punishChance : normal;
       if (this.rng() < chance && pathIsSafe()) {
         if (open) this.stats.punishes++;
         return Button.Dash | Button.Attack;
@@ -113,7 +129,7 @@ export class FightHabits {
   }
 
   /** Answer each enemy swing once, after the reaction time: parry, dodge, or nothing. */
-  private decideDefense({ me, enemy, distance }: FightSituation): FightPlan {
+  private decideDefense({ me, enemy, distance, tactics }: FightSituation): FightPlan {
     const nothing = { buttons: 0, dodge: false };
     if (enemy.action !== 'attack' || isOpen(enemy)) {
       this.swingSeenAt = null;
@@ -127,10 +143,11 @@ export class FightHabits {
     if (distance > reach) return nothing;
     this.answeredSwing = true;
     if (isAttackActive(me)) return nothing;
+    if (tactics.pressWhileInvulnerable && me.invulnerableTicks > ticksUntilSwingEnds(enemy)) return nothing;
 
     const roll = this.rng();
-    const parry = Math.min(0.97, this.personality.parryChance * this.style.parry);
-    const dodge = this.personality.dodgeChance * this.style.dodge;
+    const parry = Math.min(0.97, this.personality.parryChance * this.style.parry * tactics.parry);
+    const dodge = this.personality.dodgeChance * this.style.dodge * tactics.dodge;
     if (roll < parry) {
       return me.action === 'idle' && me.parryCooldown === 0 ? { buttons: Button.Parry, dodge: false } : nothing;
     }

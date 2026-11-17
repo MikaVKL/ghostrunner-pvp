@@ -24,7 +24,7 @@ bekannte Fehler, nächste Schritte – zuerst lesen, wenn du hier weiterarbeites
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server. ~20 s |
 | `npm run test:browser` | Playwright: echte Chromium-Tabs spielen gegeneinander und solo gegen den Bot (auch ohne Server). ~2,5 min. Nach Client-/UI-Änderungen ausführen |
 | `npm run build:pages` / `npm run preview:pages` | Statische Solo-Version für GitHub Pages bauen (`dist/pages`) / lokal ansehen |
-| `npm run tune` | Bot-Selbstspiel: sucht die Stärke der drei Schwierigkeitsstufen und schreibt `BALANCE.md`. ~4 min (`-- --quick`: nur messen, ~1 min). Nach Änderungen an Bot-KI oder Kampfregeln ausführen |
+| `npm run tune` | Bot-Selbstspiel: sucht die Stärke der drei Schwierigkeitsstufen **je Modus** und schreibt `BALANCE.md`. ~10 min (`-- --quick`: nur messen, ~3 min; `-- --mode arena`: nur ein Modus, schreibt nichts). Nach Änderungen an Bot-KI, Kampfregeln oder einem Modus ausführen |
 | `npm run check` | `npm test` + `npm run bots:sim` – vor jedem Commit ausführen |
 | `npm run check:all` | `check` + `bots` + `test:browser` – vor größeren Abgaben |
 | `npm run typecheck` | Nur TypeScript prüfen |
@@ -184,8 +184,9 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
   `dodge()` in `brain.ts`). Sonst dasht der Bot z. B. rückwärts über eine Kante – genau so
   ist es schon passiert.
 - **Schwierigkeit nie von Hand „nach Gefühl“ ändern:** `SKILL` in `src/solo/difficulty.ts`
-  kommt aus `npm run tune`. Nach Änderungen an Bot-KI/Kampf neu ausführen und `BALANCE.md`
-  mit committen.
+  kommt aus `npm run tune` (eine Zeile je Modus). Nach Änderungen an Bot-KI/Kampf/Modus neu
+  ausführen und `BALANCE.md` mit committen. Duell-Taktik in `bots/modeTactics.ts` neutral
+  lassen, sonst ändert sich das Duell-Verhalten der Bots.
 - **Bots sehen den Gegner interpoliert** (wie ein Mensch, ~100 ms in der Vergangenheit) und
   nicht den neuesten Snapshot – sonst würde die Lag-Kompensation für sie nicht stimmen.
 - **Neue Nachricht Client→Server:** muss in `parseClientMessage` (`shared/protocol/codec.ts`)

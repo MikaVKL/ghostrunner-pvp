@@ -1,12 +1,15 @@
 # BALANCE.md – Wie stark sind die Schwierigkeitsstufen?
 
-Diese Datei wird von `npm run tune` erzeugt (Bots spielen gegeneinander, ganze
-Best-of-5-Matches über das simulierte Netz mit 80 ms Ping). **Nicht von Hand ändern** –
-nach Änderungen an der Bot-KI oder den Kampfregeln `npm run tune` neu ausführen.
+Diese Datei wird von `npm run tune` erzeugt (Bots spielen gegeneinander, ganze Matches
+mit den Rundenregeln des jeweiligen Modus über das simulierte Netz mit 80 ms Ping).
+**Nicht von Hand ändern** – nach Änderungen an der Bot-KI, den Kampfregeln oder einem
+Modus `npm run tune` neu ausführen.
 
-Stand: gesucht und gemessen. Ziel: Mittel gewinnt ~70 % gegen Leicht, Schwer ~90 % gegen Mittel.
+Stand: gesucht und gemessen. Ziel in jedem Modus: Mittel gewinnt ~70 % gegen Leicht, Schwer ~90 % gegen Mittel.
 
-## Gewinnquote der stärkeren Stufe
+## Modus Duell
+
+Regeln: 1 Leben, erster mit 3 Rundensiegen gewinnt.
 
 | Paarung | gesamt | Neonschlucht | Dächer | Reaktor | Arena | Parry-Quote | Matches |
 |---|---|---|---|---|---|---|---|
@@ -14,6 +17,17 @@ Stand: gesucht und gemessen. Ziel: Mittel gewinnt ~70 % gegen Leicht, Schwer ~90
 | Mittel gegen Leicht (Ziel 70 %) | **66 %** | 68 % | 68 % | 70 % | 60 % | 0 % | 160 |
 | Schwer gegen Mittel (Ziel 90 %) | **95 %** | 98 % | 95 % | 90 % | 98 % | 1 % | 160 |
 | Schwer gegen Leicht | **98 %** | 98 % | 100 % | 98 % | 98 % | 2 % | 160 |
+
+## Modus Arena
+
+Regeln: 3 Leben, erster mit 2 Rundensiegen gewinnt.
+
+| Paarung | gesamt | Neonschlucht | Dächer | Reaktor | Arena | Parry-Quote | Matches |
+|---|---|---|---|---|---|---|---|
+| Leicht gegen Leicht (Kontrolle, soll ~50 % sein) | **53 %** | 50 % | 50 % | 56 % | 55 % | 0 % | 160 |
+| Mittel gegen Leicht (Ziel 70 %) | **70 %** | 73 % | 73 % | 76 % | 57 % | 0 % | 160 |
+| Schwer gegen Mittel (Ziel 90 %) | **93 %** | 95 % | 85 % | 100 % | 93 % | 7 % | 160 |
+| Schwer gegen Leicht | **97 %** | 98 % | 98 % | 100 % | 93 % | 8 % | 160 |
 
 - **Gewinnquote:** Siege der zuerst genannten Stufe; ein Unentschieden zählt als halber Sieg.
 - **Parry-Quote:** erfolgreiche Parrys der zuerst genannten Stufe, geteilt durch alle
@@ -24,14 +38,16 @@ Stand: gesucht und gemessen. Ziel: Mittel gewinnt ~70 % gegen Leicht, Schwer ~90
 
 ## Können-Werte (`SKILL` in `src/solo/difficulty.ts`)
 
-| Stufe | Können (0 = schwächster, 1 = stärkster Bot) |
-|---|---|
-| leicht | 0.05 |
-| mittel | 0.09 |
-| schwer | 0.55 |
+| Stufe | Duell | Arena |
+|---|---|---|
+| leicht | 0.05 | 0.05 |
+| mittel | 0.09 | 0.11 |
+| schwer | 0.55 | 0.5 |
 
-Aus dem Können werden alle Bot-Parameter berechnet (`personalityForSkill`): Drehtempo,
-Angriffs-, Dash-Angriffs- und Parry-Wahrscheinlichkeit, Lust auf Parkour.
+Können: 0 = schwächster, 1 = stärkster Bot. Daraus werden alle Bot-Parameter berechnet
+(`personalityForSkill`): Drehtempo, Reaktionszeit, Angriffs-, Dash-Angriffs- und
+Parry-Wahrscheinlichkeit, Lust auf Parkour. Wie der Bot einen Modus spielt (z. B. in der
+Arena öfter parieren), steht getrennt davon in `src/bots/modeTactics.ts`.
 
 ## Grenzen dieser Messung
 

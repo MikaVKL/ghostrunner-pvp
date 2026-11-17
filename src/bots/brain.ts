@@ -14,8 +14,10 @@ import { angleDifference, clamp } from '../shared/math/scalar';
 import { forwardFromYaw, horizontalDistance, yawToward, type Vec3 } from '../shared/math/vec3';
 import { getWeapon } from '../shared/combat/weapons';
 import { MOVE } from '../shared/movement/movementConfig';
+import { DUEL, type GameMode } from '../shared/match/gameModes';
 import type { PlayerState } from '../shared/sim/playerState';
 import { FightHabits } from './brainFight';
+import { tacticsFor } from './modeTactics';
 import { ButtonHolder } from './buttonHolder';
 import { ARRIVE_DISTANCE, canStandAt, isWalkable, nearestStandable, planRoute, type NavStep } from './nav';
 import { LinkRunner } from './parkour';
@@ -105,8 +107,9 @@ export class BotBrain {
   /**
    * Decide the input for this tick. `enemy` is null while alone in the room.
    * @param canAct false while the player is frozen (countdown, round over, dead)
+   * @param mode   rules of the room - the bot fights a little differently per mode
    */
-  think(me: PlayerState, enemy: PlayerState | null, map: MapDef, canAct = true): InputSample {
+  think(me: PlayerState, enemy: PlayerState | null, map: MapDef, canAct = true, mode: GameMode = DUEL): InputSample {
     this.ticks++;
     if (!this.hasYaw) {
       this.yaw = me.yaw;
@@ -155,7 +158,7 @@ export class BotBrain {
     if (fighting) {
       const aimError = Math.abs(angleDifference(this.yaw, yawToward(me.pos, target.pos)));
       const pathIsSafe = () => isWalkable(map, me.pos, target.pos);
-      const plan = this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe });
+      const plan = this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe, tactics: tacticsFor(mode) });
       this.buttons.press(plan.buttons);
       // A dash goes where the movement keys point: a dash attack must point at the enemy
       // (during footwork the keys may point backward - straight over an edge).

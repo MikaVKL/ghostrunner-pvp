@@ -5,8 +5,10 @@
  * parameters (see BotPersonality in src/bots/brain.ts) are blended between the two
  * extremes below. The skill values are not guessed: `npm run tune` lets the bots play
  * against each other and finds the values for the wanted win rates (see BALANCE.md).
+ * Every game mode has its own values: the same bot is stronger or weaker under other rules.
  */
 import { DEFAULT_PERSONALITY, type BotPersonality } from '../bots/brain';
+import type { ModeId } from '../shared/match/gameModes';
 import { lerp } from '../shared/math/scalar';
 
 export type Difficulty = 'leicht' | 'mittel' | 'schwer';
@@ -60,14 +62,18 @@ export function personalityForSkill(skill: number): BotPersonality {
 }
 
 /**
- * Skill of each level. Found by `npm run tune` - run it again after changing the bot AI
- * or the combat rules and copy the values it prints into this table.
+ * Skill of each level, per game mode. Found by `npm run tune` - run it again after
+ * changing the bot AI or the combat rules and copy the values it prints into this table.
  */
-export const SKILL: Record<Difficulty, number> = {
-  leicht: 0.05,
-  mittel: 0.09,
-  schwer: 0.55,
+export const SKILL: Record<ModeId, Record<Difficulty, number>> = {
+  duel: { leicht: 0.05, mittel: 0.09, schwer: 0.55 },
+  arena: { leicht: 0.05, mittel: 0.11, schwer: 0.5 },
 };
+
+/** The bot parameters of a difficulty level in a game mode. */
+export function difficultyPersonality(level: Difficulty, modeId: ModeId): BotPersonality {
+  return personalityForSkill(SKILL[modeId][level]);
+}
 
 export interface DifficultyLevel {
   /** Shown in the menu (German). */
@@ -76,7 +82,6 @@ export interface DifficultyLevel {
   description: string;
   /** The bot's name in the HUD (only letters, digits and spaces survive the name filter). */
   botName: string;
-  personality: BotPersonality;
 }
 
 export const DIFFICULTIES: Record<Difficulty, DifficultyLevel> = {
@@ -84,19 +89,16 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyLevel> = {
     label: 'Leicht',
     description: 'Dreht sich langsam, zögert beim Zuschlagen, pariert fast nie.',
     botName: 'Bot Leicht',
-    personality: personalityForSkill(SKILL.leicht),
   },
   mittel: {
     label: 'Mittel',
     description: 'Schlägt zügig zu, pariert manchmal und nutzt Abkürzungen.',
     botName: 'Bot Mittel',
-    personality: personalityForSkill(SKILL.mittel),
   },
   schwer: {
     label: 'Schwer',
     description: 'Reagiert sofort, pariert die meisten Schläge und greift per Dash an.',
     botName: 'Bot Schwer',
-    personality: personalityForSkill(SKILL.schwer),
   },
 };
 

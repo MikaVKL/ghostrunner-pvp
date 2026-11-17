@@ -8,7 +8,8 @@
 import { describe, expect, it } from 'vitest';
 import { MAPS } from '../../src/shared/maps';
 import { DEFAULT_MATCH_CONFIG } from '../../src/shared/match/matchConfig';
-import { DIFFICULTIES, isDifficulty, type Difficulty } from '../../src/solo/difficulty';
+import { DIFFICULTIES, difficultyPersonality, isDifficulty, type Difficulty } from '../../src/solo/difficulty';
+import { MODE_IDS } from '../../src/shared/match/gameModes';
 import { createLoopback } from '../../src/solo/loopback';
 import { expectHealthy, startSolo, type SoloRun } from '../soloHelpers';
 
@@ -52,10 +53,12 @@ describe('solo match setup', () => {
 
   it('every difficulty has its own bot parameters, ordered from easy to hard', () => {
     expect(LEVELS).toEqual(['leicht', 'mittel', 'schwer']);
-    const [easy, medium, hard] = LEVELS.map((level) => DIFFICULTIES[level].personality);
-    for (const key of ['turnSpeed', 'attackChance', 'dashAttackChance', 'parryChance'] as const) {
-      expect(easy[key], key).toBeLessThan(medium[key]);
-      expect(medium[key], key).toBeLessThan(hard[key]);
+    for (const modeId of MODE_IDS) {
+      const [easy, medium, hard] = LEVELS.map((level) => difficultyPersonality(level, modeId));
+      for (const key of ['turnSpeed', 'attackChance', 'dashAttackChance', 'parryChance'] as const) {
+        expect(easy[key], `${modeId} ${key}`).toBeLessThan(medium[key]);
+        expect(medium[key], `${modeId} ${key}`).toBeLessThan(hard[key]);
+      }
     }
     expect(isDifficulty('schwer')).toBe(true);
     expect(isDifficulty('unmöglich')).toBe(false);

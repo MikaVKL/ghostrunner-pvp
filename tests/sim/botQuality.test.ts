@@ -17,11 +17,12 @@ import { Button } from '../../src/shared/input';
 import { MAPS } from '../../src/shared/maps';
 import { DAECHER } from '../../src/shared/maps/daecher';
 import { forwardFromYaw } from '../../src/shared/math/vec3';
-import { createPlayer } from '../../src/shared/sim/playerState';
+import { createPlayer, type PlayerState } from '../../src/shared/sim/playerState';
 import { stepPlayer } from '../../src/shared/sim/stepPlayer';
 import { DIFFICULTIES, type Difficulty } from '../../src/solo/difficulty';
 import { expectHealthy, playMatch } from '../soloHelpers';
 import { DUEL } from '../../src/shared/match/gameModes';
+import { MODE_TACTICS } from '../../src/bots/modeTactics';
 
 const LEVELS = Object.keys(DIFFICULTIES) as Difficulty[];
 const cases = Object.keys(MAPS).flatMap((mapId) => LEVELS.map((difficulty) => ({ mapId, difficulty })));
@@ -106,12 +107,15 @@ describe('fight habits: the bot reacts like a fighter, not like a dice', () => {
   const light = WEAPONS.sword.attacks.light;
 
   /** Two fighters 2 m apart, looking at each other. */
-  function situation(change: (enemy: ReturnType<typeof createPlayer>) => void = () => {}): FightSituation {
+  function situation(
+    change: (enemy: ReturnType<typeof createPlayer>, me: ReturnType<typeof createPlayer>) => void = () => {},
+    tactics = MODE_TACTICS.duel,
+  ): FightSituation {
     const me = createPlayer(0, { pos: { x: 0, y: 0, z: 0 }, yaw: -Math.PI / 2 });
     const enemy = createPlayer(1, { pos: { x: 2, y: 0, z: 0 }, yaw: Math.PI / 2 });
     me.grounded = enemy.grounded = true;
-    change(enemy);
-    return { me, enemy, distance: 2, aimError: 0, pathIsSafe: () => true };
+    change(enemy, me);
+    return { me, enemy, distance: 2, aimError: 0, pathIsSafe: () => true, tactics };
   }
   const habits = (overrides: Partial<typeof DEFAULT_PERSONALITY>) => {
     const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, ...overrides });
@@ -175,5 +179,67 @@ describe('fight habits: the bot reacts like a fighter, not like a dice', () => {
     const usage = totalUsage(reports);
     expect(usage.punishes).toBeGreaterThan(3);
     expect(usage.dodges).toBeGreaterThan(3);
+  });
+});
+
+describe('fight tactics per game mode', () => {
+  const arena = MODE_TACTICS.arena;
+  const light = WEAPONS.sword.attacks.light;
+  function situation(change: (enemy: PlayerState, me: PlayerState) => void, tactics = arena): FightSituation {
+    const me = createPlayer(0, { pos: { x: 0, y: 0, z: 0 }, yaw: -Math.PI / 2 });
+    const enemy = createPlayer(1, { pos: { x: 2, y: 0, z: 0 }, yaw: Math.PI / 2 });
+    me.grounded = enemy.grounded = true;
+    change(enemy, me);
+    return { me, enemy, distance: 2, aimError: 0, pathIsSafe: () => true, tactics };
+  }
+  const eagerHabits = () => {
+    const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 1, punishChance: 1, parryChance: 1 });
+    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 };
+    return h;
+  };
+
+  it('the duel tactics are neutral (duel bots behave as before the modes)', () => {
+    const duel = MODE_TACTICS.duel;
+    expect([duel.parry, duel.dodge, duel.dashAttack]).toEqual([1, 1, 1]);
+    expect([duel.waitOutInvulnerability, duel.pressWhileInvulnerable, duel.useCounter]).toEqual([false, false, false]);
+  });
+
+  it('arena: does not swing at an enemy that cannot be hit, but does once it can', () => {
+    const h = eagerHabits();
+    expect(h.decide(situation((e) => (e.invulnerableTicks = 40))).buttons & Button.Attack).toBe(0);
+    expect(h.decide(situation((e) => (e.invulnerableTicks = light.startupTicks))).buttons & Button.Attack).toBe(Button.Attack);
+  });
+
+  it('duel: invulnerability does not exist, so it is ignored', () => {
+    const h = eagerHabits();
+    const s = situation((e) => (e.invulnerableTicks = 40), MODE_TACTICS.duel);
+    expect(h.decide(s).buttons & Button.Attack).toBe(Button.Attack);
+  });
+
+  it('arena: uses its parry counter like a free hit', () => {
+    const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 0, punishChance: 1 });
+    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 };
+    expect(h.decide(situation(() => {})).buttons & Button.Attack).toBe(0);
+    expect(h.decide(situation((_e, me) => (me.counterTicks = 30))).buttons & Button.Attack).toBe(Button.Attack);
+  });
+
+  it('arena: does not bother to parry while it cannot be hit itself', () => {
+    const swinging = (invulnerable: number) =>
+      situation((e, me) => {
+        e.action = 'attack';
+        e.actionTicks = 1;
+        me.invulnerableTicks = invulnerable;
+      });
+    const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 0, parryChance: 1, reactionTicks: 0 });
+    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 };
+    expect(h.decide(swinging(40)).buttons & Button.Parry).toBe(0);
+    const fresh = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 0, parryChance: 1, reactionTicks: 0 });
+    fresh.style = h.style;
+    expect(fresh.decide(swinging(0)).buttons & Button.Parry).toBe(Button.Parry);
+  });
+
+  it('arena: parries more and dodges less than in the duel', () => {
+    expect(arena.parry).toBeGreaterThan(1);
+    expect(arena.dodge).toBeLessThan(1);
   });
 });

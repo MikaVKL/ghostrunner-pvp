@@ -18,10 +18,10 @@ Angriffsanzeige und Arena), GitHub-Pages-Workflow grün.
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
-| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 404) |
+| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 418) |
 | `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (13 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
-| `npm run tune -- --quick` | ~1 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen) |
+| `npm run tune -- --quick` | ~3 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen je Modus) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |
 
 Spielen: `npm run dev`, dann <http://localhost:5173>. Solo geht sofort („Solo gegen Bot“),
@@ -95,7 +95,7 @@ zurückhaben will: `git revert ff8302d`.
 | 1 | Modus-System: Spielregeln als Daten, Moduswahl im Menü (Solo + Mehrspieler), „Duell“ = bisheriges Spiel | ✅ |
 | 2 | Angriffsanzeige beim Ausholen (Ring + Ton), per Einstellung schaltbar | ✅ – Einstellung „Nach Modus / An / Aus“; Duell: aus. Nur für den Gegner, nicht im Replay |
 | 3 | Modus „Arena“: Leben, Unverwundbarkeit, Konter-Bonus, Dash-Cooldown, Leben im HUD | ✅ – Werte geschätzt, von keinem Menschen gespielt; Bots noch nicht angepasst (Schritt 4) |
-| 4 | Bot-KI je Modus, `npm run tune` je Modus | ❌ offen |
+| 4 | Bot-KI je Modus, `npm run tune` je Modus | ✅ – siehe `BALANCE.md` |
 | 5 | Replays und Killcam an die Modi anpassen | ⏳ teilweise: die Replay-Datei speichert schon den Modus (`modeId`, Format-Version 2) |
 
 **So funktioniert das Modus-System** (Schritt 1): `src/shared/match/gameModes.ts` enthält
@@ -131,6 +131,18 @@ trennt Modi, Server ohne eigene Config nimmt die Rundenzahl des Modus), `tests/s
 (Arena auf jeder Map ohne Desync), `tests/sim/soloMatch.test.ts` (Solo-Arena), Browser-Test
 „Arena gegen Bot“. `npm run bots:sim` spielt jetzt abwechselnd 4 Maps Duell, 4 Maps Arena
 (`--mode duel|arena` erzwingt einen Modus).
+**Bot-KI je Modus** (Schritt 4): `src/bots/modeTactics.ts` – im Duell neutral (Duell-Bots
+verhalten sich exakt wie vorher: `npm run tune -- --quick` ergab vor und nach dem Umbau auf
+allen 640 Matches dieselben Zahlen). In der Arena: Parry ×1,3 (Konter lohnt), Ausweichen ×0,6
+(Dash lädt langsam), Dash-Angriff ×0,5 außer zum Bestrafen, kein Schlag in die
+Unverwundbarkeit des Gegners, eigene Unverwundbarkeit zum Angreifen nutzen (dann auch nicht
+parieren), eigenes Konter-Fenster wie einen freien Treffer nutzen. `SKILL` gibt es je Modus
+(`src/solo/difficulty.ts`, `difficultyPersonality(level, modeId)`); `npm run tune` stellt
+jeden Modus ein (Duell unverändert 0,05/0,09/0,55, Arena 0,05/0,11/0,50: Mittel 70 % gegen
+Leicht, Schwer 93 % gegen Mittel). Die Parry-Quote der Bots ist in der Arena höher (7 % statt
+1 % aller gegnerischen Schwünge). Tests: `tests/sim/botQuality.test.ts` („fight tactics per
+game mode“), `tests/sim/difficulty.test.ts` (je Modus).
+
 **Bekannte Grenzen:** Ein Konter mit dem Dash-Angriff macht 2+1 = 3 Schaden und tötet damit
 sofort aus vollen Leben – gewollt als große Belohnung, aber nicht von Menschen erprobt. Die
 Map „Arena“ und der Modus „Arena“ heißen gleich (HUD zeigt „Arena · Arena“).

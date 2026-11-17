@@ -117,7 +117,7 @@ export class Bot {
       const enemy = enemySlot === undefined ? null : (client.sampleRemote(enemySlot) ?? client.opponent);
       // Frozen during countdown / after the round: the brain must know, or it thinks it is stuck.
       const canAct = me.alive && phaseAllowsAction(client.snapshot?.match.phase ?? 'waiting');
-      client.tick(this.brain.think(me, enemy, client.map, canAct));
+      client.tick(this.brain.think(me, enemy, client.map, canAct, client.mode ?? undefined));
       this.countUsage();
     } catch (error) {
       this.errors.push(error instanceof Error ? (error.stack ?? error.message) : String(error));
