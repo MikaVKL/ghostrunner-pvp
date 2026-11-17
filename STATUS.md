@@ -10,6 +10,31 @@ auf GitHub Pages veröffentlicht).
 
 ---
 
+## 0. Aktuelle Aufgabe (17.11.): Ghostrunner-Flow – Plan
+
+Ziel: Kein stumpfes Aufeinander-Zulaufen mehr. One-Shot bleibt im Duell, Block/Parry und
+Ausweichen werden der Kern. Alles im geteilten Kern, Desync-Tests bleiben grün.
+
+1. **Gefühl (nur Client):** Bloom, Speedlines, Schwertspur, Hitstop, sofortiger Treffer-Funke
+   (Kill-Effekt erst nach Server-Bestätigung), deutlicheres Ausholen – alles abschaltbar.
+2. **Bewegung:** immer sprinten (C = gehen), Tempo neu, Schwung erhalten, Slide/Ducken (Ctrl),
+   Tasten-Puffer, Erholung per Dash/Sprung abbrechen, Dash durch den Gegner, Schlag mit
+   Vorwärtsdrang, Luftschlag, Zielhilfe (Eingabe-Flag, abschaltbar), Tastenbelegung im Menü.
+   → **Playtest-Checkpoint 1** (Anhalten, auf Feedback warten).
+3. Dash-Ladungen (2, je ~3 s, HUD, max. 1 Luft-Dash bis Boden/Wand, Treffer/Parry gibt zurück).
+4. Haltungsleiste: Block (Q halten) füllt eigene Leiste, Parry (0,15 s) füllt die des Angreifers,
+   voll = 1,5 s betäubt, HUD. → **Playtest-Checkpoint 2**.
+5. Shuriken (rechte Maus: zielen/loslassen, Vorlauf-Indikator, langsamer Flug, betäubt).
+6. Maps: mehr Höhe, lange Wall-Run-Wände, Deckung.
+7. Bot-KI mit Stilen (Rusher, Konterer, Flanker, Shuriken-Kiter), Stil-Matrix in `BALANCE.md`.
+8. Nach jedem Schritt: `npm run check`, Bots unter Lag (`bots:sim -- --lag 150`), bei
+   Regeländerungen `npm run tune`, STATUS aktualisieren, committen, pushen.
+9. KANN: Modus „Flow“ (Sofort-Respawn, 10 Kills). SPÄTER (nur vorgemerkt, Abschnitt 5.4):
+   Greifhaken, Spezialangriff, schwere Angriffe, Third-Person, Gamepad, Hosting, Lebensleisten.
+10. NICHT: Zeitrennen.
+
+---
+
 ## 1. So prüfst du, ob alles funktioniert
 
 **Letzter Stand (17.11.):** `npm run check` grün, alle 13 Browser-Tests grün (mit Moduswahl,
@@ -313,6 +338,18 @@ Mögliche nächste Ideen, je einzeln mit Test in `tests/sim/botQuality.test.ts` 
 - `brain.ts` und `gameClient.ts` in kleinere Dateien teilen.
 
 ---
+
+### 5.4 Später (vom Besitzer vorgemerkt, nicht anfangen ohne Auftrag)
+
+- Greifhaken (nur falls er für den Flow nicht doch nötig wird)
+- Spezialangriff mit Indikator (nicht parierbar, nur ausweichbar)
+- Schwere Angriffe
+- Third-Person-Ansicht
+- Gamepad-Steuerung
+- Mehrspieler-Hosting
+- Lebensleisten-Modus
+
+Ausdrücklich **nicht**: Zeitrennen.
 
 ## 6. Entscheidungen, die man kennen muss
 
