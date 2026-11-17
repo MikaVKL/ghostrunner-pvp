@@ -21,6 +21,8 @@ import { detectMoments } from './stateWatcher';
 const MAX_TICKS_PER_FRAME = 5;
 
 export interface LoopParts {
+  /** While a replay is shown, it is drawn instead of the match, and the match is not ticked. */
+  replay: { readonly active: boolean; frame: (deltaMs: number) => void };
   /** The client whose match is on screen: online or solo. Null = neither exists. */
   getClient: () => GameClient | null;
   /** Called after every 60 Hz tick (the solo mode steps its local server here). */
@@ -40,7 +42,7 @@ export interface FrameInfo {
 }
 
 export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
-  const { getClient, afterTick, input, view, hud, debug, effects } = parts;
+  const { getClient, afterTick, input, view, hud, debug, effects, replay } = parts;
   let lastFrameAt = performance.now();
   let accumulator = 0;
   /** Position of the local player before the most recent tick. */
@@ -63,6 +65,12 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
   const frame = (now: number) => {
     const deltaMs = Math.min(now - lastFrameAt, 250);
     lastFrameAt = now;
+    if (replay.active) {
+      replay.frame(deltaMs);
+      accumulator = 0; // the match is frozen meanwhile - do not catch up afterwards
+      requestAnimationFrame(frame);
+      return;
+    }
     accumulator += deltaMs;
 
     const client = getClient();
@@ -79,6 +87,11 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
       if (++ticks >= MAX_TICKS_PER_FRAME) accumulator = 0;
     }
     client?.renderClock.advance(deltaMs);
+    if (replay.active) {
+      // A tick of this frame opened a replay (killcam): do not draw or update the HUD anymore.
+      requestAnimationFrame(frame);
+      return;
+    }
 
     const me = client?.localPlayer ?? null;
     if (client && me && client.room) {

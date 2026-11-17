@@ -46,11 +46,12 @@ Optionen für Bots stehen oben in `src/bots/cli.ts` (z. B. `npm run bots:sim -- 
 src/shared/    Spiellogik + Protokoll. Läuft auf Server UND Client. Kein DOM, kein Three.js, kein Node-API.
                sim/ (stepWorld, PlayerState) · movement/ · physics/ (Map- und Spieler-Kollision) ·
                combat/ (Waffen, Aktionen, Treffer, Lag-Kompensation) · match/ (Runden, Pause, Rematch) ·
-               maps/ · protocol/ · math/
+               maps/ · protocol/ · math/ · replay/ (Replay-Format, Nachrechnen, Wiedergabe-Uhr)
 src/server/    Nur Server: Tick-Loop, Räume (game/room.ts, seat.ts), Lobby, WebSocket. Darf shared importieren.
 src/netcode/   Client-Netzwerklogik OHNE Browser-Abhängigkeit (Prediction, Reconciliation,
                Interpolation, Reconnect). Wird vom Browser-Client und von den Bots benutzt.
-src/client/    Nur Browser. Darf shared + netcode importieren.
+src/client/    Nur Browser. Darf shared + netcode + solo importieren.
+               replay/ Replay-Ansicht und Killcam (Kamera, Bedienleiste, Datei-Export/-Import)
                app/    Verdrahtung, Spielschleife, effects.ts (Partikel/Sound/Texte bei Ereignissen),
                        stateWatcher.ts, connection.ts (Verbinden/Neuverbinden), settings.ts
                render/ Three.js: Himmel, Map, Figuren (fighterModel/fighterPose), Schwungbogen,
@@ -101,7 +102,9 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
      aufgerufen von `stepWorld`. Nur der Server entscheidet; der Client bekommt das Ergebnis
      per Snapshot.
 6. **Welt-Änderungen nur in `stepWorld`.** Wenn der Server die Welt außerhalb davon ändert
-   (wie `Room.join/leave`), muss er `markAllDisturbed()` aufrufen.
+   (wie `Room.join/leave`), muss er `markAllDisturbed()` aufrufen – **und** die Änderung als
+   `ReplayAction` aufzeichnen (wie die Rematch-Stimme) oder die Aufnahme beenden, sonst
+   rechnen Replays falsch nach (`tests/sim/replay.test.ts` merkt das).
 7. **Buttons sind flankengesteuert**: Aktionen starten mit `wasPressed(input, p.prevButtons, Button.X)`,
    nicht mit `isDown`, sonst lösen sie jeden Tick aus.
 
@@ -206,6 +209,13 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 - **Neuer Pfad zu Dateien im Client?** Nie mit `/` am Anfang fest verdrahten – auf GitHub
   Pages liegt die Seite in einem Unterordner (`base` in `vite.config.ts`). Links in
   `index.html` schreibt Vite selbst um; in Code `import.meta.env.BASE_URL` benutzen.
+- **Replays rechnen das Match nach**, sie speichern keine Positionen. Jede Änderung an der
+  Spiellogik macht alte Replay-Dateien ungültig (die Ansicht zeigt dann „weicht ab Tick …
+  ab“). Das ist gewollt; `PROTOCOL_VERSION` erhöhen, dann warnt die Ansicht schon beim Öffnen.
+- **JSON verliert `-0`.** Replay-Dateien schreiben `-0` deshalb als Text `"-0"`
+  (`serializeReplay`/`parseReplay`). Nie `JSON.stringify` direkt für Replays benutzen.
+- **Während ein Replay oder die Killcam läuft, steht das Solo-Match** (die Spielschleife tickt
+  es nicht). Der Replay-Betrachter fängt alle Tasten ab (`stopImmediatePropagation`).
 - **Port belegt:** `PORT=3001 npm run dev` (Vite liest dieselbe Variable für den Proxy).
 - Die Integrationstests starten einen echten Server auf einem freien Port – keine festen Ports
   in Tests verwenden.
@@ -214,6 +224,6 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 
 Accounts/Persistenz/Ranglisten, mehr als 2 Spieler pro Raum, echte 3D-Modelle (Figuren sind
 aus Primitiven gebaut), Sound-Dateien (alle Geräusche werden erzeugt), Mobile-/Gamepad-
-Steuerung, Binärprotokoll, schräge Flächen/Rampen, Zuschauer. Geplant, aber noch nicht
-gebaut (Schritte stehen in `STATUS.md`): Replays/Killcam, Zeitrennen mit Geist. Hinweise dazu stehen in
+Steuerung, Binärprotokoll, schräge Flächen/Rampen, Zuschauer. Replays und Killcam gibt es
+nur im Solo-Modus (Ausbau für Online steht in `STATUS.md`, 5.1). Hinweise dazu stehen in
 `HOW_TO_EXTEND.md` (Abschnitt „Größere Baustellen“).

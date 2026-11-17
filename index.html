@@ -40,10 +40,30 @@
         <span id="solo-info" class="hidden"></span>
         <span id="map-name"></span>
         <span id="ping"></span>
+        <button id="replay-button" class="hidden">Replay (V)</button>
         <button id="hud-help-button">Steuerung (H)</button>
         <button id="leave-button">Verlassen</button>
       </div>
       <pre id="debug" class="hidden"></pre>
+    </div>
+
+    <!-- Replay-Ansicht und Killcam. Gesteuert von src/client/replay/replayViewer.ts. -->
+    <div id="replay" class="hidden">
+      <div id="replay-title"></div>
+      <div id="replay-check"></div>
+      <div id="replay-bar">
+        <button id="replay-play"></button>
+        <button id="replay-back">−5 s (,)</button>
+        <input id="replay-slider" type="range" min="0" max="1000" value="0" />
+        <button id="replay-forward">+5 s (.)</button>
+        <span id="replay-time"></span>
+        <button id="replay-slower">−</button><span id="replay-speed"></span><button id="replay-faster">+</button>
+        <button id="replay-camera"></button>
+        <button id="replay-export">Speichern</button>
+        <button id="replay-close">Schließen (V)</button>
+      </div>
+      <div id="replay-help">Tempo: [ ] · Freie Kamera: ins Bild klicken, Maus + W/A/S/D, Leertaste hoch, Shift runter</div>
+      <div id="replay-skip">Beliebige Taste: überspringen</div>
     </div>
 
     <!-- Hauptmenü. Wird von src/client/ui/lobbyUi.ts gesteuert. -->
@@ -82,9 +102,14 @@
         <div class="section settings">
           <label>Lautstärke <input id="volume-slider" type="range" min="0" max="1" step="0.05" /></label>
           <label>Maus-Empfindlichkeit <input id="sensitivity-slider" type="range" min="0.2" max="3" step="0.1" /></label>
+          <label>Killcam nach einem Kill (Solo) <input id="killcam-checkbox" type="checkbox" /></label>
         </div>
 
-        <button id="help-button">Steuerung &amp; Regeln</button>
+        <div class="row">
+          <button id="help-button">Steuerung &amp; Regeln</button>
+          <button id="replay-load-button">Replay laden …</button>
+          <input id="replay-file" type="file" accept=".json,application/json" class="hidden" />
+        </div>
         <p id="lobby-status"></p>
       </div>
     </div>
@@ -102,6 +127,7 @@
           <tr><td>Rechte Maustaste / <kbd>F</kbd></td><td>Parry (Abwehr)</td></tr>
           <tr><td><kbd>Shift</kbd> + Schlag</td><td>Dash-Angriff (größere Reichweite, aber lange Erholung)</td></tr>
           <tr><td><kbd>R</kbd></td><td>Rematch nach dem Match</td></tr>
+          <tr><td><kbd>V</kbd></td><td>Solo: Replay des Matches ansehen (P Pause, <kbd>,</kbd> <kbd>.</kbd> spulen, <kbd>[</kbd> <kbd>]</kbd> Tempo, <kbd>C</kbd> Kamera)</td></tr>
           <tr><td><kbd>M</kbd> · <kbd>H</kbd> · <kbd>F3</kbd> · <kbd>Esc</kbd></td><td>Ton an/aus · diese Hilfe · Netzwerk-Anzeige · Maus freigeben</td></tr>
         </table>
         <h2>Regeln</h2>

@@ -81,12 +81,19 @@ export class LobbyUi {
     // Settings sliders.
     const volume = element<HTMLInputElement>('volume-slider');
     const sensitivity = element<HTMLInputElement>('sensitivity-slider');
+    const killcam = element<HTMLInputElement>('killcam-checkbox');
     volume.value = String(settings.volume);
     sensitivity.value = String(settings.sensitivity);
+    killcam.checked = settings.killcam;
     const changed = () =>
-      callbacks.onSettingsChange({ volume: Number(volume.value), sensitivity: Number(sensitivity.value) });
+      callbacks.onSettingsChange({
+        volume: Number(volume.value),
+        sensitivity: Number(sensitivity.value),
+        killcam: killcam.checked,
+      });
     volume.addEventListener('input', changed);
     sensitivity.addEventListener('input', changed);
+    killcam.addEventListener('change', changed);
   }
 
   /**

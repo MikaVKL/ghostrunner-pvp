@@ -71,6 +71,7 @@ export class Hud {
   setSoloLabel(label: string | null): void {
     this.soloInfo.textContent = label ?? '';
     this.soloInfo.classList.toggle('hidden', label === null);
+    element('replay-button').classList.toggle('hidden', label === null); // replays exist in solo only
     this.roomInfo.classList.toggle('hidden', label !== null);
   }
 

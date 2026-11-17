@@ -32,6 +32,8 @@ export const UI_KEYS = {
   rematch: 'KeyR',
   mute: 'KeyM',
   help: 'KeyH',
+  /** Solo: watch the replay of the match so far (also closes the replay). */
+  replay: 'KeyV',
 };
 
 /** Radians of rotation per pixel of mouse movement (at sensitivity 1.0 in the settings). */

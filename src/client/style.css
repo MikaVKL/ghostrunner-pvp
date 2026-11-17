@@ -582,3 +582,114 @@ body.stunned #vignette {
   font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
   color: #b9f5c8;
 }
+
+/* ---------- replay viewer ---------- */
+
+#replay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#replay-title {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+#replay.killcam #replay-title {
+  top: 22%;
+  padding: 8px 26px;
+  font-size: 36px;
+  color: #ff5a3c;
+  border-color: #ff5a3c;
+  text-shadow: 0 0 18px rgba(255, 90, 60, 0.7);
+}
+
+#replay-check {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: #b9f5c8;
+  text-shadow: 0 1px 4px #000;
+}
+
+#replay-bar {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+#replay-bar button {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+#replay-slider {
+  width: 180px;
+  padding: 0;
+  accent-color: var(--cyan);
+}
+
+#replay-time,
+#replay-speed {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+#replay-help {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24px);
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  text-shadow: 0 1px 4px #000;
+}
+
+#replay-skip {
+  display: none;
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  color: #cdd5f5;
+}
+
+#replay.killcam #replay-bar,
+#replay.killcam #replay-help,
+#replay.killcam #replay-check {
+  display: none;
+}
+
+#replay.killcam #replay-skip {
+  display: block;
+}

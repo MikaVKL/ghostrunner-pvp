@@ -66,11 +66,30 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 | F | Lebendigere Bot-KI: Reaktionszeit je Stufe, Bestrafen (betäubter/sich erholender Gegner), Ausweich-Dash, Footwork (Kreisen/Zurücktreten/Hineingehen), Kampfstil je Runde (aggressiv/Konter/Ausweicher). `src/bots/brainFight.ts`, `brain.ts`; Tests in `tests/sim/botQuality.test.ts` | ✅ – nur gegen Bots getestet, von keinem Menschen gespielt |
 | G | Zusätzliche Tests für die neuen Mechaniken im Browser | ❌ offen – siehe Abschnitt 5 |
 
+### Vierte Aufgabe (17.11.): Reaktor, Replays, Killcam, Zeitrennen
+
+| # | Schritt | Stand |
+|---|---|---|
+| 1 | Browser-Tests nach dem Bot-KI-Ausbau, Pages-Workflow | ✅ 10/10 grün, Workflow grün |
+| 2 | Reaktor: Stufen machten kaum Unterschied → Ursache war ein tödlicher Spalt um die Grube (Details in Abschnitt 4, „Balance“). Behoben, neu getunt | ✅ |
+| 3 | Replays: Startwelt + Eingaben speichern, exakt nachrechnen (Hash-Vergleich), Ansicht im Browser mit Pause, Zeitlupe, Vor-/Zurückspulen, freier Kamera, Export/Import als Datei; Killcam nach einem Schwert-Kill im Solo-Modus | ✅ – **nur im Solo-Modus** (siehe Abschnitt 4) |
+| 4 | Zeitrennen mit Geist | siehe unten |
+
+**So funktionieren Replays** (Code: `src/shared/replay/`, `src/server/game/replayRecorder.ts`,
+`src/client/replay/`, `src/client/app/replayWiring.ts`): Der Raum schreibt beim Matchstart
+die ganze Welt mit (`startWorld`) und danach pro Tick die Eingaben beider Spieler, so wie
+der Server sie benutzt hat, plus Rematch-Stimmen. `ReplaySimulator` rechnet das mit
+`stepWorld` nach und springt per Keyframes (alle 2 s eine Kopie der Welt) auch zurück. Alle
+60 Ticks steht ein Hash der Welt in der Datei; weicht das Nachrechnen ab, zeigt die Ansicht
+den ersten abweichenden Tick. Tests: `tests/sim/replay.test.ts` (Hash-Vergleich auf allen
+Maps, Export/Import, Springen, Manipulation wird erkannt), `tests/unit/replayPlayback.test.ts`,
+Browser-Test „Replay und Killcam“.
+
 ---
 
 ## 3. Offen (priorisiert)
 
-1. **Replays und Killcam** – Plan in Abschnitt 5.1
+1. ~~Replays und Killcam~~ – fertig (nur Solo). Ausbau: Replays für Online-Matches (Abschnitt 5.1)
 2. **Zeitrennen mit Geist** – Plan in Abschnitt 5.2
 3. **Bot-KI weiter ausbauen** (Grundstufe F ist fertig) – Ideen in Abschnitt 5.3
 4. **Die neuen Mechaniken von einem Menschen spielen lassen** und Werte nachstellen
@@ -146,6 +165,16 @@ Können-Werte (`SKILL`): leicht 0,05 · mittel 0,09 · schwer 0,55.
 
 **Technik:**
 
+- **Replays nur im Solo-Modus.** Online-Matches werden nicht aufgezeichnet (Plan in 5.1).
+  Die Aufnahme endet nach 20 Minuten (Dateigröße bis ~6 MB) und bei Verbindungsabbruch.
+- **Alte Replay-Dateien passen nach jeder Regel-/Spiellogik-Änderung nicht mehr** (die Ansicht
+  meldet „weicht ab Tick … ab“). Das ist die Kehrseite des Nachrechnens.
+- **Killcam:** zeigt immer die 2,5 s vor dem Kill aus Sicht des Siegers. Bei einem Kill direkt
+  nach Rundenstart beginnt sie entsprechend früher am Rundenanfang. Ob Länge und Tempo sich
+  gut anfühlen, hat noch kein Mensch beurteilt.
+- Die freie Replay-Kamera braucht die eingefangene Maus (ins Bild klicken); mit der Maus
+  über der Bedienleiste wird nicht geschaut.
+
 - Der Rückstoß beim Parry ist schwach (~0,1 m), weil die Bodenreibung ihn sofort auffrisst.
   Beim Clash ist das gelöst (kleiner Hüpfer, `COMBAT.clashLift`); beim Parry könnte man
   dasselbe tun (`applyParry` in `resolveCombat.ts`).
@@ -162,41 +191,23 @@ Können-Werte (`SKILL`): leicht 0,05 · mittel 0,09 · schwer 0,55.
 Allgemein für jeden Schritt: klein anfangen, Test schreiben, `npm run check`, committen,
 pushen. Die Rezepte in `HOW_TO_EXTEND.md` nennen die Dateien in der richtigen Reihenfolge.
 
-### 5.1 Replays und Killcam (Priorität 1)
+### 5.1 Replays für Online-Matches (Ausbau)
 
-Ziel: Nach einem Treffer sehen beide Spieler die letzten Sekunden noch einmal in Zeitlupe
-von außen („Wiederholung“), bevor die nächste Runde beginnt.
+Replays gibt es nur im Solo-Modus, weil dort der Server im Browser läuft und der Client die
+Aufzeichnung direkt lesen kann. Für Online-Matches:
 
-Warum das einfach ist: Der Client bekommt 30-mal pro Sekunde den kompletten Zustand beider
-Spieler (`SnapshotMessage.players`). Man muss ihn nur aufheben und noch einmal abspielen.
-Die Simulation wird dafür **nicht** angefasst (keine Desync-Gefahr).
-
-1. **Aufzeichnen.** Neue Datei `src/netcode/replayBuffer.ts`: Klasse `ReplayBuffer` mit
-   `push(tick, players)` (Kopien per `clonePlayer`, höchstens die letzten 240 Ticks = 4 s
-   behalten) und `frames()` (Liste `{ tick, players }`, älteste zuerst). Vorbild:
-   `SnapshotBuffer` in `src/netcode/interpolation.ts`.
-   Test `tests/unit/replayBuffer.test.ts`: füllt 400 Einträge, erwartet ≤ 240 und die
-   richtige Reihenfolge.
-2. **Befüllen.** In `GameClient.handleSnapshot` (`src/netcode/gameClient.ts`) nach
-   `this.remotes.push(...)` auch `this.replay.push(snapshot.tick, snapshot.players)`.
-   `resetGameState` leert den Puffer.
-3. **Abspielen.** In `src/client/app/gameLoop.ts`: Wenn `client.snapshot.match.phase ===
-   'roundEnd'` und die Runde durch einen Treffer endete, nicht den Live-Zustand zeichnen,
-   sondern die aufgezeichneten Frames der letzten 2 Sekunden, mit halber Geschwindigkeit
-   (Frame-Index aus der seit Phasenbeginn vergangenen Zeit berechnen, zwischen zwei Frames
-   mit `lerpVec3` mischen – wie `SnapshotBuffer.sample`).
-4. **Kamera und eigene Figur.** `GameView.render` (`src/client/render/gameView.ts`) braucht
-   einen zweiten Modus: Kamera nicht in den Augen des Spielers, sondern 4 m hinter und 2 m
-   über dem Sieger, Blick auf den Verlierer. Der eigene Spieler muss dann als Figur
-   gezeichnet werden: ihn in die Liste `remotes` aufnehmen (die Avatare entstehen pro Slot
-   automatisch, siehe `updateAvatars`) und das Ich-Schwert ausblenden.
-5. **Anzeige.** Text „WIEDERHOLUNG“ in `TEXT` (`src/client/ui/hudTexts.ts`) und im HUD
-   einblenden, solange die Wiederholung läuft.
-6. **Tests.** Browser-Test in `tests/browser/run.ts`: nach dem Kill im Test
-   „Schwertkampf“ per `expectText('#message', …)` prüfen, dass der Hinweis erscheint.
-7. **Später (größer):** ganze Matches speichern. Die Simulation ist deterministisch – der
-   Server müsste pro Tick nur die Inputs beider Spieler aufzeichnen (`Room.tick`) und man
-   könnte das Match mit `stepWorld` exakt nachrechnen. Nicht vor der Killcam anfangen.
+1. `recordReplays: true` beim Start des echten Servers setzen (`src/server/startServer.ts`
+   → `GameServer`-Optionen). Kostet bis zu ~6 MB Speicher pro Raum (Grenze: 20 Minuten).
+2. Neue Nachricht Client→Server `{ type: 'getReplay' }` (Rezept 8 in `HOW_TO_EXTEND.md`:
+   `messages.ts`, `codec.ts`, `messageRouter.ts`) und Antwort `{ type: 'replay', text }` mit
+   `serializeReplay(room.replay())`. Achtung: Die Antwort kann mehrere MB groß sein – erst
+   nach dem Match anbieten. `PROTOCOL_VERSION` erhöhen.
+3. In `src/client/app/replayWiring.ts` den Replay-Knopf auch online zeigen und die Datei
+   über diese Nachricht holen. Killcam online: Die Datei kommt mit Verzögerung; einfacher ist
+   eine Killcam aus den letzten Snapshots (`SnapshotBuffer` in `netcode/interpolation.ts`).
+4. Ein Replay wird beim Verbindungsabbruch beendet (`ReplayRecorder.stop`), weil Pausen
+   nicht nachgerechnet werden. Wer das ändern will: Pause/Fortsetzen als `ReplayAction`
+   aufnehmen (wie `rematch`) und in `ReplaySimulator.applyActions` nachspielen.
 
 ### 5.2 Zeitrennen mit Geist (Priorität 2)
 

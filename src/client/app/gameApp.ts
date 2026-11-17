@@ -28,7 +28,9 @@ import {
   rememberSeat,
   type ConnectionOptions,
 } from './connection';
+import { ReplayViewer } from '../replay/replayViewer';
 import { Effects } from './effects';
+import { setupReplays } from './replayWiring';
 import { startGameLoop } from './gameLoop';
 import { loadSettings, saveSettings, type Settings } from './settings';
 
@@ -57,6 +59,7 @@ export function startGameApp(options: AppOptions): void {
   const current = (): GameClient | null => solo?.client ?? online;
 
   const applySettings = (next: Settings) => {
+    Object.assign(settings, next);
     audio.setVolume(next.volume);
     input.sensitivity = next.sensitivity;
     saveSettings(next);
@@ -104,6 +107,7 @@ export function startGameApp(options: AppOptions): void {
       if (phase === 'waiting' && previous !== null) faceSpawnDirection(client);
     };
     client.onGameEvent = (event) => {
+      if (kind === 'solo') replays.onSoloEvent(event);
       const frame = lastFrame();
       if (frame && client.room && current() === client) {
         effects.gameEvent(event, client.room.slot, frame.players, frame.listener);
@@ -194,7 +198,21 @@ export function startGameApp(options: AppOptions): void {
     onOpenHelp: () => help.setVisible(true),
   });
 
+  const viewer = new ReplayViewer(view, input, effects);
+  const replays = setupReplays({
+    viewer,
+    view,
+    input,
+    hud,
+    lobby,
+    getSolo: () => solo,
+    current,
+    showGame,
+    killcamEnabled: () => settings.killcam,
+  });
+
   const lastFrame = startGameLoop({
+    replay: viewer,
     getClient: current,
     afterTick: () => solo?.step(),
     input,
@@ -218,6 +236,7 @@ export function startGameApp(options: AppOptions): void {
   // `game` is the client of the current match and `gameInput.setView(yaw, pitch)` turns the camera.
   Object.defineProperty(window, 'game', { get: current, configurable: true });
   (window as unknown as { gameInput: InputController }).gameInput = input;
+  (window as unknown as { gameReplay: ReplayViewer }).gameReplay = viewer;
 
   void connectOnline();
 }

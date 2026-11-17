@@ -76,6 +76,7 @@ Beenden: im Terminal `Ctrl + C`.
 | Dash-Angriff | Schlag während eines Dashes (oder `Shift` + Schlag gleichzeitig) |
 | Wall-Run | Im Sprung an eine Wand und `W` halten |
 | Rematch | `R` (nach dem Match, beide müssen drücken) |
+| Replay ansehen (Solo) | `V` – darin `P` Pause, `,` `.` spulen, `[` `]` Tempo, `C` Kamera, „Speichern“ als Datei |
 | Ton an/aus · Hilfe · Netzwerk-Anzeige | `M` · `H` · `F3` (MacBook: `fn + F3`, oder die Taste `` ` ``) |
 
 Regeln in Kürze:
@@ -104,6 +105,12 @@ Wie das funktioniert: Im Browser-Tab läuft derselbe Server-Kern wie beim Mehrsp
 über eine Verbindung im Arbeitsspeicher statt über das Internet (`src/solo/`). Der Gegner ist
 einer der Test-Bots. Deshalb braucht der Solo-Modus keinen Server und kein Internet – und
 pausiert von selbst, wenn der Tab im Hintergrund ist.
+
+**Replays und Killcam:** Nach einem Schwert-Kill zeigt die Killcam die letzten Sekunden in
+Zeitlupe (jede Taste überspringt; abschaltbar im Menü). Mit `V` siehst du das ganze Match
+noch einmal an – mit Pause, Zeitlupe, Spulen und freier Kamera – und kannst es als Datei
+speichern. „Replay laden …“ im Menü spielt eine gespeicherte Datei ab. Ein Replay speichert
+nur die Eingaben und rechnet das Match exakt nach; die Ansicht prüft das per Hash.
 
 Die Schwierigkeit ist pro Stufe eine Zahl („Können“), aus der sich ergibt, wie schnell der
 Bot sich dreht und wie oft er schlägt und pariert (`src/solo/difficulty.ts`). Die Zahlen

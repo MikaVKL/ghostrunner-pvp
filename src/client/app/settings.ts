@@ -9,9 +9,11 @@ export interface Settings {
   volume: number;
   /** Multiplier on the mouse speed, 0.2..3. */
   sensitivity: number;
+  /** Show the killcam after a sword kill in solo mode. */
+  killcam: boolean;
 }
 
-const DEFAULTS: Settings = { volume: 0.6, sensitivity: 1 };
+const DEFAULTS: Settings = { volume: 0.6, sensitivity: 1, killcam: true };
 
 export function loadSettings(): Settings {
   try {
@@ -19,6 +21,7 @@ export function loadSettings(): Settings {
     return {
       volume: typeof stored.volume === 'number' ? stored.volume : DEFAULTS.volume,
       sensitivity: typeof stored.sensitivity === 'number' ? stored.sensitivity : DEFAULTS.sensitivity,
+      killcam: typeof stored.killcam === 'boolean' ? stored.killcam : DEFAULTS.killcam,
     };
   } catch {
     return { ...DEFAULTS };

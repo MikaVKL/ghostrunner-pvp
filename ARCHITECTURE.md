@@ -308,6 +308,28 @@ Damit das im Browser läuft, benutzt der Server-Kern keine Node-Module (nur `sta
 `main.ts`, `http/` und `net/wsTransport.ts` tun das). Ohne erreichbaren Server (z. B. auf
 GitHub Pages) deaktiviert das Menü die Mehrspieler-Knöpfe; Solo läuft trotzdem.
 
+## 6c. Replays und Killcam (`shared/replay/`, `server/game/replayRecorder.ts`, `client/replay/`)
+
+```
+ AUFNEHMEN (Room, nur wenn recordReplays – im Solo-Modus an)
+   Matchstart      → startWorld = Kopie der ganzen Welt
+   jeder Tick      → Eingaben beider Spieler (genau die, die stepWorld bekommt)
+   Rematch-Stimme  → ReplayAction { tick, 'rematch', slot }
+   alle 60 Ticks   → Hash der Welt (Checkpoint)
+   Abbruch/Verlassen → Aufnahme endet
+
+ ABSPIELEN (ReplaySimulator / ReplayPlayback)
+   Welt = startWorld; pro Tick: Aktionen anwenden, stepWorld(Eingaben), Hash prüfen
+   Zurückspulen    → nächste Keyframe-Kopie (alle 2 s) laden und vorwärts rechnen
+   Zeitlupe        → Uhr läuft langsamer; Bild = Mischung aus zwei Ticks
+```
+
+Weil die Simulation deterministisch ist, ergibt das **exakt** dasselbe Match – der Test
+vergleicht Hashes der ganzen Welt. Die Ansicht (`ReplayViewer`) zeichnet mit derselben
+`GameView`: beide Spieler als Figuren, Kamera frei, hinter einem Spieler oder als Killcam
+(über die Schulter des Siegers). Die Killcam spielt nach einem Schwert-Kill im Solo-Modus die
+letzten 2,5 s mit 0,35-facher Geschwindigkeit; das Match steht so lange.
+
 ## 7. Browser-Client
 
 ```
@@ -326,6 +348,8 @@ main.ts          verbindet, liest URL-Optionen (?lag ?jitter ?predict)
      │     sword + swordPose     eigenes Schwert in der Ich-Ansicht
      │     slashArc              leuchtender Bogen = exakte Trefferzone des Schwungs
      │     particles, cameraFx   Funken/Staub; Wackeln, Sichtfeld, Neigung
+     ├─ app/replayWiring.ts  Replay-Knopf (V), Killcam nach einem Kill, „Replay laden …“
+     ├─ replay/              ReplayViewer, ReplayCamera, ReplayControls, Dateien speichern/laden
      ├─ audio/               audioEngine (Web Audio) + sounds (Rezepte, keine Dateien)
      └─ ui/                  lobbyUi (Hauptmenü), hud + hudTexts, helpOverlay, debugOverlay
 ```

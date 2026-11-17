@@ -12,7 +12,9 @@
  * Screenshots of every test end up in tests/browser/screenshots/.
  * First time on your own computer: `npx playwright install chromium`.
  */
-import { assert, assertEqual, openOne, openTwo, startDuel, startEnv, type GamePage, type TestEnv } from './harness';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { parseReplay } from '../../src/shared/replay/replayFormat';
+import { assert, assertEqual, openOne, openTwo, SCREENSHOT_DIR, startDuel, startEnv, type GamePage, type TestEnv } from './harness';
 
 const YAW_MINUS_Z = 0; // from spawn 0 on "schlucht" this looks along the platform edge
 
@@ -329,6 +331,78 @@ test('Ohne Server (wie GitHub Pages): Mehrspieler deaktiviert, Solo läuft', asy
   await a.waitFor('round 2 starts', (s) => s.round === 2 && s.phase === 'playing', 30_000);
   await a.screenshot('12-pages-solo');
   assertEqual((await a.state()).desyncs, 0, 'desyncs');
+  noErrors(a);
+});
+
+test('Replay und Killcam: ansehen, Pause, Spulen, Kamera, Export, Import, Hash-Prüfung', async (env) => {
+  const a = await openOne(env, env.url);
+  await startSolo(a, 'arena', 'schwer');
+  // We stand still; the bot comes and kills us -> the killcam starts by itself.
+  await a.page.waitForSelector('#replay.killcam', { state: 'visible', timeout: 90_000 });
+  await a.expectText('#replay-title', 'KILLCAM');
+  await a.screenshot('13-killcam');
+  await a.page.keyboard.press('KeyX'); // any key skips it
+  await a.page.waitForSelector('#replay', { state: 'hidden' });
+  assert(await a.page.isVisible('#hud'), 'back in the match after the killcam');
+
+  // Watch the whole match so far.
+  await a.page.keyboard.press('KeyV');
+  await a.page.waitForSelector('#replay:not(.killcam)', { state: 'visible' });
+  await a.expectText('#replay-title', 'Bot Schwer');
+  type ReplayWindow = { gameReplay: { state: { playing: boolean; speed: number; tick: number; sim: { lastTick: number; firstTick: number } } | null } };
+  // Copy the values explicitly: `tick` is a getter, which page.evaluate would not transfer.
+  const playback = () =>
+    a.page.evaluate(() => {
+      const s = (window as unknown as ReplayWindow).gameReplay.state;
+      return s ? { playing: s.playing, speed: s.speed, tick: s.tick } : null;
+    });
+  await a.page.keyboard.press('KeyP');
+  assertEqual((await playback())!.playing, false, 'paused with P');
+  const before = (await playback())!.tick;
+  await a.page.keyboard.press('Period');
+  assertEqual(Math.round((await playback())!.tick - before), 300, 'spooled 5 s forward');
+  await a.page.keyboard.press('Comma');
+  assertEqual(Math.round((await playback())!.tick - before), 0, 'spooled 5 s back');
+  await a.page.keyboard.press('BracketLeft');
+  assertEqual((await playback())!.speed, 0.5, 'slow motion with [');
+  await a.page.keyboard.press('KeyC');
+  await a.expectText('#replay-camera', 'Spieler 2');
+  await a.page.keyboard.press('KeyC');
+  await a.expectText('#replay-camera', 'frei');
+  await a.screenshot('14-replay');
+
+  // Export: the browser downloads a file that is a valid replay.
+  const [download] = await Promise.all([a.page.waitForEvent('download'), a.page.click('#replay-export')]);
+  const path = `${SCREENSHOT_DIR}/test-replay.json`;
+  await download.saveAs(path);
+  assert(download.suggestedFilename().startsWith('neonklinge-arena-'), `file name ${download.suggestedFilename()}`);
+  assert(parseReplay(readFileSync(path, 'utf8')) !== null, 'the downloaded file is a replay');
+
+  // Jump to the end: the viewer checks that the calculated match is identical to the recording.
+  await a.page.evaluate(() => {
+    const s = (window as unknown as { gameReplay: { state: { seekTo(t: number): void; sim: { lastTick: number } } } }).gameReplay.state;
+    s.seekTo(s.sim.lastTick);
+  });
+  await a.expectText('#replay-check', 'identisch mit der Aufnahme', 20_000);
+  await a.page.keyboard.press('KeyV');
+  await a.page.waitForSelector('#replay', { state: 'hidden' });
+  assert(await a.page.isVisible('#hud'), 'back in the match after closing the replay');
+
+  // Leave, then load the file from the menu.
+  await a.page.click('#leave-button');
+  await a.page.waitForSelector('#lobby', { state: 'visible' });
+  await a.page.setInputFiles('#replay-file', path);
+  await a.page.waitForSelector('#replay', { state: 'visible' });
+  await a.expectText('#replay-title', 'Arena');
+  assert(!(await a.page.isVisible('#lobby')), 'the menu is hidden while watching');
+  await a.page.click('#replay-close');
+  await a.page.waitForSelector('#lobby', { state: 'visible' });
+
+  // A file that is not a replay is refused with a message.
+  const junk = `${SCREENSHOT_DIR}/not-a-replay.json`;
+  writeFileSync(junk, '{"hello": 1}');
+  await a.page.setInputFiles('#replay-file', junk);
+  await a.expectText('#lobby-status', 'kein Neonklinge-Replay');
   noErrors(a);
 });
 

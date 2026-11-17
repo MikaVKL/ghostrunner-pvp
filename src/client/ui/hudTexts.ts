@@ -19,6 +19,7 @@ export const TEXT = {
   connectionLost: 'Verbindung verloren – verbinde neu …',
   connectionGaveUp: 'Der Server ist nicht erreichbar. Bitte lade die Seite neu.',
   restoringSeat: 'Kehre ins laufende Spiel zurück …',
+  replayInvalid: 'Diese Datei ist kein Neonklinge-Replay.',
   onlineConnecting: 'Verbinde mit dem Spielserver …',
   onlineOffline:
     'Kein Spielserver erreichbar – Mehrspieler ist hier nicht verfügbar. „Solo gegen Bot“ funktioniert trotzdem.',
