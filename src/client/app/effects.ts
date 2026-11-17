@@ -42,6 +42,10 @@ const feet = (p: PlayerState): Vec3 => ({ x: p.pos.x, y: p.pos.y + 0.1, z: p.pos
 
 export class Effects {
   private lastCountdown = -1;
+  /** Wind-up cue on/off (set every frame by the game loop). */
+  windupCue = false;
+  /** How many wind-up cues were played (browser tests read it). */
+  windupCues = 0;
 
   constructor(
     private readonly view: GameView,
@@ -63,6 +67,11 @@ export class Effects {
   moment(moment: Moment, p: PlayerState, listener: Listener | null): void {
     const sound = MOMENT_SOUNDS[moment];
     if (sound) playSound(this.audio, sound, listener ? this.place(listener, p.pos) : undefined);
+    // An enemy starts a swing: warn with a short tone (the ring is drawn by the avatar).
+    if (listener && this.windupCue && (moment === 'swing' || moment === 'swingDash')) {
+      playSound(this.audio, 'windup', this.place(listener, p.pos));
+      this.windupCues++;
+    }
     const particles = this.view.particles;
     const color = teamColor(p.slot);
 

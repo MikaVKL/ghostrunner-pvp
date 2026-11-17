@@ -12,14 +12,14 @@ auf GitHub Pages veröffentlicht).
 
 ## 1. So prüfst du, ob alles funktioniert
 
-**Letzter Stand (17.11.):** `npm run check` grün, alle 11 Browser-Tests grün (mit Replays
-und Killcam), GitHub-Pages-Workflow grün.
+**Letzter Stand (17.11.):** `npm run check` grün, alle 12 Browser-Tests grün (mit Moduswahl
+und Angriffsanzeige), GitHub-Pages-Workflow grün.
 
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
-| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 384) |
-| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (11 Tests). Einmalig vorher: `npx playwright install chromium` |
+| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 390) |
+| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (12 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~1 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |
@@ -93,7 +93,7 @@ zurückhaben will: `git revert ff8302d`.
 | # | Schritt | Stand |
 |---|---|---|
 | 1 | Modus-System: Spielregeln als Daten, Moduswahl im Menü (Solo + Mehrspieler), „Duell“ = bisheriges Spiel | ✅ – bisher gibt es nur „Duell“ (Arena folgt in Schritt 3) |
-| 2 | Angriffsanzeige beim Ausholen (Ring + Ton), per Einstellung schaltbar | ❌ offen |
+| 2 | Angriffsanzeige beim Ausholen (Ring + Ton), per Einstellung schaltbar | ✅ – Einstellung „Nach Modus / An / Aus“; Duell: aus. Nur für den Gegner, nicht im Replay |
 | 3 | Modus „Arena“: Leben, Unverwundbarkeit, Konter-Bonus, Dash-Cooldown, Leben im HUD | ❌ offen |
 | 4 | Bot-KI je Modus, `npm run tune` je Modus | ❌ offen |
 | 5 | Replays und Killcam an die Modi anpassen | ⏳ teilweise: die Replay-Datei speichert schon den Modus (`modeId`, Format-Version 2) |
@@ -109,6 +109,16 @@ Schaden steht nicht mehr in der Waffe, sondern im Modus. Protokoll: `createRoom.
 Menü: Abschnitt „Modus“ links (gilt für Solo, Schnelles Spiel und Raum erstellen; wer per
 Code beitritt, spielt den Modus des Raums). HUD: Modusname neben der Map.
 Tests: `tests/unit/gameModes.test.ts` (ein Test-Modus schaltet jede Regel einzeln ein).
+**Angriffsanzeige** (Schritt 2): Während der Gegner ausholt (Startup-Phase des Schwungs),
+zeigt sein Avatar einen roten Ring, der sich zusammenzieht, und eine rote Klinge
+(`client/render/windupRing.ts`, `playerAvatar.ts`); beim Beginn des Schwungs piept es kurz
+(Sound `windup` in `client/audio/sounds.ts`, ausgelöst in `client/app/effects.ts`).
+Einstellung `windupCue` in `client/app/settings.ts`: `auto` (= `GameMode.windupCueByDefault`),
+`on`, `off`; Menü: „Angriffsanzeige beim Ausholen“. Reine Darstellung – die Simulation weiß
+nichts davon. Tests: `tests/unit/windupCue.test.ts`, Browser-Test „Angriffsanzeige“.
+Grenze: Der Gegner wird ~100 ms in der Vergangenheit gezeigt (Interpolation), der Ring also
+auch – genau wie der Schlag selbst, der ja erst entschieden wird, wenn du ihn gesehen hast.
+
 **Noch nicht getestet:** dass das schnelle Spiel zwei verschiedene Modi getrennt hält – das
 geht erst, wenn es einen zweiten Modus gibt (Schritt 3).
 

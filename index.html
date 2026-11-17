@@ -106,6 +106,14 @@
           <label>Lautstärke <input id="volume-slider" type="range" min="0" max="1" step="0.05" /></label>
           <label>Maus-Empfindlichkeit <input id="sensitivity-slider" type="range" min="0.2" max="3" step="0.1" /></label>
           <label>Killcam nach einem Kill (Solo) <input id="killcam-checkbox" type="checkbox" /></label>
+          <label
+            >Angriffsanzeige beim Ausholen
+            <select id="windup-select">
+              <option value="auto">Nach Modus</option>
+              <option value="on">An</option>
+              <option value="off">Aus</option>
+            </select>
+          </label>
         </div>
 
         <div class="row">
@@ -137,6 +145,7 @@
         <ul>
           <li><b>Ein Treffer tötet.</b> Der leuchtende Bogen vor dir zeigt genau, wie weit dein Schlag reicht.</li>
           <li><b>Parry:</b> Kurz bevor dich der Schlag trifft, Parry drücken und den Gegner ansehen. Er ist dann 1 Sekunde betäubt (leuchtet gelb) – dein freier Treffer. Ein Parry ins Leere macht dich kurz wehrlos.</li>
+          <li><b>Angriffsanzeige</b> (Einstellung im Menü): Holt der Gegner aus, leuchtet ein roter Ring um ihn und es piept kurz – jetzt parieren oder ausweichen. „Nach Modus“: im Duell aus.</li>
           <li><b>Klingen-Clash:</b> Schlagt ihr im selben Moment zu, prallen die Klingen ab – niemand stirbt, beide werden zurückgeworfen.</li>
           <li><b>Sprungfelder</b> (grün leuchtend) schleudern dich in Pfeilrichtung durch die Luft. Doppelsprung und Dash gehen auch im Flug.</li>
           <li><b>Wall-Run:</b> Im Sprung an eine Wand und vorwärts halten. Du läufst bis zu 1,5 Sekunden an der Wand entlang – auch über den Abgrund.</li>

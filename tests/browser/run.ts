@@ -276,6 +276,8 @@ test('Solo gegen Bot: ganzes Match im Browser, Bot kämpft, Rematch mit R', asyn
   await a.page.waitForFunction(() =>
     (window as unknown as { gameEvents: { type: string; attacker?: number }[] }).gameEvents.some((e) => e.type === 'hit' && e.attacker === 1),
   );
+  const cues = await a.page.evaluate(() => (window as unknown as { gameEffects: { windupCues: number } }).gameEffects.windupCues);
+  assertEqual(cues, 0, 'no wind-up cue in the duel with the default setting');
 
   // 2) Lose the rest quickly by jumping into the abyss, until the match is over.
   for (let i = 0; i < 6 && (await a.state()).phase !== 'matchEnd'; i++) {
@@ -334,6 +336,20 @@ test('Ohne Server (wie GitHub Pages): Mehrspieler deaktiviert, Solo läuft', asy
   await a.waitFor('round 2 starts', (s) => s.round === 2 && s.phase === 'playing', 30_000);
   await a.screenshot('12-pages-solo');
   assertEqual((await a.state()).desyncs, 0, 'desyncs');
+  noErrors(a);
+});
+
+test('Angriffsanzeige: roter Ring und Ton, wenn der Bot ausholt', async (env) => {
+  const a = await openOne(env, env.url);
+  await a.page.selectOption('#windup-select', 'on');
+  await startSolo(a, 'arena', 'schwer');
+  // We stand still; the bot comes and swings at us.
+  await a.page.waitForFunction(
+    () => (window as unknown as { gameEffects: { windupCues: number } }).gameEffects.windupCues > 0,
+    undefined,
+    { timeout: 90_000 },
+  );
+  await a.screenshot('14-windup-cue');
   noErrors(a);
 });
 

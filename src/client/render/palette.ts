@@ -23,6 +23,8 @@ export const FX_COLORS = {
   /** Jump pads and their sparks. */
   pad: 0x7dff5a,
   stun: 0xf2c744,
+  /** Wind-up cue: ring and blade of an enemy whose swing is coming. */
+  windup: 0xff2424,
   dust: 0x8a93b8,
 };
 

@@ -33,7 +33,7 @@ import { ReplayViewer } from '../replay/replayViewer';
 import { Effects } from './effects';
 import { setupReplays } from './replayWiring';
 import { startGameLoop } from './gameLoop';
-import { loadSettings, saveSettings, type Settings } from './settings';
+import { loadSettings, saveSettings, windupCueEnabled, type Settings } from './settings';
 
 export interface AppOptions {
   connection: ConnectionOptions;
@@ -217,6 +217,7 @@ export function startGameApp(options: AppOptions): void {
     replay: viewer,
     getClient: current,
     afterTick: () => solo?.step(),
+    windupCue: (client) => windupCueEnabled(settings.windupCue, client.mode),
     input,
     view,
     hud,
@@ -239,6 +240,7 @@ export function startGameApp(options: AppOptions): void {
   Object.defineProperty(window, 'game', { get: current, configurable: true });
   (window as unknown as { gameInput: InputController }).gameInput = input;
   (window as unknown as { gameReplay: ReplayViewer }).gameReplay = viewer;
+  (window as unknown as { gameEffects: Effects }).gameEffects = effects;
 
   void connectOnline();
 }

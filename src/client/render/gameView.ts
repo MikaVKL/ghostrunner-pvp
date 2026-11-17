@@ -33,6 +33,8 @@ export interface ViewState {
   remotes: PlayerState[];
   /** Seconds since the last frame. */
   dt: number;
+  /** Show the wind-up cue on the other players (setting + game mode, see settings.ts). */
+  windupCue: boolean;
 }
 
 export class GameView {
@@ -73,7 +75,7 @@ export class GameView {
     sky.group.position.copy(camera.position);
 
     this.updateViewSword(state.local, state.dt);
-    this.updateAvatars(state.remotes, state.dt);
+    this.updateAvatars(state.remotes, state.dt, state.windupCue);
     this.updateArcs(state.local ? [state.local, ...state.remotes] : state.remotes);
     this.particles.update(state.dt);
     renderer.render(scene, camera);
@@ -98,7 +100,7 @@ export class GameView {
   }
 
   /** Create, update and remove avatars so they match the list of remote players. */
-  private updateAvatars(remotes: PlayerState[], dt: number): void {
+  private updateAvatars(remotes: PlayerState[], dt: number, windupCue: boolean): void {
     for (const player of remotes) {
       let avatar = this.avatars.get(player.slot);
       if (!avatar) {
@@ -106,7 +108,7 @@ export class GameView {
         this.avatars.set(player.slot, avatar);
         this.parts.scene.add(avatar.group);
       }
-      avatar.update(player, dt);
+      avatar.update(player, dt, windupCue);
     }
     for (const [slot, avatar] of this.avatars) {
       if (remotes.some((p) => p.slot === slot)) continue;

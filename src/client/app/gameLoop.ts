@@ -32,6 +32,8 @@ export interface LoopParts {
   hud: Hud;
   debug: DebugOverlay;
   effects: Effects;
+  /** Is the wind-up cue on for this client's match? (setting + game mode) */
+  windupCue: (client: GameClient) => boolean;
 }
 
 /** What the last frame showed. gameApp.ts uses it to place the effects of game events. */
@@ -42,7 +44,7 @@ export interface FrameInfo {
 }
 
 export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
-  const { getClient, afterTick, input, view, hud, debug, effects, replay } = parts;
+  const { getClient, afterTick, input, view, hud, debug, effects, replay, windupCue } = parts;
   let lastFrameAt = performance.now();
   let accumulator = 0;
   /** Position of the local player before the most recent tick. */
@@ -106,6 +108,8 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
       const offset = client.correctionOffset;
       const localPos = { x: blended.x + offset.x, y: blended.y + offset.y, z: blended.z + offset.z };
       const listener: Listener = { pos: localPos, yaw: input.yaw };
+      const cue = windupCue(client);
+      effects.windupCue = cue;
 
       for (const remote of remotes) {
         const before = shownBefore.get(remote.slot);
@@ -115,7 +119,7 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
       effects.frame(me, remotes, client.snapshot?.match ?? null);
       lastFrame = { listener, players: [me, ...remotes] };
 
-      view.render({ localPos, yaw: input.yaw, pitch: input.pitch, local: me, remotes, dt: deltaMs / 1000 });
+      view.render({ localPos, yaw: input.yaw, pitch: input.pitch, local: me, remotes, dt: deltaMs / 1000, windupCue: cue });
       hud.update(client, input.pointerLocked);
     } else {
       shownBefore.clear();

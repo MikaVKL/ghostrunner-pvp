@@ -99,7 +99,7 @@ export class ReplayViewer {
     for (const event of frame.events) this.effects.gameEvent(event, -1, frame.players, listener);
     this.effects.frame(null, frame.players, null);
     const feet = { x: pose.pos.x, y: pose.pos.y - EYE_HEIGHT, z: pose.pos.z };
-    this.view.render({ localPos: feet, yaw: pose.yaw, pitch: pose.pitch, local: null, remotes: frame.players, dt: deltaMs / 1000 });
+    this.view.render({ localPos: feet, yaw: pose.yaw, pitch: pose.pitch, local: null, remotes: frame.players, dt: deltaMs / 1000, windupCue: false });
     this.updateCheck(playback);
     this.controls.update(playback, this.camera.label, this.check);
     if (this.killcam && playback.finished) this.close();

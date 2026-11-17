@@ -10,7 +10,7 @@
 import { DEFAULT_MAP_ID, isMapId, MAPS } from '../../shared/maps';
 import { DEFAULT_MODE_ID, isModeId, MODES, type ModeId } from '../../shared/match/gameModes';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES, isDifficulty, type Difficulty } from '../../solo/difficulty';
-import type { Settings } from '../app/settings';
+import { isWindupCueSetting, type Settings } from '../app/settings';
 import { ChoiceButtons } from './choiceButtons';
 import { TEXT } from './hudTexts';
 
@@ -102,18 +102,22 @@ export class LobbyUi {
     const volume = element<HTMLInputElement>('volume-slider');
     const sensitivity = element<HTMLInputElement>('sensitivity-slider');
     const killcam = element<HTMLInputElement>('killcam-checkbox');
+    const windupCue = element<HTMLSelectElement>('windup-select');
     volume.value = String(settings.volume);
     sensitivity.value = String(settings.sensitivity);
     killcam.checked = settings.killcam;
+    windupCue.value = settings.windupCue;
     const changed = () =>
       callbacks.onSettingsChange({
         volume: Number(volume.value),
         sensitivity: Number(sensitivity.value),
         killcam: killcam.checked,
+        windupCue: isWindupCueSetting(windupCue.value) ? windupCue.value : 'auto',
       });
     volume.addEventListener('input', changed);
     sensitivity.addEventListener('input', changed);
     killcam.addEventListener('change', changed);
+    windupCue.addEventListener('change', changed);
   }
 
   /**

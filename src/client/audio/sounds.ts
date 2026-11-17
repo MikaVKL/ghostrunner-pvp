@@ -9,6 +9,7 @@ import type { AudioEngine, Placement } from './audioEngine';
 export type SoundName =
   | 'swing'
   | 'swingDash'
+  | 'windup'
   | 'hit'
   | 'parry'
   | 'dash'
@@ -42,6 +43,11 @@ const RECIPES: Record<SoundName, Recipe> = {
   swingDash: (a, p) => {
     a.noise({ filter: 'bandpass', from: 500, to: 3800, q: 3, duration: 0.26, gain: 0.6 }, p);
     a.tone({ type: 'sawtooth', from: 180, to: 520, duration: 0.2, gain: 0.08 }, p);
+  },
+  // Wind-up cue: a short, rising warning tone when the enemy starts a swing.
+  windup: (a, p) => {
+    a.tone({ type: 'square', from: 660, to: 990, duration: 0.09, gain: 0.12 }, p);
+    a.tone({ type: 'sine', from: 1320, to: 1760, duration: 0.07, gain: 0.08, delay: 0.03 }, p);
   },
   // The blade connects: a sharp slice, a wet thud and a low boom.
   hit: (a, p) => {
