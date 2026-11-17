@@ -8,7 +8,7 @@
  * situation always does the same thing.
  */
 import { Button, type InputSample } from '../shared/input';
-import type { MapDef } from '../shared/maps/mapTypes';
+import type { MapDef, ParkourLink } from '../shared/maps/mapTypes';
 import { createRng, type Rng } from '../shared/math/rng';
 import { angleDifference, clamp } from '../shared/math/scalar';
 import { forwardFromYaw, horizontalDistance, yawToward, type Vec3 } from '../shared/math/vec3';
@@ -71,6 +71,11 @@ export class BotBrain {
   private ticks = 0;
   private readonly buttons = new ButtonHolder();
   private strafe = 1;
+  /**
+   * How much the bot likes each parkour link THIS round. Re-rolled every round, so it
+   * takes the bridge once, a wall-run the next time, then the jump pad.
+   */
+  private linkMood = new Map<ParkourLink, number>();
   private stuckChecks = 0;
   private stuckPos: Vec3 | null = null;
   private lastPos: Vec3 | null = null;
@@ -105,7 +110,7 @@ export class BotBrain {
     // Where to go and where to look.
     if (!this.route || this.ticks % REPATH_EVERY_TICKS === 0) {
       const goal = target ? target.pos : this.wanderTarget(map);
-      this.route = planRoute(map, me.pos, goal, this.personality.linkCost);
+      this.route = planRoute(map, me.pos, goal, this.linkCostNow);
     }
     // Standing on the very edge of a platform, no line counts as walkable: step back onto safe ground first.
     const onEdge = me.grounded && !canStandAt(map, me.pos.x, me.pos.z, me.pos.y);
@@ -161,6 +166,16 @@ export class BotBrain {
     return { moveX: 0, moveZ: 0, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() };
   }
 
+  /** Cost of a parkour link for path finding: the personality's taste times this round's mood. */
+  private linkCostNow = (link: ParkourLink): number => {
+    let mood = this.linkMood.get(link);
+    if (mood === undefined) {
+      mood = 0.4 + this.rng() * 1.6;
+      this.linkMood.set(link, mood);
+    }
+    return this.personality.linkCost * mood;
+  };
+
   /** Let the LinkRunner steer until the parkour link is done. */
   private followLink(me: PlayerState, map: MapDef, runner: LinkRunner): InputSample {
     const mayWallJump = this.rng() < this.personality.wallJumpChance;
@@ -189,6 +204,7 @@ export class BotBrain {
     this.runner = null;
     this.route = null;
     this.yaw = me.yaw;
+    this.linkMood.clear(); // new round, new favorite routes
   }
 
   /** Random jumps and dashes for variety - but only where the bot will land on solid ground. */

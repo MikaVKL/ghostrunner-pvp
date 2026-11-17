@@ -138,14 +138,17 @@ export interface NavStep {
   link: ParkourLink | null;
 }
 
+/** How long a parkour link "feels" to a bot: a multiplier on its length, per link or for all. */
+export type LinkCost = number | ((link: ParkourLink) => number);
+
 /**
  * The next thing to do on the way from `from` to `to`.
  * @param linkCost multiplier on the length of parkour links (< 1 = the bot loves parkour,
- *                 Infinity = never use links)
+ *                 Infinity = never use links). A function gives every link its own value.
  * Returns `to` if it can be reached directly, a graph node if a detour is needed,
  * or `from` (stand still) if there is no safe way at all.
  */
-export function planRoute(map: MapDef, from: Vec3, to: Vec3, linkCost = 1): NavStep {
+export function planRoute(map: MapDef, from: Vec3, to: Vec3, linkCost: LinkCost = 1): NavStep {
   if (isWalkable(map, from, to)) return { target: to, link: null };
 
   const { nodes, edges } = navGraph(map);
@@ -164,7 +167,8 @@ export function planRoute(map: MapDef, from: Vec3, to: Vec3, linkCost = 1): NavS
     if (current < 0) break;
     done[current] = true;
     for (const edge of edges[current]) {
-      const length = horizontalDistance(nodes[current], nodes[edge.to]) * (edge.link ? linkCost : 1);
+      const factor = !edge.link ? 1 : typeof linkCost === 'number' ? linkCost : linkCost(edge.link);
+      const length = horizontalDistance(nodes[current], nodes[edge.to]) * factor;
       if (cost[current] + length < cost[edge.to]) {
         cost[edge.to] = cost[current] + length;
         prev[edge.to] = current;

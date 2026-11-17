@@ -29,6 +29,7 @@ export const ARENA: MapDef = {
   name: 'Arena',
   description: 'Übungsplatz: zwei Inseln, eine Brücke, zwei Wände zum Wall-Run.',
   killY: -15,
+  theme: { skyTop: 0x06040c, skyMiddle: 0x2a1438, skyHorizon: 0xd0702a, fog: 0x21142a },
   boxes: [
     boxFromBounds(-20, -4, -1, 0, -9, 9, FLOOR), // island A
     boxFromBounds(4, 20, -1, 0, -9, 9, FLOOR), // island B

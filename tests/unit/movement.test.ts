@@ -202,3 +202,33 @@ describe('frozen players', () => {
     expect(p.pos.z).toBe(5);
   });
 });
+
+describe('air control keeps momentum', () => {
+  it('holding forward while flying faster than run speed does not slow you down', () => {
+    const p = standingPlayer(0, 5, -Math.PI / 2); // looks toward +X
+    p.pos.y = 6;
+    p.grounded = false;
+    p.vel.x = 15;
+    runPlayer(p, { moveZ: 1 }, 20);
+    expect(p.vel.x).toBe(15);
+  });
+
+  it('you can still brake and steer sideways in the air', () => {
+    const p = standingPlayer(0, 5, -Math.PI / 2);
+    p.pos.y = 8;
+    p.grounded = false;
+    p.vel.x = 15;
+    runPlayer(p, { moveZ: -1 }, 20); // hold back
+    expect(p.vel.x).toBeLessThan(10);
+    const before = p.vel.z;
+    runPlayer(p, { moveX: 1 }, 10); // steer to the right (+Z when looking toward +X)
+    expect(p.vel.z).toBeGreaterThan(before + 2);
+  });
+
+  it('from a standing jump you still reach run speed in the air', () => {
+    const p = standingPlayer(0, 5, -Math.PI / 2);
+    runPlayer(p, { buttons: Button.Jump }, 1);
+    runPlayer(p, { moveZ: 1 }, 30);
+    expect(p.vel.x).toBeCloseTo(MOVE.runSpeed, 5);
+  });
+});

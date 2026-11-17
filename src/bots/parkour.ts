@@ -1,13 +1,15 @@
 /**
  * Lets a bot take one parkour link of the map (see ParkourLink in shared/maps/mapTypes.ts):
  *   align -> turn into the direction of the link and step exactly onto its line
- *   run   -> run, and jump where the floor ends (or a ledge is in the way)
- *   air   -> steer through the air / hold forward along the wall until landing
+ *   run   -> run, and jump where the floor ends (or a ledge is in the way); a jump pad
+ *            on the way simply throws the bot into the air
+ *   air   -> steer through the air (with a double jump if needed) / hold forward along
+ *            the wall until landing
  *
  * It only produces normal inputs, like a human would - the bot has no special powers.
  */
 import type { MapDef, ParkourLink } from '../shared/maps/mapTypes';
-import { angleDifference, clamp } from '../shared/math/scalar';
+import { angleDifference } from '../shared/math/scalar';
 import { forwardFromYaw, rightFromYaw, yawToward } from '../shared/math/vec3';
 import { MOVE } from '../shared/movement/movementConfig';
 import type { PlayerState } from '../shared/sim/playerState';
@@ -20,6 +22,16 @@ const LINE_TOLERANCE = 0.04;
 const ALIGNED_ANGLE = 0.02;
 /** Give up after this many ticks (the bot got stuck somewhere). */
 const TIMEOUT_TICKS = 300;
+
+/**
+ * Seconds until a flying player comes down to height `y` (0 if it is already below and
+ * falling, or can never get there).
+ */
+function timeUntilHeight(me: PlayerState, y: number): number {
+  const g = MOVE.gravity;
+  const underRoot = me.vel.y * me.vel.y + 2 * g * (me.pos.y - y);
+  return underRoot > 0 ? Math.max(0, (me.vel.y + Math.sqrt(underRoot)) / g) : 0;
+}
 
 export interface RunnerOutput {
   moveX: number;
@@ -87,12 +99,20 @@ export class LinkRunner {
       out.jump = mayWallJump && me.wallRunning && this.wallJumpIsSafe(me, map);
       return out;
     }
-    // Jump: aim for the landing point (brake if we would fly too far).
+    // Jump, drop or jump pad: predict where the flight ends and steer so that it ends at `to`.
     const remaining = (link.to.x - me.pos.x) * forward.x + (link.to.z - me.pos.z) * forward.z;
     const speed = me.vel.x * forward.x + me.vel.z * forward.z;
-    const wanted = clamp(remaining * 4, -MOVE.runSpeed, MOVE.runSpeed);
-    out.moveZ = speed < wanted - 0.5 ? 1 : speed > wanted + 0.5 ? -1 : 0;
+    const flight = speed * timeUntilHeight(me, link.to.y); // meters until touchdown
+    const miss = remaining - flight; // > 0: would land before `to`
+    out.moveZ = miss > 0.4 ? 1 : miss < -0.4 ? -1 : 0;
     out.moveX = sidestep;
+    // Double jump: if the first jump does not get high enough, or the flight would end in the void.
+    const top = me.pos.y + (me.vel.y > 0 ? (me.vel.y * me.vel.y) / (2 * MOVE.gravity) : 0);
+    const isClimb = link.to.y > link.from.y + 0.3;
+    const tooLow = isClimb && top < link.to.y + 0.15 && me.vel.y < 1.5;
+    const landsOnFloor = canStandAt(map, me.pos.x + forward.x * flight, me.pos.z + forward.z * flight, link.to.y);
+    const tooShort = miss > 0.6 && me.vel.y < 0 && !landsOnFloor;
+    out.jump = me.airJumpsLeft > 0 && this.airTicks > 3 && (tooLow || tooShort);
     return out;
   }
 

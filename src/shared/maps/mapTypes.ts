@@ -20,10 +20,14 @@ export interface SpawnPoint {
 
 /**
  * A parkour shortcut that bots can take (humans can go wherever they want).
- *   jump    - run from `from` toward `to` and jump where the floor ends (or a ledge blocks)
+ *   jump    - run from `from` toward `to` and jump where the floor ends (or a ledge blocks).
+ *             Also used for: dropping down to a lower floor, climbing a ledge up to ~2.4 m
+ *             (the bot adds a double jump), and jump pads (put the pad between `from` and
+ *             the edge - the bot runs over it and steers to `to` in the air).
  *   wallRun - run from `from` toward `to` along a wall, jump at the ledge, wall-run across
- * Rules: `from` and `to` are on walkable ground. For 'wallRun' the line from->to must be
- * parallel to the wall, 0.45 m away from its face (see HOW_TO_EXTEND.md, "Neue Map").
+ * Rules: `from` and `to` are on walkable ground (they may have different heights). For
+ * 'wallRun' the line from->to must be parallel to the wall, 0.45 m away from its face
+ * (see HOW_TO_EXTEND.md, "Neue Map").
  */
 export interface ParkourLink {
   kind: 'jump' | 'wallRun';
@@ -43,6 +47,15 @@ export interface JumpPad {
   launch: Vec3;
 }
 
+/** The colors of a map's sky and fog (0xRRGGBB). Only the look - ignored by the simulation. */
+export interface MapTheme {
+  skyTop: number;
+  skyMiddle: number;
+  skyHorizon: number;
+  /** Fog, the mist in the abyss and everything below the horizon. */
+  fog: number;
+}
+
 export interface MapDef {
   id: string;
   /** Display name (German, shown in the menu). */
@@ -60,6 +73,8 @@ export interface MapDef {
   links: ParkourLink[];
   /** Jump pads. May be left out. */
   pads?: JumpPad[];
+  /** Sky and fog colors. May be left out (then the default night sky is used). */
+  theme?: MapTheme;
 }
 
 /**

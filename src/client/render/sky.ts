@@ -4,6 +4,7 @@
  * The whole group follows the camera, so it always looks infinitely far away.
  */
 import * as THREE from 'three';
+import type { MapTheme } from '../../shared/maps/mapTypes';
 import { createRng } from '../../shared/math/rng';
 import { SKY_COLORS, TEAM_COLORS } from './palette';
 
@@ -99,11 +100,26 @@ function createMoon(): THREE.Mesh {
   return moon;
 }
 
-/** Build the whole backdrop. Move the returned group to the camera position every frame. */
-export function createSky(): THREE.Group {
+export interface Sky {
+  /** Move this to the camera position every frame. */
+  group: THREE.Group;
+  /** Recolor the sky for a map (see MapDef.theme). */
+  setTheme: (theme: MapTheme) => void;
+}
+
+/** Build the whole backdrop. */
+export function createSky(): Sky {
   const rng = createRng(2077); // fixed seed: the skyline looks the same every time
-  const sky = new THREE.Group();
-  sky.add(createDome(), createStars(rng), createMoon(), createSkyline(rng));
-  sky.renderOrder = -1;
-  return sky;
+  const group = new THREE.Group();
+  const dome = createDome();
+  group.add(dome, createStars(rng), createMoon(), createSkyline(rng));
+  group.renderOrder = -1;
+  const uniforms = (dome.material as THREE.ShaderMaterial).uniforms;
+  const setTheme = (theme: MapTheme) => {
+    (uniforms.top.value as THREE.Color).setHex(theme.skyTop);
+    (uniforms.middle.value as THREE.Color).setHex(theme.skyMiddle);
+    (uniforms.horizon.value as THREE.Color).setHex(theme.skyHorizon);
+    (uniforms.below.value as THREE.Color).setHex(theme.fog);
+  };
+  return { group, setTheme };
 }

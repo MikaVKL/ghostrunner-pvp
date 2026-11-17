@@ -87,7 +87,7 @@ ohne ✅:
 | B | Mechanik: Doppelsprung (`airJumpsLeft` in `PlayerState`, `movement/locomotion.ts`; `tests/unit/doubleJump.test.ts`) | ✅ |
 | C | Mechanik: Klingen-Clash – zwei Schläge innerhalb von 0,1 s prallen ab statt Doppel-K.O. (`resolveCombat.ts`, Event `clash`). Unentschieden zwischen Bots: vorher ~17 %, jetzt ~2 % | ✅ |
 | D | Mechanik: Sprungfelder als Map-Element (`MapDef.pads`, `movement/jumpPad.ts`; `tests/unit/jumpPad.test.ts`). Noch in keiner Map verbaut – kommt mit Schritt E | ✅ |
-| E | Maps überarbeiten: echte Höhenunterschiede, Sprungfelder, eigenes Farbthema je Map (`MapDef.theme`) | ⬜ |
+| E | Maps überarbeitet: Neonschlucht (Katapulte), Dächer (Turm 4 m, Terrassen 2 m, Sprungfelder aufs Dach), Reaktor (versenkte Grube −3 m, Sprungfelder hinaus, Wand quer über die Grube); eigenes Farbthema je Map (`MapDef.theme`); Luftsteuerung nimmt keinen Schwung mehr weg; Bots bevorzugen jede Runde andere Wege | ✅ |
 | F | Bot-KI: Ausweich-Dash, Fehlschläge/Stun bestrafen, Vor-und-Zurück, Kampfstil je Runde, Reaktionszeit je Schwierigkeit | ⬜ |
 | G | Mehr Bot-Tests (Qualität, Nutzung der neuen Mechaniken, Reihenfolge der Schwierigkeiten) + Browser-Tests + Doku | ⬜ |
 

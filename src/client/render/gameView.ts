@@ -13,7 +13,7 @@ import { buildMapGroup } from './mapMesh';
 import { FX_COLORS, teamColor } from './palette';
 import { Particles } from './particles';
 import { PlayerAvatar } from './playerAvatar';
-import { createScene, type SceneParts } from './sceneSetup';
+import { createScene, DEFAULT_THEME, type SceneParts } from './sceneSetup';
 import { SlashArc } from './slashArc';
 import { createSword, type SwordModel } from './sword';
 import { applySwordPose, swordPose } from './swordPose';
@@ -58,6 +58,7 @@ export class GameView {
     if (this.mapGroup) this.parts.scene.remove(this.mapGroup);
     this.mapGroup = buildMapGroup(map);
     this.parts.scene.add(this.mapGroup);
+    this.parts.setTheme(map.theme ?? DEFAULT_THEME);
   }
 
   render(state: ViewState): void {
@@ -69,7 +70,7 @@ export class GameView {
       camera.fov = fx.fov;
       camera.updateProjectionMatrix();
     }
-    sky.position.copy(camera.position);
+    sky.group.position.copy(camera.position);
 
     this.updateViewSword(state.local, state.dt);
     this.updateAvatars(state.remotes, state.dt);

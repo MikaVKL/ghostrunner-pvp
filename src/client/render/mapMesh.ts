@@ -72,12 +72,12 @@ function createBoxObject(box: Box, texture: THREE.Texture): THREE.Object3D {
 }
 
 /** Semi-transparent layers below the floors: the deeper you look, the less you see. */
-function createAbyssMist(map: MapDef): THREE.Group {
+function createAbyssMist(map: MapDef, color: number): THREE.Group {
   const mist = new THREE.Group();
   const geometry = new THREE.PlaneGeometry(600, 600);
   for (let i = 0; i < 5; i++) {
     const material = new THREE.MeshBasicMaterial({
-      color: SKY_COLORS.fog,
+      color,
       transparent: true,
       opacity: 0.32,
       depthWrite: false,
@@ -135,6 +135,6 @@ export function buildMapGroup(map: MapDef): THREE.Group {
   const texture = createGridTexture();
   for (const box of map.boxes) group.add(createBoxObject(box, texture));
   for (const pad of map.pads ?? []) group.add(createPadObject(pad));
-  group.add(createAbyssMist(map));
+  group.add(createAbyssMist(map, map.theme?.fog ?? SKY_COLORS.fog));
   return group;
 }

@@ -1,84 +1,116 @@
 /**
- * "Dächer": three rooftops with gaps between them.
+ * "Dächer": a tower between two rooftops. The vertical map - whoever holds the tower
+ * roof (4 m up) has the high ground.
  *
- * Top view (X to the right, Z downward), all roofs have their top at y = 0:
+ * Top view (X to the right, Z downward). Heights: roofs A/B and the ring around the
+ * tower y = 0, terraces y = 2, tower roof y = 4.
  *
- *   z=-8        +===== WALL 1 (wall-run) =====+
- *   z=-7 +-----------+                 +-----------+                 +-----------+
- *        |           |                 |           |                 |    [AC]   |
- *        | roof A    |                 |  roof M   +====catwalk 2====+   roof B  |
- *        | spawn 0 ->|     [step 1]    |  [block]  |     [step 2]    |<- spawn 1 |
- *        |           +====catwalk 1====+           |                 |           |
- *        |   [AC]    |                 |           |                 |           |
- *   z=7  +-----------+                 +-----------+                 +-----------+
- *   z=8                                      +===== WALL 2 (wall-run) =====+
- *      x=-24       x=-12             x=-5         x=5              x=12        x=24
+ *   z=-8.6            +------ledge N------+=====catwalk 2=====+
+ *   z=-8    +==WALL 1 (wall-run)==+       |                   |
+ *   z=-7 +----------+       +-----+-------+-----+       +-----+----+
+ *        |   [PAD]>>|       | ter-|             | ter-  |          |
+ *        | roof A   |       | race|   TOWER     | race  |  roof B  |
+ *        | spawn 0->|       |  L  |   (y = 4)   |  R    |<- spawn 1|
+ *        |          |       |(y=2)|             |(y=2)  |<<[PAD]   |
+ *   z=7  +-----+----+       +-----+-------+-----+       +----------+
+ *   z=8        |                  |       +==WALL 2 (wall-run)==+
+ *   z=8.6      +=====catwalk 1====+------ledge S------+
+ *      x=-26  -16  -14     -12   -7  -5        5  7   12    14  16    26
  *
- * Ways across each 7 m gap: the narrow catwalk (safe), two 2 m jumps over the step in
- * the middle, or a wall-run along the billboard wall.
+ * Ways to the other side:
+ *   low    - catwalk 1, around the tower on the ledges, catwalk 2 (safe, but long and exposed)
+ *   fast   - wall-run along WALL 1 / WALL 2 instead of a catwalk
+ *   high   - the jump pad throws you straight onto the tower roof; or climb roof -> terrace
+ *            -> tower with double jumps. From up there you can drop anywhere.
  * Point-symmetric: (x, z) -> (-x, -z).
  */
-import { at, boxFromBounds, boxFromCenter, type MapDef, type ParkourLink } from './mapTypes';
+import { at, boxFromBounds, boxFromCenter, jumpPad, type MapDef, type ParkourLink } from './mapTypes';
 
 const ROOF = 0x262c40;
+const LEDGE = 0x313a58;
 const CATWALK = 0x4a5578;
-const STEP = 0x3c4a70;
+const TERRACE = 0x35507a;
+const TOWER = 0x1f6fb0;
 const WALL = 0xf0a020;
-const BLOCK = 0x14b8d4;
 const AC = 0x596080;
 const SIGN = 0xd4267a;
 
-/** A jump link in both directions. */
-function jumps(ax: number, bx: number): ParkourLink[] {
+const DEEP = -14; // everything reaches down below the kill height, like real buildings
+
+/** The same link on both halves of the map: (x, z) -> (-x, -z). */
+function mirrored(kind: ParkourLink['kind'], from: [number, number, number], to: [number, number, number]): ParkourLink[] {
+  const [fx, fy, fz] = from;
+  const [tx, ty, tz] = to;
   return [
-    { kind: 'jump', from: at(ax, 0), to: at(bx, 0) },
-    { kind: 'jump', from: at(bx, 0), to: at(ax, 0) },
+    { kind, from: at(fx, fz, fy), to: at(tx, tz, ty) },
+    { kind, from: at(-fx, -fz, fy), to: at(-tx, -tz, ty) },
   ];
 }
 
 export const DAECHER: MapDef = {
   id: 'daecher',
   name: 'Dächer',
-  description: 'Drei Hochhausdächer: über Stege balancieren, über Lücken springen oder an Werbewänden entlanglaufen.',
-  killY: -16,
+  description: 'Die Höhen-Map: Ein Turm zwischen zwei Dächern. Sprungfelder und Doppelsprünge führen nach oben, Stege und Werbewände unten herum.',
+  killY: -12,
+  theme: { skyTop: 0x02030a, skyMiddle: 0x0c1c44, skyHorizon: 0x1f7fa8, fog: 0x0d1830 },
   boxes: [
-    boxFromBounds(-24, -12, -1, 0, -7, 7, ROOF), // roof A
-    boxFromBounds(12, 24, -1, 0, -7, 7, ROOF), // roof B
-    boxFromBounds(-5, 5, -1, 0, -7, 7, ROOF), // roof M (middle)
-    boxFromBounds(-12, -5, -1, 0, 4, 5.6, CATWALK), // catwalk 1 (A - M)
-    boxFromBounds(5, 12, -1, 0, -5.6, -4, CATWALK), // catwalk 2 (M - B)
-    boxFromBounds(-10, -7, -1, 0, -1.5, 1.5, STEP), // step 1 in the gap A - M
-    boxFromBounds(7, 10, -1, 0, -1.5, 1.5, STEP), // step 2 in the gap M - B
-    boxFromBounds(-15, -2, -3, 6, -8, -7, WALL), // wall 1 (its face at z = -7 looks toward +Z)
-    boxFromBounds(2, 15, -3, 6, 7, 8, WALL), // wall 2 (its face at z = 7 looks toward -Z)
-    boxFromCenter(0, 0.5, 0, 3, 1, 3, BLOCK), // block in the middle of roof M (jumpable)
-    boxFromCenter(-20, 0.6, 4.5, 2, 1.2, 2, AC), // air conditioner on A
-    boxFromCenter(20, 0.6, -4.5, 2, 1.2, 2, AC), // air conditioner on B
-    boxFromCenter(-23, 3, -4, 1, 6, 3, SIGN), // neon sign on A
-    boxFromCenter(23, 3, 4, 1, 6, 3, SIGN), // neon sign on B
+    boxFromBounds(-26, -14, DEEP, 0, -7, 7, ROOF), // roof A
+    boxFromBounds(14, 26, DEEP, 0, -7, 7, ROOF), // roof B
+    boxFromBounds(-5, 5, DEEP, 4, -5, 5, TOWER), // the tower (its roof is 4 m up)
+    boxFromBounds(-12, -7, DEEP, 2, -4, 4, TERRACE), // terrace L (2 m up)
+    boxFromBounds(7, 12, DEEP, 2, -4, 4, TERRACE), // terrace R
+    // The ring around the foot of the tower.
+    boxFromBounds(-7, 7, DEEP, 0, -8.6, -5, LEDGE), // ledge N
+    boxFromBounds(-7, 7, DEEP, 0, 5, 8.6, LEDGE), // ledge S
+    boxFromBounds(-7, -5, DEEP, 0, -5, 5, LEDGE), // ledge W
+    boxFromBounds(5, 7, DEEP, 0, -5, 5, LEDGE), // ledge E
+    boxFromBounds(-16, -7, -1, 0, 7, 8.6, CATWALK), // catwalk 1 (roof A - ledge S)
+    boxFromBounds(7, 16, -1, 0, -8.6, -7, CATWALK), // catwalk 2 (ledge N - roof B)
+    boxFromBounds(-17, -5.5, -3, 6, -8, -7, WALL), // wall 1 (its face at z = -7 looks toward +Z)
+    boxFromBounds(5.5, 17, -3, 6, 7, 8, WALL), // wall 2 (its face at z = 7 looks toward -Z)
+    boxFromCenter(-22, 0.6, 4.5, 2, 1.2, 2, AC), // air conditioner on A (cover)
+    boxFromCenter(22, 0.6, -4.5, 2, 1.2, 2, AC), // air conditioner on B
+    boxFromCenter(-25, 3, -4, 1, 6, 3, SIGN), // neon sign on A
+    boxFromCenter(25, 3, 4, 1, 6, 3, SIGN), // neon sign on B
+    boxFromCenter(0, 4.6, 0, 2, 1.2, 2, AC), // cover on the tower roof
+  ],
+  pads: [
+    // 12 m far and up onto the tower roof (highest point of the flight: 5.3 m).
+    jumpPad(-15.5, -4.5, 0, { x: 12, y: 16, z: 1.5 }),
+    jumpPad(15.5, 4.5, 0, { x: -12, y: 16, z: -1.5 }),
   ],
   spawns: [
-    { pos: at(-18, 0), yaw: -Math.PI / 2 },
-    { pos: at(18, 0), yaw: Math.PI / 2 },
+    { pos: at(-20, 0), yaw: -Math.PI / 2 },
+    { pos: at(20, 0), yaw: Math.PI / 2 },
   ],
   navPoints: [
-    at(-18, 0),
-    at(18, 0),
-    at(-12.5, 4.8), // catwalk 1 ends
-    at(-4.5, 4.8),
-    at(4.5, -4.8), // catwalk 2 ends
-    at(12.5, -4.8),
-    at(3.5, 3.5), // ways around the block on roof M
-    at(-3.5, -3.5),
+    at(-20, 0), // roofs
+    at(20, 0),
+    at(-15, 7.8), // catwalk 1
+    at(-7.5, 7.8),
+    at(15, -7.8), // catwalk 2
+    at(7.5, -7.8),
+    at(-6, 6.8), // corners of the ring around the tower
+    at(6, 6.2),
+    at(6, -6.8),
+    at(-6, -6.2),
+    at(-6, 0),
+    at(6, 0),
+    at(-9.5, 0, 2), // terraces
+    at(9.5, 0, 2),
+    at(-3.5, 3.5, 4), // tower roof, around the cover
+    at(3.5, -3.5, 4),
+    at(-3.5, -3.5, 4),
+    at(3.5, 3.5, 4),
   ],
   links: [
-    ...jumps(-13.5, -8.5), // A <-> step 1
-    ...jumps(-8.5, -3.5), // step 1 <-> M
-    ...jumps(3.5, 8.5), // M <-> step 2
-    ...jumps(8.5, 13.5), // step 2 <-> B
-    { kind: 'wallRun', from: at(-14, -6.55), to: at(-3.5, -6.55) }, // wall 1, A -> M
-    { kind: 'wallRun', from: at(-3, -6.55), to: at(-13.5, -6.55) }, // wall 1, M -> A
-    { kind: 'wallRun', from: at(3, 6.55), to: at(13.5, 6.55) }, // wall 2, M -> B
-    { kind: 'wallRun', from: at(14, 6.55), to: at(3.5, 6.55) }, // wall 2, B -> M
+    ...mirrored('wallRun', [-16.5, 0, -6.55], [-6.2, 0, -6.55]), // wall 1: roof A -> ledge N (wall 2: B -> ledge S)
+    ...mirrored('wallRun', [-5.9, 0, -6.55], [-15.5, 0, -6.55]), // and back
+    ...mirrored('jump', [-18, 0, -4.77], [-3.5, 4, -3]), // jump pad: roof -> tower roof
+    ...mirrored('jump', [-16, 0, 2], [-10, 2, 2]), // climb: roof -> terrace (double jump)
+    ...mirrored('jump', [-10, 2, 2], [-16.5, 0, 2]), // drop: terrace -> roof
+    ...mirrored('jump', [-10.5, 2, -2], [-3.5, 4, -2]), // climb: terrace -> tower roof (double jump)
+    ...mirrored('jump', [-3.5, 4, -2], [-10, 2, -2]), // drop: tower roof -> terrace
+    ...mirrored('jump', [-2, 4, 3.2], [-2, 0, 6.8]), // drop: tower roof -> ledge S (and N)
   ],
 };
