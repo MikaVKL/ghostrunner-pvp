@@ -62,7 +62,8 @@ describe('bot brain details', () => {
     const enemy = createPlayer(0, map.spawns[0]);
     stepPlayer(me, { seq: 1, moveX: 0, moveZ: 0, yaw: me.yaw, pitch: 0, buttons: 0, viewTick: 0 }, map, 'playing', DUEL);
     for (let tick = 0; tick < 400; tick++) brain.think(me, enemy, map, false); // a long countdown
-    for (let tick = 0; tick < 120; tick++) {
+    // 1.5 s: later the bot may really jump (since the faster sprint it reaches a parkour link in ~2 s).
+    for (let tick = 0; tick < 90; tick++) {
       const sample = brain.think(me, enemy, map, true);
       expect(sample.buttons & Button.Jump, `jumped at tick ${tick} after the countdown`).toBe(0);
       stepPlayer(me, { ...sample, seq: tick + 2, viewTick: 0 }, map, 'playing', DUEL);
@@ -173,7 +174,8 @@ describe('fight habits: the bot reacts like a fighter, not like a dice', () => {
   });
 
   it('in whole matches the bots really punish and dodge', () => {
-    const reports = [1, 2, 3, 4, 5, 6, 7, 8].map((seed) =>
+    // 16 matches: since the faster sprint (flow update) there are fewer chances per match.
+    const reports = Array.from({ length: 16 }, (_, i) => i + 1).map((seed) =>
       runSimulatedMatch({ seed, mapId: seed % 2 ? 'schlucht' : 'arena', latencyMs: 30 }),
     );
     const usage = totalUsage(reports);

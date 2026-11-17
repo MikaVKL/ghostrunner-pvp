@@ -3,7 +3,7 @@
  * It runs on the server (authoritative) AND on the client (prediction) with identical results.
  */
 import { TICK_DT } from '../config';
-import { Button, wasPressed, type InputCmd } from '../input';
+import { Button, isDown, wasPressed, type InputCmd } from '../input';
 import type { MapDef } from '../maps/mapTypes';
 import { moveAndCollide } from '../physics/collision';
 import type { PlayerState } from '../sim/playerState';
@@ -43,7 +43,7 @@ export function stepMovement(
   } else {
     updateWallRun(p, input, map);
     if (p.wallRunning) stepWallRun(p, jumpPressed);
-    else stepLocomotion(p, wish, jumpPressed, mods.speedFactor);
+    else stepLocomotion(p, wish, jumpPressed, mods.speedFactor, isDown(input, Button.Walk));
   }
 
   // 2) Apply the velocity and collide with the map.

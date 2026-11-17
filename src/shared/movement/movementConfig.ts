@@ -7,7 +7,10 @@ import { secondsToTicks } from '../config';
 
 export const MOVE = {
   // --- running ---
-  runSpeed: 7,
+  /** Default speed: players always sprint (Ghostrunner style). Was 7 before the flow update. */
+  runSpeed: 8.5,
+  /** Speed while holding the walk key (C) - for careful footwork and spacing. */
+  walkSpeed: 4,
   groundAccel: 70,
   groundFriction: 60,
   /** How strongly you can steer in the air. */

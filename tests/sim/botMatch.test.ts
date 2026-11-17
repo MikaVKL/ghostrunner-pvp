@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Bot } from '../../src/bots/bot';
+import { DEFAULT_PERSONALITY } from '../../src/bots/brain';
 import { MemoryNetwork } from '../../src/bots/memoryNetwork';
 import { findProblems, totalUsage, type MatchReport } from '../../src/bots/report';
 import { runSimulatedMatch } from '../../src/bots/simulation';
@@ -50,9 +51,14 @@ describe('bot matches in the arena mode', () => {
 });
 
 describe('the bots really use the mechanics (so the desync check covers them)', () => {
+  const PARRYING_BOT = { ...DEFAULT_PERSONALITY, parryChance: 0.9, reactionTicks: 3 };
   it('wall-run, wall-jump, dash, dash attack, parry and kills all happen', () => {
     const reports = Object.keys(MAPS).flatMap((mapId) =>
-      [1, 2, 3, 4, 5].map((seed) => runSimulatedMatch({ seed, mapId, latencyMs: 40, jitterMs: 20 })),
+      // botB parries eagerly: since the faster sprint (flow update) default bots rarely parry,
+      // and the desync check must still cover parries.
+      [1, 2, 3, 4, 5].map((seed) =>
+        runSimulatedMatch({ seed, mapId, latencyMs: 40, jitterMs: 20, personalities: [undefined, PARRYING_BOT] }),
+      ),
     );
     const usage = totalUsage(reports);
     expect(usage.wallRunTicks).toBeGreaterThan(200);

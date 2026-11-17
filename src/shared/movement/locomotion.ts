@@ -29,16 +29,21 @@ function steerInAir(current: number, target: number, maxDelta: number): number {
   return fasterThanWished ? current : moveToward(current, target, maxDelta);
 }
 
-/** Accelerate horizontally toward the wished direction, handle jump and gravity. */
+/**
+ * Accelerate horizontally toward the wished direction, handle jump and gravity.
+ * @param walking the walk key is held: walk speed instead of the default sprint
+ */
 export function stepLocomotion(
   p: PlayerState,
   wish: { x: number; z: number },
   jumpPressed: boolean,
   speedFactor: number,
+  walking = false,
 ): void {
   const hasInput = wish.x !== 0 || wish.z !== 0;
-  const targetX = wish.x * MOVE.runSpeed * speedFactor;
-  const targetZ = wish.z * MOVE.runSpeed * speedFactor;
+  const topSpeed = (walking ? MOVE.walkSpeed : MOVE.runSpeed) * speedFactor;
+  const targetX = wish.x * topSpeed;
+  const targetZ = wish.z * topSpeed;
 
   if (p.grounded) {
     const accel = (hasInput ? MOVE.groundAccel : MOVE.groundFriction) * TICK_DT;

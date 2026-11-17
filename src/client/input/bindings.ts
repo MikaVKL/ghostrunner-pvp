@@ -17,8 +17,9 @@ export const BUTTON_KEYS: Record<string, number> = {
   ShiftLeft: Button.Dash,
   ShiftRight: Button.Dash,
   KeyJ: Button.Attack,
-  KeyK: Button.Parry,
+  KeyQ: Button.Parry,
   KeyF: Button.Parry,
+  KeyC: Button.Walk,
 };
 
 /** Mouse button index (0 = left, 2 = right) -> game button. */
