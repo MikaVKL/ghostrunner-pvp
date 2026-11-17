@@ -17,6 +17,7 @@ import type { GameView } from '../render/gameView';
 import { FX_COLORS, teamColor } from '../render/palette';
 import { secondsLeft, TEXT } from '../ui/hudTexts';
 import type { Hud } from '../ui/hud';
+import { Hitstop, HITSTOP_MS } from './hitstop';
 import type { Moment } from './stateWatcher';
 
 /** Where the local player's ears are. */
@@ -46,6 +47,12 @@ export class Effects {
   windupCue = false;
   /** How many wind-up cues were played (browser tests read it). */
   windupCues = 0;
+  /** Settings: clearer wind-up sound, instant spark on contact (see settings.ts). */
+  telegraph = true;
+  hitSpark = true;
+  /** How many instant contact sparks were shown (browser tests read it). */
+  contacts = 0;
+  readonly hitstop = new Hitstop();
 
   constructor(
     private readonly view: GameView,
@@ -72,6 +79,10 @@ export class Effects {
       playSound(this.audio, 'windup', this.place(listener, p.pos));
       this.windupCues++;
     }
+    // Clearer wind-up: the enemy's blade is drawn back with a metallic "shing".
+    if (listener && this.telegraph && (moment === 'swing' || moment === 'swingDash')) {
+      playSound(this.audio, 'draw', this.place(listener, p.pos));
+    }
     const particles = this.view.particles;
     const color = teamColor(p.slot);
 
@@ -97,6 +108,21 @@ export class Effects {
     if (moment === 'wallJump' && !listener) this.view.cameraFx.shake(0.04);
   }
 
+  /**
+   * Our swing just reached `target` as shown on screen (contactWatcher.ts). Only a spark,
+   * a tick and a tiny freeze - NOT the kill: that waits for the server's `hit` event.
+   */
+  contact(target: PlayerState): void {
+    if (!this.hitSpark) return;
+    this.contacts++;
+    const where = chest(target);
+    this.view.particles.burst({ pos: where, count: 24, color: FX_COLORS.hitCore, speed: 7, life: 0.18 });
+    this.view.particles.burst({ pos: where, count: 10, color: FX_COLORS.clash, speed: 4, life: 0.25, gravity: 6 });
+    playSound(this.audio, 'contact');
+    this.view.cameraFx.shake(0.05);
+    this.hitstop.trigger(HITSTOP_MS.contact);
+  }
+
   /** The server decided something. `players` = everyone as currently displayed. */
   gameEvent(event: GameEvent, mySlot: number, players: PlayerState[], listener: Listener): void {
     const find = (slot: number) => players.find((p) => p.slot === slot) ?? null;
@@ -107,6 +133,7 @@ export class Effects {
         this.view.particles.burst({ pos: where, count: 80, color: FX_COLORS.hit, speed: 9, life: 0.7, gravity: 12 });
         this.view.particles.burst({ pos: where, count: 30, color: FX_COLORS.hitCore, speed: 5, life: 0.3 });
         const lethal = event.hpLeft === 0;
+        this.hitstop.trigger(HITSTOP_MS.hit);
         if (event.target === mySlot) {
           // A hit that only costs a life (arena) must not sound like dying.
           playSound(this.audio, lethal ? 'death' : 'hit');
@@ -128,6 +155,7 @@ export class Effects {
         this.view.particles.burst({ pos: where, count: 70, color: FX_COLORS.parry, speed: 11, life: 0.5, gravity: 7 });
         this.view.particles.burst({ pos: where, count: 20, color: FX_COLORS.hitCore, speed: 4, life: 0.25 });
         playSound(this.audio, 'parry', this.place(listener, where));
+        this.hitstop.trigger(HITSTOP_MS.parry);
         this.hud.flash('parry');
         this.view.cameraFx.shake(0.18);
         this.hud.toast(event.attacker === mySlot ? TEXT.gotParried : TEXT.parried, 1100);
@@ -140,6 +168,7 @@ export class Effects {
         this.view.particles.burst({ pos: where, count: 90, color: FX_COLORS.clash, speed: 12, life: 0.55, gravity: 8 });
         this.view.particles.burst({ pos: where, count: 30, color: FX_COLORS.hitCore, speed: 5, life: 0.25 });
         playSound(this.audio, 'clash', this.place(listener, where));
+        this.hitstop.trigger(HITSTOP_MS.clash);
         this.view.cameraFx.shake(0.22);
         if (event.a === mySlot || event.b === mySlot) {
           this.hud.flash('parry');

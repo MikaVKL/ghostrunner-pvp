@@ -17,6 +17,8 @@ import type { GameEvent } from '../../src/shared/sim/events';
 import type { PlayerState } from '../../src/shared/sim/playerState';
 import type { MatchState } from '../../src/shared/sim/world';
 
+const BLOOM_OFF_UNLESS_SET = `if (!localStorage.getItem('settings')) localStorage.setItem('settings', JSON.stringify({ bloom: false }));`;
+
 export const SCREENSHOT_DIR = join(import.meta.dirname, 'screenshots');
 
 /** Short countdowns and pauses, but the real rules (best-of-5). */
@@ -117,6 +119,9 @@ export class GamePage {
    * @param expectServer wait until the game server is connected (false for the static site)
    */
   async open(url: string, expectServer = true): Promise<void> {
+    // The test browser has no graphics card: bloom would make it far too slow. Pages start
+    // with bloom off unless a test stored its own settings (see the bloom test in run.ts).
+    await this.page.addInitScript(BLOOM_OFF_UNLESS_SET);
     await this.page.goto(url);
     await this.page.waitForSelector('#map-list .map-card');
     await this.page.fill('#name-input', this.name);

@@ -8,13 +8,17 @@ import type { MapDef } from '../../shared/maps/mapTypes';
 import type { Vec3 } from '../../shared/math/vec3';
 import { EYE_HEIGHT } from '../../shared/physics/collision';
 import type { PlayerState } from '../../shared/sim/playerState';
+import { bladeGlow, trailEmitting } from './bladeGlow';
 import { CameraFx } from './cameraFx';
 import { buildMapGroup } from './mapMesh';
 import { FX_COLORS, teamColor } from './palette';
 import { Particles } from './particles';
 import { PlayerAvatar } from './playerAvatar';
+import { PostFx } from './postFx';
 import { createScene, DEFAULT_THEME, type SceneParts } from './sceneSetup';
 import { SlashArc } from './slashArc';
+import { SpeedLines } from './speedLines';
+import { SwordTrail } from './swordTrail';
 import { createSword, type SwordModel } from './sword';
 import { applySwordPose, swordPose } from './swordPose';
 
@@ -31,10 +35,16 @@ export interface ViewState {
   local: PlayerState | null;
   /** Other players, already interpolated. */
   remotes: PlayerState[];
-  /** Seconds since the last frame. */
+  /** Seconds since the last frame (camera effects). */
   dt: number;
+  /** Seconds the picture moves this frame: 0 while frozen by hitstop (fighters, particles, sword). */
+  animDt: number;
   /** Show the wind-up cue on the other players (setting + game mode, see settings.ts). */
   windupCue: boolean;
+  /** Look-and-feel settings (see app/settings.ts). */
+  fx: { telegraph: boolean; swordTrail: boolean; speedLines: boolean };
+  /** False while the round is not running (fighters are frozen mid-swing): no arcs, no trails. */
+  combatLive: boolean;
 }
 
 export class GameView {
@@ -47,12 +57,26 @@ export class GameView {
   /** First-person sword, attached to the camera. */
   private viewSword: SwordModel = createSword(teamColor(0));
   private viewSwordSlot = 0;
+  private readonly viewTrail = new SwordTrail(teamColor(0));
+  private readonly trails = new Map<number, SwordTrail>();
+  private readonly speedLines = new SpeedLines();
+  private readonly postFx: PostFx;
 
   constructor(canvas: HTMLCanvasElement) {
     this.parts = createScene(canvas);
+    this.postFx = new PostFx(this.parts.renderer, this.parts.scene, this.parts.camera);
     this.viewSword.group.scale.setScalar(VIEW_SWORD_SCALE);
-    this.parts.camera.add(this.viewSword.group);
+    this.parts.camera.add(this.viewSword.group, this.viewTrail.mesh, this.speedLines.lines);
     this.parts.scene.add(this.particles.points);
+  }
+
+  /** Bloom on/off (setting). */
+  setBloom(enabled: boolean): void {
+    this.postFx.bloom = enabled;
+  }
+
+  get bloom(): boolean {
+    return this.postFx.bloom;
   }
 
   /** Replace the displayed map. */
@@ -64,7 +88,7 @@ export class GameView {
   }
 
   render(state: ViewState): void {
-    const { camera, renderer, scene, sky } = this.parts;
+    const { camera, scene, sky } = this.parts;
     const fx = this.cameraFx.update(state.local, state.yaw, state.dt);
     camera.position.set(state.localPos.x + fx.x, state.localPos.y + EYE_HEIGHT + fx.y, state.localPos.z + fx.z);
     camera.rotation.set(state.pitch + fx.pitch, state.yaw, fx.roll);
@@ -73,15 +97,17 @@ export class GameView {
       camera.updateProjectionMatrix();
     }
     sky.group.position.copy(camera.position);
+    camera.updateMatrixWorld();
 
-    this.updateViewSword(state.local, state.dt);
-    this.updateAvatars(state.remotes, state.dt, state.windupCue);
-    this.updateArcs(state.local ? [state.local, ...state.remotes] : state.remotes);
-    this.particles.update(state.dt);
-    renderer.render(scene, camera);
+    this.updateViewSword(state.local, state.animDt, state.fx, state.combatLive);
+    this.updateAvatars(state, scene);
+    this.updateArcs(state.combatLive ? (state.local ? [state.local, ...state.remotes] : state.remotes) : []);
+    this.speedLines.update(state.local, state.dt, state.fx.speedLines);
+    this.particles.update(state.animDt);
+    this.postFx.render();
   }
 
-  private updateViewSword(local: PlayerState | null, dt: number): void {
+  private updateViewSword(local: PlayerState | null, dt: number, fx: ViewState['fx'], live: boolean): void {
     if (local && local.slot !== this.viewSwordSlot) {
       // Our slot (and so our color) changed: build a sword in the right color.
       this.parts.camera.remove(this.viewSword.group);
@@ -89,31 +115,47 @@ export class GameView {
       this.viewSword.group.scale.setScalar(VIEW_SWORD_SCALE);
       this.viewSwordSlot = local.slot;
       this.parts.camera.add(this.viewSword.group);
+      this.viewTrail.setColor(teamColor(local.slot));
     }
     this.viewSword.group.visible = local?.alive ?? false;
-    if (!local) return;
+    if (!local) {
+      this.viewTrail.clear();
+      return;
+    }
     applySwordPose(this.viewSword.group, swordPose(local), 1 - Math.exp(-28 * dt));
-    const emissive = this.viewSword.bladeMaterial.emissive;
-    if (local.action === 'stunned') emissive.setHex(FX_COLORS.stun);
-    else if (isParryActive(local)) emissive.setHex(FX_COLORS.parry);
-    else emissive.setHex(teamColor(local.slot));
+    const blade = this.viewSword.bladeMaterial;
+    if (local.action === 'stunned') blade.emissive.setHex(FX_COLORS.stun);
+    else if (isParryActive(local)) blade.emissive.setHex(FX_COLORS.parry);
+    else blade.emissive.setHex(teamColor(local.slot));
+    blade.emissiveIntensity = bladeGlow(local, fx.telegraph);
+    this.viewTrail.update(this.viewSword.group, this.parts.camera, live && fx.swordTrail && trailEmitting(local), dt);
   }
 
-  /** Create, update and remove avatars so they match the list of remote players. */
-  private updateAvatars(remotes: PlayerState[], dt: number, windupCue: boolean): void {
-    for (const player of remotes) {
+  /** Create, update and remove avatars (and their sword trails) so they match the remote players. */
+  private updateAvatars(state: ViewState, scene: THREE.Scene): void {
+    for (const player of state.remotes) {
       let avatar = this.avatars.get(player.slot);
       if (!avatar) {
         avatar = new PlayerAvatar(player.slot);
         this.avatars.set(player.slot, avatar);
-        this.parts.scene.add(avatar.group);
+        scene.add(avatar.group);
       }
-      avatar.update(player, dt, windupCue);
+      let trail = this.trails.get(player.slot);
+      if (!trail) {
+        trail = new SwordTrail(teamColor(player.slot));
+        this.trails.set(player.slot, trail);
+        scene.add(trail.mesh);
+      }
+      if (state.animDt > 0) avatar.update(player, state.animDt, state.windupCue, state.fx.telegraph);
+      trail.update(avatar.sword, scene, state.combatLive && state.fx.swordTrail && trailEmitting(player), state.animDt);
     }
     for (const [slot, avatar] of this.avatars) {
-      if (remotes.some((p) => p.slot === slot)) continue;
-      this.parts.scene.remove(avatar.group);
+      if (state.remotes.some((p) => p.slot === slot)) continue;
+      scene.remove(avatar.group);
       this.avatars.delete(slot);
+      const trail = this.trails.get(slot);
+      if (trail) scene.remove(trail.mesh);
+      this.trails.delete(slot);
     }
   }
 

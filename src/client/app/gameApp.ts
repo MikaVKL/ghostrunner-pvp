@@ -31,6 +31,7 @@ import {
 } from './connection';
 import { ReplayViewer } from '../replay/replayViewer';
 import { Effects } from './effects';
+import { FrameRateGuard } from './frameRateGuard';
 import { setupReplays } from './replayWiring';
 import { startGameLoop } from './gameLoop';
 import { loadSettings, saveSettings, windupCueEnabled, type Settings } from './settings';
@@ -59,12 +60,24 @@ export function startGameApp(options: AppOptions): void {
   /** The client of the match on screen (a solo match wins over the idle online client). */
   const current = (): GameClient | null => solo?.client ?? online;
 
+  /** Bloom is switched off for this session if the game runs too slowly with it. */
+  const frameGuard = new FrameRateGuard();
+  let bloomTooSlow = false;
   const applySettings = (next: Settings) => {
+    if (next.bloom && !settings.bloom) {
+      bloomTooSlow = false; // switched on again by hand: give it another try
+      frameGuard.reset();
+    }
     Object.assign(settings, next);
     audio.setVolume(next.volume);
     input.sensitivity = next.sensitivity;
+    view.setBloom(next.bloom && !bloomTooSlow);
+    effects.hitstop.enabled = next.hitstop;
+    effects.telegraph = next.telegraph;
+    effects.hitSpark = next.hitSpark;
     saveSettings(next);
   };
+  const fxSettings = () => ({ telegraph: settings.telegraph, swordTrail: settings.swordTrail, speedLines: settings.speedLines });
   applySettings(settings);
 
   // Browsers allow sound only after a click or key press.
@@ -200,7 +213,7 @@ export function startGameApp(options: AppOptions): void {
     onOpenHelp: () => help.setVisible(true),
   });
 
-  const viewer = new ReplayViewer(view, input, effects, (mode) => windupCueEnabled(settings.windupCue, mode));
+  const viewer = new ReplayViewer(view, input, effects, (mode) => windupCueEnabled(settings.windupCue, mode), fxSettings);
   const replays = setupReplays({
     viewer,
     view,
@@ -218,6 +231,13 @@ export function startGameApp(options: AppOptions): void {
     getClient: current,
     afterTick: () => solo?.step(),
     windupCue: (client) => windupCueEnabled(settings.windupCue, client.mode),
+    fx: fxSettings,
+    onMatchFrame: (deltaMs) => {
+      if (!settings.bloom || bloomTooSlow || !frameGuard.observe(deltaMs)) return;
+      bloomTooSlow = true;
+      view.setBloom(false);
+      hud.toast(TEXT.bloomAutoOff, 2500);
+    },
     input,
     view,
     hud,
@@ -241,6 +261,7 @@ export function startGameApp(options: AppOptions): void {
   (window as unknown as { gameInput: InputController }).gameInput = input;
   (window as unknown as { gameReplay: ReplayViewer }).gameReplay = viewer;
   (window as unknown as { gameEffects: Effects }).gameEffects = effects;
+  (window as unknown as { gameView: GameView }).gameView = view;
 
   void connectOnline();
 }

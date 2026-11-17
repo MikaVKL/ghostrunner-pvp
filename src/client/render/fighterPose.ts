@@ -69,7 +69,11 @@ function poseLegsAndLean(m: FighterModel, p: PlayerState, anim: FighterAnim): vo
   }
 }
 
-function poseSwordArm(m: FighterModel, p: PlayerState, anim: FighterAnim): void {
+/**
+ * @param big clearer wind-up (telegraph setting): the sword is drawn back further, the
+ *   body leans back and twists away, the free arm points at the target
+ */
+function poseSwordArm(m: FighterModel, p: PlayerState, anim: FighterAnim, big: boolean): void {
   const arm = m.armRight.rotation;
   const sword = m.sword.group.rotation;
 
@@ -77,16 +81,23 @@ function poseSwordArm(m: FighterModel, p: PlayerState, anim: FighterAnim): void 
     const { phase, t } = swingProgress(p);
     if (p.attackKind === 'dash') {
       // Horizontal slash: arm stretched forward, the body turns through.
+      const back = big ? -1.4 : -0.9;
       sword.x = -Math.PI * 0.85;
       arm.x = 1.35;
-      const twist = phase === 'startup' ? lerp(0, -0.9, t) : phase === 'active' ? lerp(-0.9, 1.0, t) : lerp(1.0, 0, t);
+      const twist = phase === 'startup' ? lerp(0, back, t) : phase === 'active' ? lerp(back, 1.0, t) : lerp(1.0, 0, t);
       m.body.rotation.y = twist;
       arm.z = -twist * 0.5;
     } else {
       // Overhead cut: raise the sword behind the head, strike down, return.
-      arm.x = phase === 'startup' ? lerp(ARM_REST, 2.7, t) : phase === 'active' ? lerp(2.7, 0.15, t) : lerp(0.15, ARM_REST, t);
+      const top = big ? 3.05 : 2.7;
+      const turn = big ? -0.6 : -0.35;
+      arm.x = phase === 'startup' ? lerp(ARM_REST, top, t) : phase === 'active' ? lerp(top, 0.15, t) : lerp(0.15, ARM_REST, t);
       arm.z = phase === 'active' ? lerp(0.35, -0.2, t) : 0;
-      m.body.rotation.y = phase === 'startup' ? lerp(0, -0.35, t) : phase === 'active' ? lerp(-0.35, 0.35, t) : lerp(0.35, 0, t);
+      m.body.rotation.y = phase === 'startup' ? lerp(0, turn, t) : phase === 'active' ? lerp(turn, 0.35, t) : lerp(0.35, 0, t);
+    }
+    if (big && phase === 'startup') {
+      m.body.rotation.x += 0.22 * t; // lean back
+      m.armLeft.rotation.x = 1.4 * t; // free hand points at the target
     }
     return;
   }
@@ -121,8 +132,8 @@ function resetPose(m: FighterModel): void {
 }
 
 /** Set every joint of the figure for this frame. */
-export function poseFighter(m: FighterModel, p: PlayerState, anim: FighterAnim): void {
+export function poseFighter(m: FighterModel, p: PlayerState, anim: FighterAnim, telegraph = false): void {
   resetPose(m);
   poseLegsAndLean(m, p, anim);
-  poseSwordArm(m, p, anim);
+  poseSwordArm(m, p, anim, telegraph);
 }

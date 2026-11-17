@@ -16,6 +16,7 @@ export const TEXT = {
   fell: 'Abgestürzt!',
   enemyFell: 'Gegner abgestürzt!',
   soundOff: 'Ton aus',
+  bloomAutoOff: 'Leuchten (Bloom) ausgeschaltet – die Grafik war zu langsam',
   soundOn: 'Ton an',
   opponent: 'Gegner',
   connectionLost: 'Verbindung verloren – verbinde neu …',

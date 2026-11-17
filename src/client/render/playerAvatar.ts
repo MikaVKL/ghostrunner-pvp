@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import type { PlayerState } from '../../shared/sim/playerState';
 import { isParryActive } from '../../shared/combat/actions';
+import { bladeGlow } from './bladeGlow';
 import { createFighter, type FighterModel } from './fighterModel';
 import { poseFighter, type FighterAnim } from './fighterPose';
 import { FX_COLORS, teamColor } from './palette';
@@ -27,11 +28,17 @@ export class PlayerAvatar {
     this.group.add(this.windupRing.mesh);
   }
 
+  /** The sword (for the sword trail, see swordTrail.ts). */
+  get sword(): THREE.Object3D {
+    return this.model.sword.group;
+  }
+
   /**
    * @param dt seconds since the last frame
    * @param windupCue show the wind-up cue (red ring + red blade while the swing winds up)
+   * @param telegraph clearer wind-up: bigger pose and a blade that flares up
    */
-  update(player: PlayerState, dt: number, windupCue: boolean): void {
+  update(player: PlayerState, dt: number, windupCue: boolean, telegraph: boolean): void {
     this.group.visible = player.alive;
     this.group.position.set(player.pos.x, player.pos.y, player.pos.z);
     this.group.rotation.y = player.yaw;
@@ -39,7 +46,7 @@ export class PlayerAvatar {
     this.anim.time += dt;
     const speed = Math.hypot(player.vel.x, player.vel.z);
     if (player.grounded || player.wallRunning) this.anim.runPhase += speed * dt * STRIDE_PER_METER;
-    poseFighter(this.model, player, this.anim);
+    poseFighter(this.model, player, this.anim, telegraph);
     this.windupRing.update(player, windupCue);
 
     // The glow shows the state: yellow = stunned (free hit!), white-blue = parrying,
@@ -50,8 +57,9 @@ export class PlayerAvatar {
     else if (player.action === 'stunned') glow.emissive.setHex(FX_COLORS.stun);
     else if (isParryActive(player)) glow.emissive.setHex(FX_COLORS.parry);
     else glow.emissive.copy(this.baseColor);
-    const blade = this.model.sword.bladeMaterial.emissive;
-    if (windupCue && windupProgress(player) !== null) blade.setHex(FX_COLORS.windup);
-    else blade.copy(glow.emissive);
+    const blade = this.model.sword.bladeMaterial;
+    if (windupCue && windupProgress(player) !== null) blade.emissive.setHex(FX_COLORS.windup);
+    else blade.emissive.copy(glow.emissive);
+    blade.emissiveIntensity = bladeGlow(player, telegraph);
   }
 }

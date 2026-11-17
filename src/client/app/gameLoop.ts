@@ -11,9 +11,10 @@ import { cloneVec3, lerpVec3, type Vec3 } from '../../shared/math/vec3';
 import { clonePlayer, type PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
 import type { InputController } from '../input/inputController';
-import type { GameView } from '../render/gameView';
+import type { GameView, ViewState } from '../render/gameView';
 import type { DebugOverlay } from '../ui/debugOverlay';
 import type { Hud } from '../ui/hud';
+import { ContactWatcher } from './contactWatcher';
 import type { Effects, Listener } from './effects';
 import { detectMoments } from './stateWatcher';
 
@@ -34,6 +35,10 @@ export interface LoopParts {
   effects: Effects;
   /** Is the wind-up cue on for this client's match? (setting + game mode) */
   windupCue: (client: GameClient) => boolean;
+  /** Look-and-feel settings for the renderer. */
+  fx: () => ViewState['fx'];
+  /** Called after every drawn frame of a match (frame rate watch, see frameRateGuard.ts). */
+  onMatchFrame: (deltaMs: number) => void;
 }
 
 /** What the last frame showed. gameApp.ts uses it to place the effects of game events. */
@@ -44,7 +49,8 @@ export interface FrameInfo {
 }
 
 export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
-  const { getClient, afterTick, input, view, hud, debug, effects, replay, windupCue } = parts;
+  const { getClient, afterTick, input, view, hud, debug, effects, replay, windupCue, fx, onMatchFrame } = parts;
+  const contacts = new ContactWatcher();
   let lastFrameAt = performance.now();
   let accumulator = 0;
   /** Position of the local player before the most recent tick. */
@@ -118,9 +124,25 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
       }
       effects.frame(me, remotes, client.snapshot?.match ?? null);
       lastFrame = { listener, players: [me, ...remotes] };
+      // Our swing reached the enemy as shown: spark + tick at once (the server decides the rest).
+      const touched = contacts.check(me, remotes);
+      if (touched) effects.contact(touched);
 
-      view.render({ localPos, yaw: input.yaw, pitch: input.pitch, local: me, remotes, dt: deltaMs / 1000, windupCue: cue });
+      const animMs = effects.hitstop.advance(deltaMs);
+      view.render({
+        localPos,
+        yaw: input.yaw,
+        pitch: input.pitch,
+        local: me,
+        remotes,
+        dt: deltaMs / 1000,
+        animDt: animMs / 1000,
+        windupCue: cue,
+        fx: fx(),
+        combatLive: client.snapshot?.match.phase === 'playing',
+      });
       hud.update(client, input.pointerLocked);
+      onMatchFrame(deltaMs);
     } else {
       shownBefore.clear();
       lastFrame = null;

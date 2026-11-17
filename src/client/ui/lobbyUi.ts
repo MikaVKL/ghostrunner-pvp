@@ -10,7 +10,7 @@
 import { DEFAULT_MAP_ID, isMapId, MAPS } from '../../shared/maps';
 import { DEFAULT_MODE_ID, isModeId, MODES, type ModeId } from '../../shared/match/gameModes';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES, isDifficulty, type Difficulty } from '../../solo/difficulty';
-import { isWindupCueSetting, type Settings } from '../app/settings';
+import { FX_KEYS, isWindupCueSetting, type FxSettings, type Settings } from '../app/settings';
 import { ChoiceButtons } from './choiceButtons';
 import { TEXT } from './hudTexts';
 
@@ -103,21 +103,28 @@ export class LobbyUi {
     const sensitivity = element<HTMLInputElement>('sensitivity-slider');
     const killcam = element<HTMLInputElement>('killcam-checkbox');
     const windupCue = element<HTMLSelectElement>('windup-select');
+    // One checkbox per look-and-feel effect: <input id="fx-bloom"> etc. in index.html.
+    const fxBoxes = FX_KEYS.map((key) => [key, element<HTMLInputElement>(`fx-${key}`)] as const);
     volume.value = String(settings.volume);
     sensitivity.value = String(settings.sensitivity);
     killcam.checked = settings.killcam;
     windupCue.value = settings.windupCue;
-    const changed = () =>
+    for (const [key, box] of fxBoxes) box.checked = settings[key];
+    const changed = () => {
+      const fx = Object.fromEntries(fxBoxes.map(([key, box]) => [key, box.checked])) as unknown as FxSettings;
       callbacks.onSettingsChange({
+        ...fx,
         volume: Number(volume.value),
         sensitivity: Number(sensitivity.value),
         killcam: killcam.checked,
         windupCue: isWindupCueSetting(windupCue.value) ? windupCue.value : 'auto',
       });
+    };
     volume.addEventListener('input', changed);
     sensitivity.addEventListener('input', changed);
     killcam.addEventListener('change', changed);
     windupCue.addEventListener('change', changed);
+    for (const [, box] of fxBoxes) box.addEventListener('change', changed);
   }
 
   /**

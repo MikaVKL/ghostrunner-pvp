@@ -10,6 +10,8 @@ export type SoundName =
   | 'swing'
   | 'swingDash'
   | 'windup'
+  | 'draw'
+  | 'contact'
   | 'hit'
   | 'parry'
   | 'dash'
@@ -48,6 +50,17 @@ const RECIPES: Record<SoundName, Recipe> = {
   windup: (a, p) => {
     a.tone({ type: 'square', from: 660, to: 990, duration: 0.09, gain: 0.12 }, p);
     a.tone({ type: 'sine', from: 1320, to: 1760, duration: 0.07, gain: 0.08, delay: 0.03 }, p);
+  },
+  // Clearer wind-up ("telegraph"): steel sliding out of a sheath, rising - the enemy draws back.
+  draw: (a, p) => {
+    a.noise({ filter: 'bandpass', from: 2400, to: 6200, q: 6, duration: 0.16, gain: 0.32 }, p);
+    a.tone({ type: 'triangle', from: 1900, to: 2600, duration: 0.14, gain: 0.05 }, p);
+  },
+  // Our blade reaches the enemy (before the server has decided): a short bright "tick".
+  contact: (a, p) => {
+    a.noise({ filter: 'highpass', from: 4200, duration: 0.05, gain: 0.55 }, p);
+    a.tone({ type: 'square', from: 2200, to: 1500, duration: 0.05, gain: 0.07 }, p);
+    a.tone({ type: 'sine', from: 140, to: 70, duration: 0.09, gain: 0.35 }, p);
   },
   // The blade connects: a sharp slice, a wet thud and a low boom.
   hit: (a, p) => {

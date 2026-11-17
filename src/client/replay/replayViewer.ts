@@ -15,7 +15,7 @@ import { EYE_HEIGHT } from '../../shared/physics/collision';
 import type { Effects } from '../app/effects';
 import { detectMoments } from '../app/stateWatcher';
 import type { InputController } from '../input/inputController';
-import type { GameView } from '../render/gameView';
+import type { GameView, ViewState } from '../render/gameView';
 import { ReplayCamera } from './replayCamera';
 import { ReplayControls } from './replayControls';
 import { downloadReplay, livesLine, replayTitle } from './replayFiles';
@@ -47,6 +47,8 @@ export class ReplayViewer {
     private readonly effects: Effects,
     /** Is the wind-up cue on for a match of this mode? (player setting, see settings.ts) */
     private readonly windupCueFor: (mode: GameMode) => boolean,
+    /** Look-and-feel settings (see settings.ts). */
+    private readonly fx: () => ViewState['fx'],
   ) {
     this.camera = new ReplayCamera(input);
     this.controls = new ReplayControls({
@@ -106,7 +108,19 @@ export class ReplayViewer {
     for (const event of frame.events) this.effects.gameEvent(event, -1, frame.players, listener);
     this.effects.frame(null, frame.players, null);
     const feet = { x: pose.pos.x, y: pose.pos.y - EYE_HEIGHT, z: pose.pos.z };
-    this.view.render({ localPos: feet, yaw: pose.yaw, pitch: pose.pitch, local: null, remotes: frame.players, dt: deltaMs / 1000, windupCue: cue });
+    const animMs = this.effects.hitstop.advance(deltaMs);
+    this.view.render({
+      localPos: feet,
+      yaw: pose.yaw,
+      pitch: pose.pitch,
+      local: null,
+      remotes: frame.players,
+      dt: deltaMs / 1000,
+      animDt: animMs / 1000,
+      windupCue: cue,
+      fx: this.fx(),
+      combatLive: true,
+    });
     this.updateCheck(playback);
     const lives = this.file ? livesLine(this.file, frame.current, this.mode.lives) : '';
     this.controls.update(playback, this.camera.label, this.check, lives);

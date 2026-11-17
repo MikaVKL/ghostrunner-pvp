@@ -33,18 +33,58 @@ Ausweichen werden der Kern. Alles im geteilten Kern, Desync-Tests bleiben grün.
    Greifhaken, Spezialangriff, schwere Angriffe, Third-Person, Gamepad, Hosting, Lebensleisten.
 10. NICHT: Zeitrennen.
 
+### Stand der Schritte
+
+| # | Schritt | Stand |
+|---|---|---|
+| 1 | Gefühl (nur Client) | ✅ – siehe unten; Schwertspur und Sounds von keinem Menschen gesehen/gehört |
+
+**Schritt 1 – so funktioniert es** (alles nur Darstellung, die Simulation weiß nichts davon;
+jedes Effekt im Menü unter „Grafik & Spielgefühl“ abschaltbar, `FxSettings` in
+`client/app/settings.ts`):
+
+- **Bloom** (`client/render/postFx.ts`): Three.js-`EffectComposer` + `UnrealBloomPass`. Helle
+  Dinge (Klingen, Neonkanten, Funken) leuchten. **Bildraten-Wächter**
+  (`client/app/frameRateGuard.ts`): Läuft das Spiel mit Bloom länger als 2 s unter
+  30 Bildern/s, schaltet sich Bloom für diese Sitzung ab (Hinweis im Bild, gespeicherte
+  Einstellung bleibt). Grund: Im Test-Chromium ohne Grafikkarte fiel die Bildrate mit Bloom
+  von 13 auf 4 Bilder/s, mehrere Browser-Tests liefen dadurch in Zeitüberschreitungen.
+  Browser-Tests starten deshalb mit Bloom aus (`tests/browser/harness.ts`); der Test
+  „Spielgefühl“ schaltet ihn ein und prüft die Abschaltung.
+- **Speedlines** (`render/speedLines.ts`): Streifen am Bildrand ab etwas über Lauftempo,
+  voll beim Dash.
+- **Schwertspur** (`render/swordTrail.ts`): Lichtband zwischen Klingenbasis und -spitze der
+  letzten Bilder, kurz vor bis kurz nach der Treffer-Phase. Der alte Reichweiten-Bogen
+  (`slashArc.ts`) bleibt, ist aber schwächer (er war mit Bloom grell) und erscheint nur,
+  während die Runde läuft (vorher stand er nach einem Kill eingefroren im Bild).
+- **Hitstop** (`app/hitstop.ts`): Das *Bild* stockt 55–110 ms (Kontakt, Treffer, Parry,
+  Clash). Simulation, Netzwerk und Maus laufen weiter – sonst käme der Client aus dem Takt.
+  Zweimal Stocken innerhalb 220 ms wird übersprungen.
+- **Sofortiger Treffer-Funke** (`app/contactWatcher.ts`): Erreicht der eigene Schlag den
+  Gegner *so wie er angezeigt wird* (genau das prüft auch die Lag-Kompensation des
+  Servers), gibt es sofort Funke, „Tick“-Ton und Mini-Hitstop. Tod/Kill-Effekte kommen
+  weiterhin erst mit dem `hit`-Event des Servers (ein Parry kann den Funken also noch
+  „überstimmen“).
+- **Ausholen betonen** (`render/bladeGlow.ts`, `fighterPose.ts`): Klinge leuchtet während
+  des Ausholens immer heller auf, die Figur holt weiter aus (lehnt sich zurück, freie Hand
+  zeigt auf das Ziel), Ton „draw“ (Klinge wird gezogen). Unabhängig von der roten
+  Angriffsanzeige (Ring + Piepton), die es weiterhin gibt.
+- Tests: `tests/unit/feel.test.ts`, Browser-Test „Spielgefühl“ (14 Browser-Tests grün).
+- Beobachtung beim Testen: Mit W halten + Schlag-Spam habe ich (Testskript) „Mittel“ 3:1
+  geschlagen – genau das „stumpfe Zulaufen“, das die Schritte 2–7 beheben sollen.
+
 ---
 
 ## 1. So prüfst du, ob alles funktioniert
 
-**Letzter Stand (17.11.):** `npm run check` grün, alle 13 Browser-Tests grün (mit Moduswahl,
+**Letzter Stand (17.11., nach Schritt 1 Flow):** `npm run check` grün (428 Tests), alle 14 Browser-Tests grün (mit Moduswahl,
 Angriffsanzeige und Arena), GitHub-Pages-Workflow grün.
 
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
 | `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 418) |
-| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (13 Tests). Einmalig vorher: `npx playwright install chromium` |
+| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (14 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~3 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen je Modus) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |

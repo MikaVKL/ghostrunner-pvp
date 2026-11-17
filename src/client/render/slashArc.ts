@@ -14,6 +14,8 @@ import { teamColor } from './palette';
 const ARC_HEIGHT = 1.15;
 /** How long the arc keeps glowing after the active phase, in ticks. */
 const FADE_TICKS = 8;
+/** Kept faint: the sword trail shows the swing, the arc only marks the reach (it glows with bloom). */
+const MAX_OPACITY = 0.35;
 
 export class SlashArc {
   readonly mesh: THREE.Mesh;
@@ -60,7 +62,7 @@ export class SlashArc {
     const attack = currentAttack(p);
     const sinceActive = p.actionTicks - attack.startupTicks;
     if (sinceActive < 0) return 0;
-    if (sinceActive < attack.activeTicks) return 0.75;
-    return Math.max(0, 0.75 * (1 - (sinceActive - attack.activeTicks) / FADE_TICKS));
+    if (sinceActive < attack.activeTicks) return MAX_OPACITY;
+    return Math.max(0, MAX_OPACITY * (1 - (sinceActive - attack.activeTicks) / FADE_TICKS));
   }
 }

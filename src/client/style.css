@@ -204,6 +204,21 @@ button:disabled:hover {
   gap: 12px;
 }
 
+.settings details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings details[open] summary {
+  margin-bottom: 8px;
+}
+
+.settings summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
 .row {
   display: flex;
   gap: 8px;

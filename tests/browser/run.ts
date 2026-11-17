@@ -13,6 +13,7 @@
  * First time on your own computer: `npx playwright install chromium`.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { yawToward } from '../../src/shared/math/vec3';
 import { parseReplay } from '../../src/shared/replay/replayFormat';
 import { assert, assertEqual, openOne, openTwo, SCREENSHOT_DIR, startDuel, startEnv, type GamePage, type TestEnv } from './harness';
 
@@ -338,6 +339,42 @@ test('Ohne Server (wie GitHub Pages): Mehrspieler deaktiviert, Solo läuft', asy
   await a.waitFor('round 2 starts', (s) => s.round === 2 && s.phase === 'playing', 30_000);
   await a.screenshot('12-pages-solo');
   assertEqual((await a.state()).desyncs, 0, 'desyncs');
+  noErrors(a);
+});
+
+test('Spielgefühl: Bloom, Treffer-Funke; Bloom schaltet sich bei zu langsamer Grafik ab', async (env) => {
+  const a = await openOne(env, env.staticUrl, false);
+  // Switch bloom on in the menu (the test pages start with it off).
+  await a.page.click('#fx-settings summary');
+  await a.page.check('#fx-bloom');
+  assert(await a.page.evaluate('window.gameView.bloom'), 'bloom on after ticking the box');
+  await a.page.uncheck('#killcam-checkbox'); // no killcam in between our swings
+  await startSolo(a, 'arena', 'leicht');
+  await a.screenshot('15-bloom');
+  // The test browser draws without a graphics card (a few frames per second): the frame
+  // rate guard must switch bloom off by itself after about two seconds.
+  await a.page.waitForFunction('window.gameView.bloom === false', undefined, { timeout: 30_000 });
+  const stored = await a.page.evaluate("JSON.parse(localStorage.getItem('settings')).bloom");
+  assertEqual(stored, true, 'the saved setting stays on');
+  // Run at the bot (looking at it) and swing once it is in reach: the spark comes at once.
+  for (let attempt = 0; attempt < 40; attempt++) {
+    if (await a.page.evaluate('window.gameEffects.contacts > 0')) break;
+    const s = await a.state();
+    if (s.phase !== 'playing' || !s.me?.alive || !s.enemy) {
+      await a.page.waitForTimeout(250);
+      continue;
+    }
+    await a.look(yawToward(s.me.pos, s.enemy.pos));
+    if (s.distance > 2.2) {
+      await a.page.keyboard.down('KeyW');
+      await a.page.waitForTimeout(100);
+      await a.page.keyboard.up('KeyW');
+      continue;
+    }
+    await a.page.keyboard.press('KeyJ');
+    await a.page.waitForTimeout(500);
+  }
+  assert(await a.page.evaluate('window.gameEffects.contacts > 0'), 'contact spark shown when our swing reached the bot');
   noErrors(a);
 });
 
