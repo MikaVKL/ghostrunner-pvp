@@ -4,6 +4,7 @@
  */
 import { connectWebSocket } from '../netcode/webSocketTransport';
 import { withLag } from '../netcode/lagTransport';
+import type { ModeId } from '../shared/match/gameModes';
 import { TickLoop } from '../shared/util/tickLoop';
 import { Bot } from './bot';
 import { botReport, type MatchReport } from './report';
@@ -21,6 +22,8 @@ export interface LiveOptions {
   useQuickMatch?: boolean;
   /** Map for the room (not with quick match). Default: the server's default map. */
   mapId?: string;
+  /** Game mode of the room. Default: the duel. */
+  modeId?: ModeId;
 }
 
 async function connectBot(options: LiveOptions, name: string, seed: number): Promise<Bot> {
@@ -34,14 +37,14 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
   const bots = [host, guest];
 
   if (options.useQuickMatch) {
-    host.client.quickMatch(host.name);
-    guest.client.quickMatch(guest.name);
+    host.client.quickMatch(host.name, options.modeId);
+    guest.client.quickMatch(guest.name, options.modeId);
   } else {
     // The guest follows the host into its room (only once - a rejoin also reports "joined").
     host.client.onRoomJoined = (room) => {
       if (!guest.client.room) guest.client.joinRoom(room.code, guest.name);
     };
-    host.client.createRoom(host.name, options.mapId);
+    host.client.createRoom(host.name, options.mapId, options.modeId);
   }
 
   const loops = bots.map((bot) => new TickLoop(() => bot.tick()));
@@ -62,6 +65,7 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
 
   for (const loop of loops) loop.stop();
   const mapId = host.client.room?.mapId ?? '?';
+  const modeId = host.client.room?.modeId ?? '?';
   for (const bot of bots) {
     if (!bot.client.connected) bot.errors.push('connection closed unexpectedly');
     bot.client.leaveRoom(); // leave for good, otherwise the server keeps the seat reserved
@@ -73,6 +77,7 @@ export async function runLiveMatch(options: LiveOptions): Promise<MatchReport> {
   return {
     label: options.label,
     mapId,
+    modeId,
     finished: finished(),
     winner: host.matchWinner,
     rounds: host.roundsPlayed,

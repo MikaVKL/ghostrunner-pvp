@@ -96,6 +96,24 @@ describe('the bot really fights', () => {
   });
 });
 
+describe('solo in the arena mode', () => {
+  it('runs to the end; the bot needs several hits per round against an idle player', () => {
+    const run = startSolo({ difficulty: 'schwer', human: 'idle', seed: 4, modeId: 'arena' });
+    expect(run.solo.client.room!.modeId).toBe('arena');
+    run.runUntil('match end', () => phase(run) === 'matchEnd');
+    const botHits = run.events.filter((e) => e.type === 'hit' && e.attacker === 1);
+    expect(botHits.some((e) => e.type === 'hit' && e.hpLeft > 0)).toBe(true);
+    expect(run.solo.client.snapshot!.match.matchWinner).toBe(1);
+    expectHealthy(run);
+  });
+
+  it('a bot-vs-bot arena solo match has no desyncs', () => {
+    const run = startSolo({ human: 'fights', seed: 6, modeId: 'arena', mapId: 'daecher' });
+    run.runUntil('match end', () => phase(run) === 'matchEnd');
+    expectHealthy(run);
+  });
+});
+
 describe('rematch and leaving', () => {
   it('after the match the bot votes for a rematch; it starts when the human presses R', () => {
     const run = startSolo({ difficulty: 'schwer', human: 'idle', seed: 4 });

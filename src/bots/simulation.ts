@@ -4,6 +4,7 @@
  * and the clock are fake. This is what the automated tests and `npm run bots:sim` use.
  */
 import { TICK_MS } from '../shared/config';
+import type { ModeId } from '../shared/match/gameModes';
 import { FAST_MATCH_CONFIG, type MatchConfig } from '../shared/match/matchConfig';
 import { GameServer } from '../server/gameServer';
 import { Bot } from './bot';
@@ -28,6 +29,8 @@ export interface SimOptions {
   useQuickMatch?: boolean;
   /** Map for the room (not with quick match). Default: the server's default map. */
   mapId?: string;
+  /** Game mode of the room. Default: the duel. */
+  modeId?: ModeId;
   /** Reuse an existing server (to collect statistics over several matches). */
   server?: GameServer;
   /** Behavior of botA and botB (default: DEFAULT_PERSONALITY for both). */
@@ -64,14 +67,14 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
   const [host, guest] = bots;
 
   if (options.useQuickMatch) {
-    host.client.quickMatch(host.name);
-    guest.client.quickMatch(guest.name);
+    host.client.quickMatch(host.name, options.modeId);
+    guest.client.quickMatch(guest.name, options.modeId);
   } else {
     // The guest follows the host into its room (only once - a rejoin also reports "joined").
     host.client.onRoomJoined = (room) => {
       if (!guest.client.room) guest.client.joinRoom(room.code, guest.name);
     };
-    host.client.createRoom(host.name, options.mapId);
+    host.client.createRoom(host.name, options.mapId, options.modeId);
   }
 
   // Server and bots tick at slightly different moments and speeds, like real computers.
@@ -106,6 +109,7 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
   const durationSec = net.nowMs / 1000;
   const report = bots.map(botReport);
   const mapId = host.client.room?.mapId ?? '?';
+  const modeId = host.client.room?.modeId ?? '?';
   // Leave for good (otherwise the server keeps the seats reserved), let the goodbyes
   // arrive, then close the connections.
   for (const bot of bots) bot.client.leaveRoom();
@@ -116,6 +120,7 @@ export function runSimulatedMatch(options: SimOptions): MatchReport {
   return {
     label: options.label ?? `seed ${options.seed}`,
     mapId,
+    modeId,
     finished: finished(),
     winner: host.matchWinner,
     rounds: host.roundsPlayed,

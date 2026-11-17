@@ -11,7 +11,7 @@ import type { AttackKind } from '../combat/weapons';
 import { MOVE } from '../movement/movementConfig';
 import type { MatchConfig } from './matchConfig';
 
-export type ModeId = 'duel';
+export type ModeId = 'duel' | 'arena';
 
 export interface GameMode {
   id: ModeId;
@@ -57,7 +57,31 @@ export const DUEL: GameMode = {
   windupCueByDefault: false,
 };
 
-export const MODES: Record<ModeId, GameMode> = { duel: DUEL };
+/**
+ * Several lives per round. A hit costs one life, then the target is briefly invulnerable
+ * (no instant follow-up kill). A parry earns a counter attack with bonus damage. The dash
+ * attack hurts more but recovers longer, and the dash has a longer cooldown, so nobody can
+ * just dash around forever ("kiting"). Best-of-3, wind-up cue on by default.
+ */
+export const ARENA_MODE: GameMode = {
+  id: 'arena',
+  name: 'Arena',
+  description:
+    '3 Leben pro Runde. Ein Parry gibt einen Konter mit doppeltem Schaden, der Dash-Angriff trifft doppelt. Best-of-3.',
+  lives: 3,
+  damage: { light: 1, dash: 2 },
+  invulnerableTicks: secondsToTicks(0.75),
+  parryCounterTicks: secondsToTicks(1.5),
+  parryCounterBonus: 1,
+  dashCooldownTicks: secondsToTicks(1.6),
+  dashAttackExtraRecoveryTicks: secondsToTicks(0.2),
+  roundsToWin: 2,
+  maxRounds: 5,
+  roundTicks: secondsToTicks(90),
+  windupCueByDefault: true,
+};
+
+export const MODES: Record<ModeId, GameMode> = { duel: DUEL, arena: ARENA_MODE };
 export const MODE_IDS = Object.keys(MODES) as ModeId[];
 export const DEFAULT_MODE_ID: ModeId = 'duel';
 

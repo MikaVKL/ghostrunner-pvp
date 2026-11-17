@@ -20,6 +20,7 @@ export interface BotReport {
 export interface MatchReport {
   label: string;
   mapId: string;
+  modeId: string;
   /** True if the match reached its end before the time limit. */
   finished: boolean;
   winner: number | null;
@@ -77,7 +78,7 @@ export function findProblems(report: RunReport): string[] {
 /** Sum of the mechanics counters of all bots in all matches. */
 export function totalUsage(matches: MatchReport[]): BotUsage {
   const total: BotUsage = {
-    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dodges: 0, punishes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0,
+    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dodges: 0, punishes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0, wounds: 0, counters: 0,
   };
   for (const bot of matches.flatMap((m) => m.bots)) {
     for (const key of Object.keys(total) as (keyof BotUsage)[]) total[key] += bot.usage[key];
@@ -90,14 +91,14 @@ const pad = (value: string | number, width: number) => String(value).padEnd(widt
 export function printReport(report: RunReport): void {
   console.log('\n=== BOT REPORT ===');
   console.log(
-    pad('match', 10) + pad('map', 10) + pad('bot', 6) + pad('result', 9) + pad('rounds', 8) + pad('time(s)', 9) +
+    pad('match', 10) + pad('map', 10) + pad('mode', 7) + pad('bot', 6) + pad('result', 9) + pad('rounds', 8) + pad('time(s)', 9) +
       pad('snaps', 8) + pad('corrections', 13) + pad('maxCorr(m)', 12) + pad('desyncs', 9) + 'rtt(ms)',
   );
   for (const match of report.matches) {
     match.bots.forEach((bot, slot) => {
       const result = !match.finished ? 'TIMEOUT' : match.winner === slot ? 'win' : match.winner === -1 ? 'draw' : 'loss';
       console.log(
-        pad(match.label, 10) + pad(match.mapId, 10) + pad(bot.name, 6) + pad(result, 9) + pad(match.rounds, 8) +
+        pad(match.label, 10) + pad(match.mapId, 10) + pad(match.modeId, 7) + pad(bot.name, 6) + pad(result, 9) + pad(match.rounds, 8) +
           pad(match.durationSec.toFixed(1), 9) + pad(bot.snapshots, 8) + pad(bot.corrections, 13) +
           pad(bot.maxCorrectionM.toFixed(3), 12) + pad(bot.desyncs, 9) + bot.rttMs.toFixed(0),
       );
@@ -108,7 +109,8 @@ export function printReport(report: RunReport): void {
     `\nmechanics used by the bots: wall-run ${total.wallRunTicks} ticks, wall-jumps ${total.wallJumps}, ` +
       `double jumps ${total.doubleJumps}, pad launches ${total.padLaunches}, dashes ${total.dashes}, ` +
       `swings ${total.swings} (dash attacks ${total.dashAttacks}), parries ${total.parries}, ` +
-      `dodges ${total.dodges}, punishes ${total.punishes}, clashes ${total.clashes}, kills ${total.kills}`,
+      `dodges ${total.dodges}, punishes ${total.punishes}, clashes ${total.clashes}, kills ${total.kills}, ` +
+      `wounds ${total.wounds}, counters ${total.counters}`,
   );
   if (report.server) {
     const t = report.server.tick;

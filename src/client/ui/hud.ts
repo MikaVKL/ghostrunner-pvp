@@ -10,7 +10,7 @@ import { getMode, type GameMode } from '../../shared/match/gameModes';
 import type { PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
 import { teamColor } from '../render/palette';
-import { centerMessage, secondsLeft } from './hudTexts';
+import { centerMessage, livesText, secondsLeft } from './hudTexts';
 
 function element(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -29,6 +29,8 @@ export class Hud {
   private readonly root = element('hud');
   private readonly myName = element('my-name');
   private readonly myPips = element('my-pips');
+  private readonly myLives = element('my-lives');
+  private readonly enemyLives = element('enemy-lives');
   private readonly enemyName = element('enemy-name');
   private readonly enemyPips = element('enemy-pips');
   private readonly roundLabel = element('round-label');
@@ -103,6 +105,9 @@ export class Hud {
     this.enemyName.textContent = enemyInfo ? enemyInfo.name + (enemyInfo.connected ? '' : ' (getrennt)') : '';
     this.myPips.textContent = inMatch ? pips(match.scores[room.slot], room.roundsToWin) : '';
     this.enemyPips.textContent = inMatch ? pips(match.scores[enemySlot], room.roundsToWin) : '';
+    const enemy = snapshot.players.find((p) => p.slot === enemySlot);
+    this.myLives.textContent = inMatch ? livesText(me.hp, mode.lives) : '';
+    this.enemyLives.textContent = inMatch && enemy ? livesText(enemy.hp, mode.lives) : '';
     this.roundLabel.textContent = inMatch ? `Runde ${match.round}` : 'Übungsmodus';
     const playing = match.phase === 'playing';
     this.timer.textContent = playing ? String(secondsLeft(match.phaseTicksLeft)) : '';

@@ -8,6 +8,8 @@ import type { MatchState } from '../../shared/sim/world';
 export const TEXT = {
   fight: 'KÄMPFT!',
   hit: 'TREFFER!',
+  counterHit: 'KONTER! Doppelter Schaden!',
+  gotHit: 'GETROFFEN – kurz unverwundbar',
   parried: 'PARIERT! Jetzt zuschlagen!',
   gotParried: 'GEPARIERT – du bist betäubt!',
   clash: 'KLINGEN-CLASH!',
@@ -25,6 +27,16 @@ export const TEXT = {
     'Kein Spielserver erreichbar – Mehrspieler ist hier nicht verfügbar. „Solo gegen Bot“ funktioniert trotzdem.',
   clickToPlay: 'Klicke ins Spiel, um die Maus zu fangen · H = Steuerung',
 };
+
+/**
+ * Lives as hearts, e.g. "♥♥♡" (2 of 3 left). Empty in modes with a single life (the duel),
+ * where a hit simply kills.
+ */
+export function livesText(hp: number, lives: number): string {
+  if (lives <= 1) return '';
+  const left = Math.max(0, Math.min(lives, hp));
+  return '♥'.repeat(left) + '♡'.repeat(lives - left);
+}
 
 /** Whole seconds left, rounded up (so a countdown shows 3, 2, 1). */
 export const secondsLeft = (ticks: number) => Math.ceil(ticks / TICK_RATE);

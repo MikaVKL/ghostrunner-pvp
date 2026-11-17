@@ -73,7 +73,9 @@ test('Hauptmenü: deutsch, alle Maps, Steuerungshilfe', async (env) => {
   assertEqual(await a.page.locator('#difficulty-list button').allInnerTexts(), ['Leicht', 'Mittel', 'Schwer'], 'difficulty buttons');
   await a.page.click('#difficulty-list button[data-difficulty="schwer"]');
   await a.expectText('#difficulty-description', 'pariert die meisten Schläge');
-  assertEqual(await a.page.locator('#mode-list button').allInnerTexts(), ['Duell'], 'mode buttons');
+  assertEqual(await a.page.locator('#mode-list button').allInnerTexts(), ['Duell', 'Arena'], 'mode buttons');
+  await a.page.click('#mode-list button[data-mode="arena"]');
+  await a.expectText('#mode-description', '3 Leben');
   await a.page.click('#mode-list button[data-mode="duel"]');
   await a.expectText('#mode-description', 'Ein Treffer tötet');
   assert(await a.page.isEnabled('#quick-button'), 'multiplayer is enabled while a server is connected');
@@ -350,6 +352,33 @@ test('Angriffsanzeige: roter Ring und Ton, wenn der Bot ausholt', async (env) =>
     { timeout: 90_000 },
   );
   await a.screenshot('14-windup-cue');
+  noErrors(a);
+});
+
+test('Arena gegen Bot: Leben im HUD, ein Treffer kostet ein Leben, Angriffsanzeige an', async (env) => {
+  const a = await openOne(env, env.url);
+  await a.page.click('#mode-list button[data-mode="arena"]');
+  await startSolo(a, 'arena', 'schwer');
+  await a.expectText('#solo-info', 'Solo · Arena · Schwer');
+  await a.expectText('#map-name', 'Arena · Arena');
+  await a.expectText('#my-lives', '♥♥♥');
+  await a.expectText('#enemy-lives', '♥♥♥');
+  await a.expectText('#my-pips', '◇◇');
+  assertEqual(await a.text('#my-pips'), '◇◇', 'best-of-3 in the arena');
+  // We stand still; the bot hits us once - we survive with two lives.
+  await a.page.waitForFunction(
+    () =>
+      (window as unknown as { gameEvents: { type: string; attacker?: number; hpLeft?: number }[] }).gameEvents.some(
+        (e) => e.type === 'hit' && e.attacker === 1 && e.hpLeft === 2,
+      ),
+    undefined,
+    { timeout: 90_000 },
+  );
+  await a.expectText('#my-lives', '♡');
+  await a.screenshot('15-arena-lives');
+  const cues = await a.page.evaluate(() => (window as unknown as { gameEffects: { windupCues: number } }).gameEffects.windupCues);
+  assert(cues > 0, 'the wind-up cue is on by default in the arena');
+  assertEqual((await a.state()).desyncs, 0, 'desyncs');
   noErrors(a);
 });
 

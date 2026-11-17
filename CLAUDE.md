@@ -20,7 +20,7 @@ bekannte Fehler, nächste Schritte – zuerst lesen, wenn du hier weiterarbeites
 | `npm run dev` | Server (Port 3000) + Vite-Client (Port 5173) mit Auto-Reload |
 | `npm run host` | Client bauen + Server starten, der alles auf Port 3000 ausliefert (zum Spielen mit anderen) |
 | `npm test` | Typecheck + alle Tests (Unit, Bot-Simulation, echter Server). ~20 s |
-| `npm run bots:sim` | 20 Bot-Matches auf allen Maps im Speicher mit Lag/Jitter. ~3 s. **Schnellster Desync-Check** |
+| `npm run bots:sim` | 20 Bot-Matches auf allen Maps und in allen Modi (Duell, Arena) im Speicher mit Lag/Jitter. ~3 s. **Schnellster Desync-Check** |
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server. ~20 s |
 | `npm run test:browser` | Playwright: echte Chromium-Tabs spielen gegeneinander und solo gegen den Bot (auch ohne Server). ~2,5 min. Nach Client-/UI-Änderungen ausführen |
 | `npm run build:pages` / `npm run preview:pages` | Statische Solo-Version für GitHub Pages bauen (`dist/pages`) / lokal ansehen |

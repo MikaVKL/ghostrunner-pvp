@@ -11,6 +11,8 @@
  *   --drift X      clock error of the bots, sim only        (default 0.002)
  *   --seed N       first random seed                        (default 1)
  *   --map ID       play every match on this map             (default: take turns through all maps)
+ *   --mode ID      play every match in this game mode       (default: all maps in the duel, then
+ *                  all maps in the arena, and so on)
  *   --url URL      live only: use an already running server (e.g. ws://localhost:3000/ws)
  *   --full         live only: normal match length instead of short test rounds
  *   --timeout SEC  live only: give up after this long       (default 300)
@@ -20,6 +22,7 @@
 import { GameServer, type ServerStats } from '../server/gameServer';
 import { startServer } from '../server/startServer';
 import { MAPS } from '../shared/maps';
+import { isModeId, MODE_IDS, type ModeId } from '../shared/match/gameModes';
 import { DEFAULT_MATCH_CONFIG, FAST_MATCH_CONFIG } from '../shared/match/matchConfig';
 import { runLiveMatch } from './liveRunner';
 import { findProblems, printReport, type RunReport } from './report';
@@ -45,6 +48,15 @@ const num = (args: Args, key: string, fallback: number) =>
 const ALL_MAP_IDS = Object.keys(MAPS);
 const mapFor = (args: Args, i: number) => args.map ?? ALL_MAP_IDS[i % ALL_MAP_IDS.length];
 
+/** Mode for match number `i`: the one from --mode, otherwise one round of all maps per mode. */
+function modeFor(args: Args, i: number): ModeId {
+  if (args.mode !== undefined) {
+    if (!isModeId(args.mode)) throw new Error(`Unknown mode "${args.mode}". Known: ${MODE_IDS.join(', ')}`);
+    return args.mode;
+  }
+  return MODE_IDS[Math.floor(i / ALL_MAP_IDS.length) % MODE_IDS.length];
+}
+
 function runSim(args: Args): RunReport {
   const matches = num(args, 'matches', 20);
   const seed = num(args, 'seed', 1);
@@ -60,6 +72,7 @@ function runSim(args: Args): RunReport {
         clockDrift: num(args, 'drift', 0.002),
         useQuickMatch: i % 5 === 4,
         mapId: mapFor(args, i),
+        modeId: modeFor(args, i),
         server,
       }),
     );
@@ -86,6 +99,7 @@ async function runLive(args: Args): Promise<RunReport> {
         timeoutSec: num(args, 'timeout', 300),
         useQuickMatch: i === matches - 1 && matches > 1,
         mapId: mapFor(args, i),
+        modeId: modeFor(args, i),
       }),
     ),
   );

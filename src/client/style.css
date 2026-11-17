@@ -420,6 +420,18 @@ body.stunned #vignette {
   letter-spacing: 3px;
 }
 
+/* Lives (only in modes with more than one life): filled and empty hearts. */
+.lives {
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: #ff5a6e;
+  text-shadow: 0 0 8px rgba(255, 90, 110, 0.6);
+}
+
+.lives:empty {
+  display: none;
+}
+
 /* --me / --enemy are set by hud.ts to the players' glow colors. */
 .side.me .pips,
 .side.me .name {

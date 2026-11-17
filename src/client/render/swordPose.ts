@@ -41,8 +41,12 @@ function mix(a: SwordPose, b: SwordPose, t: number): SwordPose {
   };
 }
 
-/** Smooth start and end of a movement (0..1 -> 0..1). */
-const ease = (t: number) => t * t * (3 - 2 * t);
+/** Smooth start and end of a movement (0..1 -> 0..1). Values above 1 (a mode with a longer
+ * recovery, see GameMode.dashAttackExtraRecoveryTicks) stay at the end pose. */
+const ease = (t: number) => {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+};
 
 export function swordPose(p: PlayerState): SwordPose {
   if (p.action === 'attack') {

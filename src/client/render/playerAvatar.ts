@@ -42,9 +42,12 @@ export class PlayerAvatar {
     poseFighter(this.model, player, this.anim);
     this.windupRing.update(player, windupCue);
 
-    // The glow shows the state: yellow = stunned (free hit!), white-blue = parrying.
+    // The glow shows the state: yellow = stunned (free hit!), white-blue = parrying,
+    // flickering white = invulnerable after a hit (arena).
     const glow = this.model.glow;
-    if (player.action === 'stunned') glow.emissive.setHex(FX_COLORS.stun);
+    const flicker = player.invulnerableTicks > 0 && Math.floor(this.anim.time * 12) % 2 === 0;
+    if (flicker) glow.emissive.setHex(FX_COLORS.invulnerable);
+    else if (player.action === 'stunned') glow.emissive.setHex(FX_COLORS.stun);
     else if (isParryActive(player)) glow.emissive.setHex(FX_COLORS.parry);
     else glow.emissive.copy(this.baseColor);
     const blade = this.model.sword.bladeMaterial.emissive;

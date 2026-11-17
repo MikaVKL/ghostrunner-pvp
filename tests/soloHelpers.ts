@@ -7,6 +7,7 @@ import { BotBrain, DEFAULT_PERSONALITY } from '../src/bots/brain';
 import type { GameClient } from '../src/netcode/gameClient';
 import { TICK_MS, TICK_RATE } from '../src/shared/config';
 import type { InputSample } from '../src/shared/input';
+import type { ModeId } from '../src/shared/match/gameModes';
 import { FAST_MATCH_CONFIG, type MatchConfig } from '../src/shared/match/matchConfig';
 import type { GameEvent } from '../src/shared/sim/events';
 import type { PlayerState } from '../src/shared/sim/playerState';
@@ -31,6 +32,7 @@ export interface SoloRunOptions {
   seed?: number;
   human?: HumanScript;
   rules?: MatchConfig;
+  modeId?: ModeId;
 }
 
 /** What the bot did during a run (see `measure`). */
@@ -89,6 +91,7 @@ export function startSolo(options: SoloRunOptions = {}): SoloRun {
     playerName: 'Mika',
     mapId: options.mapId ?? 'schlucht',
     difficulty: options.difficulty ?? 'mittel',
+    modeId: options.modeId,
     seed,
     matchConfig: options.rules ?? QUICK_RULES,
   });

@@ -30,7 +30,8 @@ function swingProgress(p: PlayerState): { phase: 'startup' | 'active' | 'recover
   const afterStartup = p.actionTicks - attack.startupTicks;
   if (afterStartup < 0) return { phase: 'startup', t: p.actionTicks / attack.startupTicks };
   if (afterStartup < attack.activeTicks) return { phase: 'active', t: (afterStartup + 1) / attack.activeTicks };
-  return { phase: 'recovery', t: (afterStartup - attack.activeTicks) / attack.recoveryTicks };
+  // Capped at 1: a mode may add extra recovery (the fighter then just holds the end pose).
+  return { phase: 'recovery', t: Math.min(1, (afterStartup - attack.activeTicks) / attack.recoveryTicks) };
 }
 
 function poseLegsAndLean(m: FighterModel, p: PlayerState, anim: FighterAnim): void {

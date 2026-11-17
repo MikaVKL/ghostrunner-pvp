@@ -36,6 +36,19 @@ describe('bot matches on every map', () => {
   });
 });
 
+describe('bot matches in the arena mode', () => {
+  it.each(Object.keys(MAPS))('map "%s": arena matches finish without any desync, with non-lethal hits', (mapId) => {
+    let survivedHits = 0;
+    for (let seed = 1; seed <= 2; seed++) {
+      const report = runSimulatedMatch({ seed, mapId, modeId: 'arena', latencyMs: 60, jitterMs: 30, clockDrift: 0.002 });
+      expect(report.modeId).toBe('arena');
+      expectHealthy(report);
+      survivedHits += report.bots.reduce((sum, bot) => sum + bot.usage.wounds, 0);
+    }
+    expect(survivedHits).toBeGreaterThan(0);
+  });
+});
+
 describe('the bots really use the mechanics (so the desync check covers them)', () => {
   it('wall-run, wall-jump, dash, dash attack, parry and kills all happen', () => {
     const reports = Object.keys(MAPS).flatMap((mapId) =>

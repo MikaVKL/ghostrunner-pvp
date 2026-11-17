@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameServer } from '../../src/server/gameServer';
 import { attackTotalTicks, WEAPONS } from '../../src/shared/combat/weapons';
-import { DUEL, getMode, isModeId, matchConfigForMode, MODES, type GameMode } from '../../src/shared/match/gameModes';
+import { ARENA_MODE, DUEL, getMode, isModeId, matchConfigForMode, MODES, type GameMode } from '../../src/shared/match/gameModes';
 import { DEFAULT_MATCH_CONFIG, FAST_MATCH_CONFIG } from '../../src/shared/match/matchConfig';
 import { MOVE } from '../../src/shared/movement/movementConfig';
 import { parseClientMessage } from '../../src/shared/protocol/codec';
@@ -189,6 +189,50 @@ describe('mode rules in the simulation', () => {
   });
 });
 
+describe('arena mode', () => {
+  const ARENA_CTX: SimContext = { ...TEST_CTX, mode: ARENA_MODE };
+
+  it('has the rules that were asked for', () => {
+    expect(ARENA_MODE.lives).toBe(3);
+    expect(ARENA_MODE.damage.light).toBe(1);
+    expect(ARENA_MODE.damage.dash).toBeGreaterThan(ARENA_MODE.damage.light); // dash attack hurts more ...
+    expect(ARENA_MODE.dashAttackExtraRecoveryTicks).toBeGreaterThan(0); // ... but recovers longer
+    expect(ARENA_MODE.invulnerableTicks).toBeGreaterThan(0);
+    expect(ARENA_MODE.parryCounterBonus).toBeGreaterThan(0);
+    expect(ARENA_MODE.dashCooldownTicks).toBeGreaterThan(DUEL.dashCooldownTicks); // against endless kiting
+    expect(ARENA_MODE.windupCueByDefault).toBe(true);
+    // The counter window outlasts the stun, so the stunned attacker can really be punished.
+    expect(ARENA_MODE.parryCounterTicks).toBeGreaterThanOrEqual(60);
+  });
+
+  it('a round needs three normal hits, with invulnerability in between', () => {
+    const world = playingWorld(ARENA_CTX);
+    const [a, b] = world.players;
+    let hits = 0;
+    for (let tick = 0; tick < 2000 && world.match.phase === 'playing'; tick++) {
+      lineUp(world);
+      // Swing again and again; the invulnerability lets some swings pass through.
+      const buttons = tick % 40 === 0 ? Button.Attack : 0;
+      const { events } = stepWorld(world, { 0: hold(a, { buttons }), 1: hold(b) }, ARENA_CTX);
+      for (const e of events) if (e.type === 'hit') {
+        hits++;
+        expect(e.hpLeft).toBe(3 - hits);
+        if (e.hpLeft > 0) expect(b.invulnerableTicks).toBe(ARENA_MODE.invulnerableTicks);
+      }
+    }
+    expect(hits).toBe(3);
+    expect(world.match.scores).toEqual([1, 0]);
+  });
+
+  it('the next round starts with full lives again', () => {
+    const world = playingWorld(ARENA_CTX);
+    world.players[1].hp = 0;
+    for (let i = 0; i < 300 && world.match.phase !== 'countdown'; i++) stepWorld(world, {}, ARENA_CTX);
+    expect(world.match.round).toBe(2);
+    expect(world.players.map((p) => p.hp)).toEqual([3, 3]);
+  });
+});
+
 describe('mode over the network', () => {
   it('the codec accepts known modes and rejects unknown ones', () => {
     expect(parseClientMessage('{"type":"createRoom","name":"A","modeId":"duel"}')).toEqual({
@@ -213,5 +257,31 @@ describe('mode over the network', () => {
     const b = new TestClient(server);
     b.send({ type: 'quickMatch', name: 'B' });
     expect(b.last('roomJoined')!.modeId).toBe('duel');
+  });
+
+  it('quick match only pairs players who want the same mode', () => {
+    const server = new GameServer({ matchConfig: FAST_MATCH_CONFIG });
+    const duel = new TestClient(server);
+    duel.send({ type: 'quickMatch', name: 'D' });
+    const arena = new TestClient(server);
+    arena.send({ type: 'quickMatch', name: 'A', modeId: 'arena' });
+    expect(arena.last('roomJoined')!.code).not.toBe(duel.last('roomJoined')!.code);
+    expect(arena.last('roomJoined')!.modeId).toBe('arena');
+    const arena2 = new TestClient(server);
+    arena2.send({ type: 'quickMatch', name: 'A2', modeId: 'arena' });
+    expect(arena2.last('roomJoined')!.code).toBe(arena.last('roomJoined')!.code);
+    const duel2 = new TestClient(server);
+    duel2.send({ type: 'quickMatch', name: 'D2', modeId: 'duel' });
+    expect(duel2.last('roomJoined')!.code).toBe(duel.last('roomJoined')!.code);
+  });
+
+  it('a server without its own config uses the round rules of each mode', () => {
+    const server = new GameServer();
+    const duel = new TestClient(server);
+    duel.send({ type: 'createRoom', name: 'D', modeId: 'duel' });
+    const arena = new TestClient(server);
+    arena.send({ type: 'createRoom', name: 'A', modeId: 'arena' });
+    expect(duel.last('roomJoined')!.roundsToWin).toBe(DUEL.roundsToWin);
+    expect(arena.last('roomJoined')!.roundsToWin).toBe(ARENA_MODE.roundsToWin);
   });
 });

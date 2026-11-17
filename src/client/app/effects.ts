@@ -106,14 +106,17 @@ export class Effects {
         const where = target ? chest(target) : listener.pos;
         this.view.particles.burst({ pos: where, count: 80, color: FX_COLORS.hit, speed: 9, life: 0.7, gravity: 12 });
         this.view.particles.burst({ pos: where, count: 30, color: FX_COLORS.hitCore, speed: 5, life: 0.3 });
+        const lethal = event.hpLeft === 0;
         if (event.target === mySlot) {
-          playSound(this.audio, 'death');
+          // A hit that only costs a life (arena) must not sound like dying.
+          playSound(this.audio, lethal ? 'death' : 'hit');
           this.hud.flash('damage');
-          this.view.cameraFx.shake(0.35);
+          this.view.cameraFx.shake(lethal ? 0.35 : 0.22);
+          if (!lethal) this.hud.toast(TEXT.gotHit, 700);
         } else {
           playSound(this.audio, 'hit', this.place(listener, where));
           this.view.cameraFx.shake(0.12);
-          if (event.attacker === mySlot) this.hud.toast(TEXT.hit, 500);
+          if (event.attacker === mySlot) this.hud.toast(event.counter ? TEXT.counterHit : TEXT.hit, event.counter ? 900 : 500);
         }
         return;
       }

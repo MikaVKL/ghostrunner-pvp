@@ -12,14 +12,14 @@ auf GitHub Pages veröffentlicht).
 
 ## 1. So prüfst du, ob alles funktioniert
 
-**Letzter Stand (17.11.):** `npm run check` grün, alle 12 Browser-Tests grün (mit Moduswahl
-und Angriffsanzeige), GitHub-Pages-Workflow grün.
+**Letzter Stand (17.11.):** `npm run check` grün, alle 13 Browser-Tests grün (mit Moduswahl,
+Angriffsanzeige und Arena), GitHub-Pages-Workflow grün.
 
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
-| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 390) |
-| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (12 Tests). Einmalig vorher: `npx playwright install chromium` |
+| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 404) |
+| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (13 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~1 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |
@@ -92,9 +92,9 @@ zurückhaben will: `git revert ff8302d`.
 
 | # | Schritt | Stand |
 |---|---|---|
-| 1 | Modus-System: Spielregeln als Daten, Moduswahl im Menü (Solo + Mehrspieler), „Duell“ = bisheriges Spiel | ✅ – bisher gibt es nur „Duell“ (Arena folgt in Schritt 3) |
+| 1 | Modus-System: Spielregeln als Daten, Moduswahl im Menü (Solo + Mehrspieler), „Duell“ = bisheriges Spiel | ✅ |
 | 2 | Angriffsanzeige beim Ausholen (Ring + Ton), per Einstellung schaltbar | ✅ – Einstellung „Nach Modus / An / Aus“; Duell: aus. Nur für den Gegner, nicht im Replay |
-| 3 | Modus „Arena“: Leben, Unverwundbarkeit, Konter-Bonus, Dash-Cooldown, Leben im HUD | ❌ offen |
+| 3 | Modus „Arena“: Leben, Unverwundbarkeit, Konter-Bonus, Dash-Cooldown, Leben im HUD | ✅ – Werte geschätzt, von keinem Menschen gespielt; Bots noch nicht angepasst (Schritt 4) |
 | 4 | Bot-KI je Modus, `npm run tune` je Modus | ❌ offen |
 | 5 | Replays und Killcam an die Modi anpassen | ⏳ teilweise: die Replay-Datei speichert schon den Modus (`modeId`, Format-Version 2) |
 
@@ -119,8 +119,21 @@ nichts davon. Tests: `tests/unit/windupCue.test.ts`, Browser-Test „Angriffsanz
 Grenze: Der Gegner wird ~100 ms in der Vergangenheit gezeigt (Interpolation), der Ring also
 auch – genau wie der Schlag selbst, der ja erst entschieden wird, wenn du ihn gesehen hast.
 
-**Noch nicht getestet:** dass das schnelle Spiel zwei verschiedene Modi getrennt hält – das
-geht erst, wenn es einen zweiten Modus gibt (Schritt 3).
+**Modus Arena** (Schritt 3, `ARENA_MODE` in `gameModes.ts`): 3 Leben pro Runde, normaler
+Schlag 1 Schaden, Dash-Angriff 2 (aber +0,2 s Erholung), nach einem Treffer 0,75 s
+unverwundbar (Figur blinkt weiß), nach einem gelungenen Parry 1,5 s Konter-Fenster mit +1
+Schaden (Event `hit.counter`, Text „KONTER!“), Dash-Cooldown 1,6 s statt 1 s, Best-of-3,
+Runden 90 s, Angriffsanzeige standardmäßig an. Sturz in den Abgrund tötet weiterhin sofort.
+HUD: Herzen neben den Namen (`livesText` in `hudTexts.ts`, nur bei mehr als einem Leben).
+Ein nicht tödlicher Treffer klingt nicht mehr wie der Tod (`effects.ts`).
+Tests: `tests/unit/gameModes.test.ts` (Arena-Regeln, drei Treffer pro Runde, schnelles Spiel
+trennt Modi, Server ohne eigene Config nimmt die Rundenzahl des Modus), `tests/sim/botMatch.test.ts`
+(Arena auf jeder Map ohne Desync), `tests/sim/soloMatch.test.ts` (Solo-Arena), Browser-Test
+„Arena gegen Bot“. `npm run bots:sim` spielt jetzt abwechselnd 4 Maps Duell, 4 Maps Arena
+(`--mode duel|arena` erzwingt einen Modus).
+**Bekannte Grenzen:** Ein Konter mit dem Dash-Angriff macht 2+1 = 3 Schaden und tötet damit
+sofort aus vollen Leben – gewollt als große Belohnung, aber nicht von Menschen erprobt. Die
+Map „Arena“ und der Modus „Arena“ heißen gleich (HUD zeigt „Arena · Arena“).
 
 ---
 
