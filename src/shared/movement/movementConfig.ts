@@ -24,6 +24,20 @@ export const MOVE = {
   /** cos of the largest angle between velocity and wished direction that keeps momentum (0.7 = 45°). */
   momentumMinAlign: 0.7,
 
+  // --- crouch / slide (Ctrl) ---
+  /** Speed while crouching (Ctrl held without enough speed for a slide). */
+  crouchSpeed: 3.5,
+  /** A slide starts only at (almost) sprint speed. */
+  slideMinSpeed: 7.5,
+  /** A slide starts at least this fast (a small boost from sprinting). */
+  slideSpeed: 12.5,
+  /** How fast a slide loses speed (m/s^2) - much less than normal braking. */
+  slideFriction: 6,
+  /** Longest slide (it also ends when Ctrl is released, on a jump or when leaving the ground). */
+  slideTicks: secondsToTicks(0.7),
+  /** Time from the end of one slide until the next can start (no endless boost by spamming). */
+  slideCooldownTicks: secondsToTicks(0.6),
+
   // --- jumping / falling ---
   gravity: 24,
   jumpSpeed: 8.5,

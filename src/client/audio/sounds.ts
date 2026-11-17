@@ -11,6 +11,7 @@ export type SoundName =
   | 'swingDash'
   | 'windup'
   | 'draw'
+  | 'slide'
   | 'contact'
   | 'hit'
   | 'parry'
@@ -55,6 +56,11 @@ const RECIPES: Record<SoundName, Recipe> = {
   draw: (a, p) => {
     a.noise({ filter: 'bandpass', from: 2400, to: 6200, q: 6, duration: 0.16, gain: 0.32 }, p);
     a.tone({ type: 'triangle', from: 1900, to: 2600, duration: 0.14, gain: 0.05 }, p);
+  },
+  // Slide: a low scrape over the floor that fades out.
+  slide: (a, p) => {
+    a.noise({ filter: 'bandpass', from: 900, to: 300, q: 1.4, duration: 0.45, gain: 0.45 }, p);
+    a.tone({ type: 'sawtooth', from: 90, to: 60, duration: 0.3, gain: 0.05 }, p);
   },
   // Our blade reaches the enemy (before the server has decided): a short bright "tick".
   contact: (a, p) => {

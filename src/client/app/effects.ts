@@ -33,6 +33,7 @@ const MOMENT_SOUNDS: Partial<Record<Moment, SoundName>> = {
   wallJump: 'wallJump',
   land: 'land',
   dash: 'dash',
+  slide: 'slide',
   swing: 'swing',
   swingDash: 'swingDash',
   stunned: 'stunned',
@@ -89,6 +90,10 @@ export class Effects {
     if (moment === 'dash') {
       const back = forwardFromYaw(p.yaw);
       particles.burst({ pos: chest(p), count: 26, color, speed: 6, life: 0.35, dir: { x: -back.x, y: 0, z: -back.z }, spread: 0.6 });
+    }
+    if (moment === 'slide') {
+      particles.burst({ pos: feet(p), count: 18, color: FX_COLORS.dust, speed: 3, life: 0.4, gravity: 4, dir: { x: 0, y: 0.4, z: 0 }, spread: 0.9 });
+      if (!listener) this.view.cameraFx.bump(0.08);
     }
     if (moment === 'land') {
       particles.burst({ pos: feet(p), count: 16, color: FX_COLORS.dust, speed: 2.6, life: 0.45, gravity: 3, dir: { x: 0, y: 0.3, z: 0 }, spread: 0.9 });
@@ -201,6 +206,9 @@ export class Effects {
       if (!p.alive) continue;
       if (p.dashTicks > 0) {
         this.view.particles.burst({ pos: chest(p), count: 3, color: teamColor(p.slot), speed: 1.2, life: 0.3 });
+      }
+      if (p.slideTicks > 0) {
+        this.view.particles.burst({ pos: feet(p), count: 2, color: teamColor(p.slot), speed: 2, life: 0.25, gravity: 5, dir: { x: 0, y: 0.5, z: 0 }, spread: 0.8 });
       }
       if (p.wallRunning) {
         // Sparks where the feet scrape along the wall.

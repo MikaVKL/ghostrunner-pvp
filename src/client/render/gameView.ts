@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { isParryActive } from '../../shared/combat/actions';
 import type { MapDef } from '../../shared/maps/mapTypes';
 import type { Vec3 } from '../../shared/math/vec3';
-import { EYE_HEIGHT } from '../../shared/physics/collision';
+import { CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../../shared/physics/collision';
 import type { PlayerState } from '../../shared/sim/playerState';
 import { bladeGlow, trailEmitting } from './bladeGlow';
 import { CameraFx } from './cameraFx';
@@ -61,6 +61,8 @@ export class GameView {
   private readonly trails = new Map<number, SwordTrail>();
   private readonly speedLines = new SpeedLines();
   private readonly postFx: PostFx;
+  /** Camera height above the feet, smoothed (lower while crouching or sliding). */
+  private eyeHeight = EYE_HEIGHT;
 
   constructor(canvas: HTMLCanvasElement) {
     this.parts = createScene(canvas);
@@ -90,7 +92,9 @@ export class GameView {
   render(state: ViewState): void {
     const { camera, scene, sky } = this.parts;
     const fx = this.cameraFx.update(state.local, state.yaw, state.dt);
-    camera.position.set(state.localPos.x + fx.x, state.localPos.y + EYE_HEIGHT + fx.y, state.localPos.z + fx.z);
+    const eyeTarget = state.local?.crouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT;
+    this.eyeHeight += (eyeTarget - this.eyeHeight) * (1 - Math.exp(-20 * state.dt));
+    camera.position.set(state.localPos.x + fx.x, state.localPos.y + this.eyeHeight + fx.y, state.localPos.z + fx.z);
     camera.rotation.set(state.pitch + fx.pitch, state.yaw, fx.roll);
     if (Math.abs(camera.fov - fx.fov) > 0.01) {
       camera.fov = fx.fov;

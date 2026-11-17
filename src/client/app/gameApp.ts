@@ -87,7 +87,15 @@ export function startGameApp(options: AppOptions): void {
     if (event.target instanceof HTMLButtonElement) playSound(audio, 'click');
   });
 
+  // Ctrl is the slide key, and Ctrl+W closes the tab - a web page cannot stop that. During a
+  // match the browser asks "leave this page?" first, so a slide with W held does not end the game.
+  let inMatch = false;
+  window.addEventListener('beforeunload', (event) => {
+    if (inMatch) event.preventDefault();
+  });
+
   const showGame = (inGame: boolean) => {
+    inMatch = inGame;
     lobby.setVisible(!inGame);
     hud.setVisible(inGame);
     input.enabled = inGame;

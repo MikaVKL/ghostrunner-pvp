@@ -12,10 +12,12 @@ export const Button = {
   Parry: 8,
   /** Held: walk instead of sprint. */
   Walk: 16,
+  /** Pressed while sprinting: slide. Held otherwise: crouch. */
+  Crouch: 32,
 } as const;
 
 /** All valid button bits OR-ed together. Update when adding a button. */
-export const ALL_BUTTONS = Button.Jump | Button.Dash | Button.Attack | Button.Parry | Button.Walk;
+export const ALL_BUTTONS = Button.Jump | Button.Dash | Button.Attack | Button.Parry | Button.Walk | Button.Crouch;
 
 /** Maximum up/down look angle in radians (just below 90 degrees). */
 export const MAX_PITCH = 1.55;

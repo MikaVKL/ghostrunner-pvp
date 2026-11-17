@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import type { PlayerState } from '../../shared/sim/playerState';
 import { isParryActive } from '../../shared/combat/actions';
+import { CROUCH_HEIGHT, PLAYER_HEIGHT } from '../../shared/physics/collision';
 import { bladeGlow } from './bladeGlow';
 import { createFighter, type FighterModel } from './fighterModel';
 import { poseFighter, type FighterAnim } from './fighterPose';
@@ -20,6 +21,8 @@ export class PlayerAvatar {
   private readonly anim: FighterAnim = { runPhase: 0, time: 0 };
   private readonly baseColor: THREE.Color;
   private readonly windupRing = new WindupRing();
+  /** 1 = standing, smaller = crouching/sliding (the figure is squashed, see CROUCH_HEIGHT). */
+  private height = 1;
 
   constructor(slot: number) {
     this.model = createFighter(teamColor(slot));
@@ -42,6 +45,9 @@ export class PlayerAvatar {
     this.group.visible = player.alive;
     this.group.position.set(player.pos.x, player.pos.y, player.pos.z);
     this.group.rotation.y = player.yaw;
+    const targetHeight = player.crouching ? CROUCH_HEIGHT / PLAYER_HEIGHT : 1;
+    this.height += (targetHeight - this.height) * (1 - Math.exp(-18 * dt));
+    this.group.scale.y = this.height;
 
     this.anim.time += dt;
     const speed = Math.hypot(player.vel.x, player.vel.z);

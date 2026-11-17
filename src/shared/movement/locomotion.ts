@@ -44,17 +44,15 @@ function keptMomentum(p: PlayerState, wish: { x: number; z: number }, topSpeed: 
 
 /**
  * Accelerate horizontally toward the wished direction, handle jump and gravity.
- * @param walking the walk key is held: walk speed instead of the default sprint
+ * @param topSpeed the speed to run at: sprint, walk or crouch (see stepMovement.ts)
  */
 export function stepLocomotion(
   p: PlayerState,
   wish: { x: number; z: number },
   jumpPressed: boolean,
-  speedFactor: number,
-  walking = false,
+  topSpeed: number,
 ): void {
   const hasInput = wish.x !== 0 || wish.z !== 0;
-  const topSpeed = (walking ? MOVE.walkSpeed : MOVE.runSpeed) * speedFactor;
   const targetX = wish.x * topSpeed;
   const targetZ = wish.z * topSpeed;
 

@@ -49,6 +49,12 @@ export interface PlayerState {
   /** Normal of the wall being run on (points away from the wall). 0/0 if none. */
   wallNormalX: number;
   wallNormalZ: number;
+  /** Low body (crouching or sliding): shorter collision box, see CROUCH_HEIGHT. */
+  crouching: boolean;
+  /** Ticks left in the current slide (0 = not sliding). */
+  slideTicks: number;
+  /** Ticks until the next slide may start. */
+  slideCooldown: number;
 
   // --- combat ---
   weaponId: string;
@@ -98,6 +104,9 @@ export function createPlayer(
     wallCooldown: 0,
     wallNormalX: 0,
     wallNormalZ: 0,
+    crouching: false,
+    slideTicks: 0,
+    slideCooldown: 0,
     weaponId,
     action: 'idle',
     actionTicks: 0,

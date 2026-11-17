@@ -20,6 +20,8 @@ export const BUTTON_KEYS: Record<string, number> = {
   KeyQ: Button.Parry,
   KeyF: Button.Parry,
   KeyC: Button.Walk,
+  ControlLeft: Button.Crouch,
+  ControlRight: Button.Crouch,
 };
 
 /** Mouse button index (0 = left, 2 = right) -> game button. */

@@ -11,18 +11,23 @@
  */
 import type { MapDef } from '../maps/mapTypes';
 import type { PlayerState } from '../sim/playerState';
-import { moveAndCollide, PLAYER_HALF_WIDTH, PLAYER_HEIGHT } from './collision';
+import { CROUCH_HEIGHT, moveAndCollide, PLAYER_HALF_WIDTH, PLAYER_HEIGHT } from './collision';
 
 /** Two players may not come closer than this (center to center, on the ground plane). */
 export const PLAYER_MIN_DISTANCE = PLAYER_HALF_WIDTH * 2;
 
+/** Current body height: lower while crouching or sliding. */
+export function heightOf(p: PlayerState): number {
+  return p.crouching ? CROUCH_HEIGHT : PLAYER_HEIGHT;
+}
+
 function heightsOverlap(a: PlayerState, b: PlayerState): boolean {
-  return a.pos.y < b.pos.y + PLAYER_HEIGHT && b.pos.y < a.pos.y + PLAYER_HEIGHT;
+  return a.pos.y < b.pos.y + heightOf(b) && b.pos.y < a.pos.y + heightOf(a);
 }
 
 /** Move a player by a small offset, stopping at map boxes. Its velocity is not touched. */
 function push(p: PlayerState, dx: number, dz: number, map: MapDef): void {
-  moveAndCollide(p.pos, { x: dx, y: 0, z: dz }, map.boxes, 1);
+  moveAndCollide(p.pos, { x: dx, y: 0, z: dz }, map.boxes, 1, heightOf(p));
 }
 
 /** Push apart every pair of living players that overlaps. */

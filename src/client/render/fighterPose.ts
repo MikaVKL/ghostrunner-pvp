@@ -39,7 +39,14 @@ function poseLegsAndLean(m: FighterModel, p: PlayerState, anim: FighterAnim): vo
   const stride = Math.min(1, speed / MOVE.runSpeed);
   const swing = Math.sin(anim.runPhase) * 0.95 * stride;
 
-  if (p.dashTicks > 0) {
+  if (p.slideTicks > 0) {
+    // Slide: leaning back, the legs shoot forward.
+    m.body.rotation.x = 0.45;
+    m.legLeft.rotation.x = 1.35;
+    m.legRight.rotation.x = 1.0;
+    m.armLeft.rotation.x = -0.6;
+    m.armLeft.rotation.z = -0.8;
+  } else if (p.dashTicks > 0) {
     m.body.rotation.x = -0.65;
     m.legLeft.rotation.x = -0.5;
     m.legRight.rotation.x = -0.9;

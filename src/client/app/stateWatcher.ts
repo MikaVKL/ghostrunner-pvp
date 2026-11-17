@@ -21,7 +21,8 @@ export type Moment =
   | 'parry'
   | 'wallRunStart'
   | 'wallRunEnd'
-  | 'stunned';
+  | 'stunned'
+  | 'slide';
 
 /** Leaving the ground faster than any jump can only be a jump pad. */
 const PAD_LAUNCH_SPEED = MOVE.jumpSpeed + 0.5;
@@ -35,6 +36,7 @@ export function detectMoments(before: PlayerState, after: PlayerState): Moment[]
   else if (!before.grounded && after.airJumpsLeft < before.airJumpsLeft) moments.push('doubleJump');
   if (!before.grounded && after.grounded && before.vel.y < -4) moments.push('land');
   if (before.dashTicks === 0 && after.dashTicks > 0) moments.push('dash');
+  if (before.slideTicks === 0 && after.slideTicks > 0) moments.push('slide');
   if (!before.wallRunning && after.wallRunning) moments.push('wallRunStart');
   if (before.wallRunning && !after.wallRunning) moments.push('wallRunEnd');
   if (before.action !== after.action) {
