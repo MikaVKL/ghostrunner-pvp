@@ -12,6 +12,9 @@ auf GitHub Pages veröffentlicht).
 
 ## 1. So prüfst du, ob alles funktioniert
 
+**Letzter Stand (17.11.):** `npm run check` grün, alle 10 Browser-Tests grün (nach dem
+Ausbau der Bot-KI), GitHub-Pages-Workflow grün (Lauf 10, Commit `b9a4d05`).
+
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
