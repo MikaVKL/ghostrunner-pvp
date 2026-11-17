@@ -23,17 +23,20 @@ export function facingDot(from: PlayerState, to: Vec3): number {
 /**
  * True if the target is inside the hit cone of `attacker`'s attack.
  * @param targetPos feet position of the target; pass a rewound position for lag compensation
+ * @param aimAssist widen the cone by COMBAT.aimAssistDegrees on each side (setting of the attacker)
  */
 export function isInMeleeRange(
   attacker: PlayerState,
   target: PlayerState,
   weapon: AttackProfile,
   targetPos: Vec3 = target.pos,
+  aimAssist = false,
 ): boolean {
-  if (Math.abs(targetPos.y - attacker.pos.y) > COMBAT.verticalReach) return false;
+  if (Math.abs(targetPos.y - attacker.pos.y) > weapon.verticalReach) return false;
   const dist = Math.hypot(targetPos.x - attacker.pos.x, targetPos.z - attacker.pos.z);
   if (dist > weapon.range + PLAYER_HALF_WIDTH) return false;
-  const halfArc = (weapon.arcDegrees / 2) * (Math.PI / 180);
+  const assist = aimAssist ? COMBAT.aimAssistDegrees : 0;
+  const halfArc = (weapon.arcDegrees / 2 + assist) * (Math.PI / 180);
   return facingDot(attacker, targetPos) >= Math.cos(halfArc);
 }
 

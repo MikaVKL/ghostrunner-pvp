@@ -14,10 +14,12 @@ export const Button = {
   Walk: 16,
   /** Pressed while sprinting: slide. Held otherwise: crouch. */
   Crouch: 32,
+  /** Not a key: set in every input while the player has aim assist switched on (a setting). */
+  AimAssist: 64,
 } as const;
 
 /** All valid button bits OR-ed together. Update when adding a button. */
-export const ALL_BUTTONS = Button.Jump | Button.Dash | Button.Attack | Button.Parry | Button.Walk | Button.Crouch;
+export const ALL_BUTTONS = Button.Jump | Button.Dash | Button.Attack | Button.Parry | Button.Walk | Button.Crouch | Button.AimAssist;
 
 /** Maximum up/down look angle in radians (just below 90 degrees). */
 export const MAX_PITCH = 1.55;

@@ -16,8 +16,11 @@ export class ContactWatcher {
   private reported = false;
   private lastActionTicks = -1;
 
-  /** Call once per frame. Returns the enemy the swing just reached, or null. */
-  check(me: PlayerState, shownEnemies: PlayerState[]): PlayerState | null {
+  /**
+   * Call once per frame. Returns the enemy the swing just reached, or null.
+   * @param aimAssist the player's aim assist setting (the same wider cone the server uses)
+   */
+  check(me: PlayerState, shownEnemies: PlayerState[], aimAssist = false): PlayerState | null {
     if (!me.alive || me.action !== 'attack') {
       this.reported = false;
       this.lastActionTicks = -1;
@@ -28,7 +31,7 @@ export class ContactWatcher {
     if (this.reported || !isAttackActive(me)) return null;
     for (const enemy of shownEnemies) {
       if (!enemy.alive || enemy.invulnerableTicks > 0) continue;
-      if (!isInMeleeRange(me, enemy, currentAttack(me))) continue;
+      if (!isInMeleeRange(me, enemy, currentAttack(me), enemy.pos, aimAssist)) continue;
       this.reported = true;
       return enemy;
     }

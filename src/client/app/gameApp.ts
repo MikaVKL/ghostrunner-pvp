@@ -71,6 +71,7 @@ export function startGameApp(options: AppOptions): void {
     Object.assign(settings, next);
     audio.setVolume(next.volume);
     input.sensitivity = next.sensitivity;
+    input.aimAssist = next.aimAssist;
     view.setBloom(next.bloom && !bloomTooSlow);
     effects.hitstop.enabled = next.hitstop;
     effects.telegraph = next.telegraph;

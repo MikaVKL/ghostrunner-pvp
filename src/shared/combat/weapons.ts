@@ -6,6 +6,8 @@
  *   light -> the normal swing (attack button)
  *   dash  -> the swing started during (or right after) a dash: longer reach, faster
  *            startup, but a long recovery (easy to punish when it misses or is parried)
+ *   air   -> the swing started in the air: reaches further up and down, and the fighter
+ *            hangs in the air for a moment
  *
  * A swing has three phases, counted in ticks:
  *   startup  -> the swing is winding up, cannot hit yet (this is when the enemy can parry)
@@ -17,7 +19,7 @@
  */
 import { secondsToTicks } from '../config';
 
-export type AttackKind = 'light' | 'dash';
+export type AttackKind = 'light' | 'dash' | 'air';
 
 export interface AttackProfile {
   /** Reach in meters, measured from the attacker's center to the target's surface. */
@@ -29,6 +31,12 @@ export interface AttackProfile {
   recoveryTicks: number;
   /** Horizontal speed (m/s) added to a target that gets hit. */
   knockback: number;
+  /** Lunge: the swing pushes the attacker forward with at least this speed (m/s) ... */
+  lungeSpeed: number;
+  /** ... for this many ticks from the start of the swing (0 = no lunge). */
+  lungeTicks: number;
+  /** Largest height difference (m) between the two fighters' feet at which the swing still hits. */
+  verticalReach: number;
 }
 
 export interface WeaponDef {
@@ -52,6 +60,9 @@ export const WEAPONS: Record<string, WeaponDef> = {
         activeTicks: secondsToTicks(0.1),
         recoveryTicks: secondsToTicks(0.3),
         knockback: 6,
+        lungeSpeed: 5.5,
+        lungeTicks: 8,
+        verticalReach: 1.8,
       },
       dash: {
         range: 3.2,
@@ -60,6 +71,20 @@ export const WEAPONS: Record<string, WeaponDef> = {
         activeTicks: secondsToTicks(0.1),
         recoveryTicks: secondsToTicks(0.45),
         knockback: 9,
+        lungeSpeed: 0, // the dash itself carries it
+        lungeTicks: 0,
+        verticalReach: 1.8,
+      },
+      air: {
+        range: 2.4,
+        arcDegrees: 100,
+        startupTicks: secondsToTicks(0.15),
+        activeTicks: secondsToTicks(0.12),
+        recoveryTicks: secondsToTicks(0.3),
+        knockback: 7,
+        lungeSpeed: 3,
+        lungeTicks: 6,
+        verticalReach: 2.6,
       },
     },
     cooldownTicks: secondsToTicks(0.25),

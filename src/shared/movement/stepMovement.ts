@@ -11,6 +11,7 @@ import type { PlayerState } from '../sim/playerState';
 import { stepDash, tryStartDash } from './dash';
 import { applyJumpPads } from './jumpPad';
 import { stepLocomotion, wishDirection } from './locomotion';
+import { applyLunge } from './lunge';
 import { MOVE } from './movementConfig';
 import { endSlide, stepSlide, tryStartSlide, updateCrouch } from './slide';
 import { stepWallRun, updateWallRun } from './wallRun';
@@ -65,7 +66,10 @@ export function stepMovement(
     } else {
       updateWallRun(p, input, map);
       if (p.wallRunning) jumped = stepWallRun(p, jumpPressed);
-      else jumped = stepLocomotion(p, wish, jumpPressed, topSpeed(p, input) * mods.speedFactor);
+      else {
+        jumped = stepLocomotion(p, wish, jumpPressed, topSpeed(p, input) * mods.speedFactor);
+        applyLunge(p);
+      }
     }
   }
   if (jumped) p.bufferJump = 0;

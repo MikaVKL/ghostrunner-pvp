@@ -4,13 +4,14 @@
  * enemy, lunge, air attack and aim assist.
  */
 import { describe, expect, it } from 'vitest';
+import { isInMeleeRange } from '../../src/shared/combat/hitDetection';
 import { WEAPONS } from '../../src/shared/combat/weapons';
 import { boxFromBounds, type MapDef } from '../../src/shared/maps/mapTypes';
 import { DUEL } from '../../src/shared/match/gameModes';
 import { MOVE } from '../../src/shared/movement/movementConfig';
 import type { PlayerState } from '../../src/shared/sim/playerState';
 import { stepPlayer } from '../../src/shared/sim/stepPlayer';
-import { Button, input, runPlayer, standingPlayer, TEST_MAP } from '../helpers';
+import { Button, hold, input, playingWorld, runPlayer, runWorld, standingPlayer, TEST_MAP } from '../helpers';
 
 const speed = (p: { vel: { x: number; z: number } }) => Math.hypot(p.vel.x, p.vel.z);
 
@@ -187,5 +188,70 @@ describe('cancelling the recovery of a swing', () => {
     for (let i = 0; i < dash.startupTicks + dash.activeTicks + 2; i++) step(d);
     step(d, Button.Jump);
     expect(d.action).toBe('attack');
+  });
+});
+
+describe('lunge and air attack', () => {
+  const step = (p: PlayerState, buttons = 0, moveZ = 0) =>
+    stepPlayer(p, input({ yaw: p.yaw, buttons, moveZ }), TEST_MAP, 'playing', DUEL);
+
+  it('a swing from a standstill steps forward, a sprinting swing is not slowed down', () => {
+    const p = standingPlayer(0, 5, -Math.PI / 2); // looks toward +X
+    step(p, Button.Attack);
+    for (let i = 0; i < 30; i++) step(p);
+    expect(p.pos.x).toBeGreaterThan(0.5);
+    expect(p.pos.x).toBeLessThan(1.2);
+
+    const runner = sprinter();
+    step(runner, Button.Attack, 1);
+    for (let i = 0; i < 8; i++) step(runner, 0, 1);
+    expect(speed(runner)).toBeCloseTo(MOVE.runSpeed);
+  });
+
+  it('a swing in the air is an air attack with a short hang and a longer vertical reach', () => {
+    const p = standingPlayer(0, 5, -Math.PI / 2);
+    step(p, Button.Jump);
+    for (let i = 0; i < 25; i++) step(p); // falling again
+    expect(p.vel.y).toBeLessThan(0);
+    step(p, Button.Attack);
+    expect(p.attackKind).toBe('air');
+    expect(p.vel.y).toBeGreaterThan(0);
+    const air = WEAPONS.sword.attacks.air;
+    expect(air.verticalReach).toBeGreaterThan(WEAPONS.sword.attacks.light.verticalReach);
+  });
+});
+
+describe('aim assist (setting, decided by the server)', () => {
+  const light = WEAPONS.sword.attacks.light;
+  // Target 2 m away, 52 degrees off the view direction: just outside the 45 degree half cone.
+  const angle = (52 * Math.PI) / 180;
+  const attacker = () => standingPlayer(0, 0, -Math.PI / 2); // looks toward +X
+  const target = () => standingPlayer(2 * Math.cos(angle), 2 * Math.sin(angle));
+
+  it('widens the hit cone a little, but is no auto aim', () => {
+    expect(isInMeleeRange(attacker(), target(), light)).toBe(false);
+    expect(isInMeleeRange(attacker(), target(), light, undefined, true)).toBe(true);
+    const behind = standingPlayer(-2, 0);
+    expect(isInMeleeRange(attacker(), behind, light, undefined, true)).toBe(false);
+    const far = standingPlayer(light.range + 1, 0);
+    expect(isInMeleeRange(attacker(), far, light, undefined, true)).toBe(false);
+  });
+
+  it('the server uses the AimAssist flag of the attacker input', () => {
+    for (const assist of [false, true]) {
+      const world = playingWorld();
+      const [a, b] = world.players;
+      a.pos = { x: 0, y: 0, z: 0 };
+      a.yaw = -Math.PI / 2;
+      b.pos = { x: 2 * Math.cos(angle), y: 0, z: 2 * Math.sin(angle) };
+      // The swing is right before its hit phase (no lunge left: only the cone matters here).
+      a.action = 'attack';
+      a.attackKind = 'light';
+      a.actionTicks = light.startupTicks - 1;
+      const flag = assist ? Button.AimAssist : 0;
+      const results = runWorld(world, { 0: hold(a, { buttons: flag }), 1: hold(b) }, 10);
+      const hit = results.some((r) => r.events.some((e) => e.type === 'hit'));
+      expect(hit).toBe(assist);
+    }
   });
 });

@@ -41,7 +41,9 @@ function stepIdle(p: PlayerState, mode: GameMode): void {
   if (p.bufferAttack > 0 && p.attackCooldown === 0) {
     p.bufferAttack = 0;
     setAction(p, 'attack');
-    p.attackKind = isDashAttackReady(p, mode) ? 'dash' : 'light';
+    p.attackKind = isDashAttackReady(p, mode) ? 'dash' : p.grounded ? 'light' : 'air';
+    p.lungeTicks = currentAttack(p).lungeTicks;
+    if (p.attackKind === 'air') p.vel.y = Math.max(p.vel.y, COMBAT.airAttackHop);
   } else if (p.bufferParry > 0 && p.parryCooldown === 0) {
     p.bufferParry = 0;
     setAction(p, 'parry');

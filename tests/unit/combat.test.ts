@@ -123,7 +123,7 @@ describe('hit detection', () => {
   it('misses a target far above', () => {
     const a = standingPlayer(0, 0, -Math.PI / 2);
     const t = standingPlayer(2, 0);
-    t.pos.y = COMBAT.verticalReach + 0.5;
+    t.pos.y = light.verticalReach + 0.5;
     expect(isInMeleeRange(a, t, light)).toBe(false);
   });
 });

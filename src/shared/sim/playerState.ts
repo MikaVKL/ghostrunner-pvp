@@ -67,6 +67,8 @@ export interface PlayerState {
   attackKind: AttackKind;
   /** Ticks until the next swing may start. */
   attackCooldown: number;
+  /** Ticks left in which the swing pushes the attacker forward (AttackProfile.lungeSpeed). */
+  lungeTicks: number;
   /** Ticks until the next parry may start. */
   parryCooldown: number;
   /** Ticks left in which hits do nothing (after being hit, see GameMode.invulnerableTicks). */
@@ -119,6 +121,7 @@ export function createPlayer(
     attackConnected: false,
     attackKind: 'light',
     attackCooldown: 0,
+    lungeTicks: 0,
     parryCooldown: 0,
     invulnerableTicks: 0,
     counterTicks: 0,

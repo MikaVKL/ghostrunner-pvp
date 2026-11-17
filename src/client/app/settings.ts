@@ -47,6 +47,8 @@ export interface Settings extends FxSettings {
   killcam: boolean;
   /** Red ring + short tone while the enemy's swing winds up. */
   windupCue: WindupCueSetting;
+  /** Aim assist: the hit cone of a swing is a bit wider (decided by the server, Button.AimAssist). */
+  aimAssist: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sensitivity: 1,
   killcam: true,
   windupCue: 'auto',
+  aimAssist: true,
   bloom: true,
   speedLines: true,
   swordTrail: true,
@@ -66,13 +69,14 @@ export const DEFAULT_SETTINGS: Settings = {
 export function parseSettings(raw: unknown): Settings {
   const stored = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   const num = (key: 'volume' | 'sensitivity') => (typeof stored[key] === 'number' ? (stored[key] as number) : DEFAULT_SETTINGS[key]);
-  const bool = (key: keyof FxSettings | 'killcam') =>
+  const bool = (key: keyof FxSettings | 'killcam' | 'aimAssist') =>
     typeof stored[key] === 'boolean' ? (stored[key] as boolean) : DEFAULT_SETTINGS[key];
   const settings: Settings = {
     ...DEFAULT_SETTINGS,
     volume: num('volume'),
     sensitivity: num('sensitivity'),
     killcam: bool('killcam'),
+    aimAssist: bool('aimAssist'),
     windupCue: isWindupCueSetting(stored.windupCue) ? stored.windupCue : DEFAULT_SETTINGS.windupCue,
   };
   for (const key of FX_KEYS) settings[key] = bool(key);

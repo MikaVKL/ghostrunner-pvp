@@ -15,7 +15,9 @@ export const COMBAT = {
   /** An attacker whose swing was parried is stunned for N ticks. */
   parryStunTicks: secondsToTicks(1),
   /** Horizontal speed (m/s) that pushes a parried attacker away from the defender. */
-  parryPushback: 4,
+  parryPushback: 5,
+  /** Upward speed (m/s) of the parry push: a small hop, so that ground friction does not eat it. */
+  parryLift: 3.5,
 
   // --- blade clash ---
   /**
@@ -48,9 +50,19 @@ export const COMBAT = {
    */
   maxRewindTicks: secondsToTicks(0.3),
 
+  // --- air attack ---
+  /** An air attack lifts the attacker to at least this upward speed (m/s): a short hang in the air. */
+  airAttackHop: 2.5,
+
+  // --- aim assist (Button.AimAssist, a setting) ---
+  /**
+   * With aim assist the hit cone of a swing is this many degrees wider on EACH side: a
+   * swing that is slightly off still turns onto the enemy. Decided by the server, like
+   * every hit; off = exactly the cone of the attack profile.
+   */
+  aimAssistDegrees: 12,
+
   // --- hit geometry ---
-  /** A hit only connects if the height difference between the players is at most this. */
-  verticalReach: 1.8,
   /** Upward speed (m/s) added to a target that gets hit, as a fraction of the knockback. */
   knockbackLift: 0.5,
 } as const;

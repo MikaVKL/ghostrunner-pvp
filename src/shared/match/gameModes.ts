@@ -45,7 +45,7 @@ export const DUEL: GameMode = {
   name: 'Duell',
   description: 'Ein Treffer tötet. Wer zuerst 3 Runden gewinnt, gewinnt das Match.',
   lives: 1,
-  damage: { light: 1, dash: 1 },
+  damage: { light: 1, dash: 1, air: 1 },
   invulnerableTicks: 0,
   parryCounterTicks: 0,
   parryCounterBonus: 0,
@@ -69,7 +69,7 @@ export const ARENA_MODE: GameMode = {
   description:
     '3 Leben pro Runde. Ein Parry gibt einen Konter mit doppeltem Schaden, der Dash-Angriff trifft doppelt. Best-of-3.',
   lives: 3,
-  damage: { light: 1, dash: 2 },
+  damage: { light: 1, dash: 2, air: 1 },
   invulnerableTicks: secondsToTicks(0.75),
   parryCounterTicks: secondsToTicks(1.5),
   parryCounterBonus: 1,

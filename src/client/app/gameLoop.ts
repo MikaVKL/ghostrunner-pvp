@@ -125,7 +125,7 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
       effects.frame(me, remotes, client.snapshot?.match ?? null);
       lastFrame = { listener, players: [me, ...remotes] };
       // Our swing reached the enemy as shown: spark + tick at once (the server decides the rest).
-      const touched = contacts.check(me, remotes);
+      const touched = contacts.check(me, remotes, input.aimAssist);
       if (touched) effects.contact(touched);
 
       const animMs = effects.hitstop.advance(deltaMs);

@@ -61,6 +61,8 @@ describe('lag-compensated hits', () => {
   function swingAtFleeingTarget(viewDelay: number | null): GameEvent[] {
     const world = playingWorld();
     const [a, b] = world.players;
+    // 2.5 m apart: the lunge of the swing (flow update) must not simply catch the runner.
+    b.pos.x = a.pos.x + 2.5;
     runWorld(world, { 0: hold(a), 1: hold(b) }, 40); // stand still for a while (fills the history)
     const events: GameEvent[] = [];
     for (let tick = 0; tick < light.startupTicks + light.activeTicks + 2; tick++) {

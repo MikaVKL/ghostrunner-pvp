@@ -1,6 +1,7 @@
 /**
  * A bot = the normal GameClient (same netcode as a human) + a BotBrain pressing the buttons.
  */
+import { Button } from '../shared/input';
 import { TICK_MS } from '../shared/config';
 import { MOVE } from '../shared/movement/movementConfig';
 import type { Transport } from '../shared/protocol/transport';
@@ -117,7 +118,9 @@ export class Bot {
       const enemy = enemySlot === undefined ? null : (client.sampleRemote(enemySlot) ?? client.opponent);
       // Frozen during countdown / after the round: the brain must know, or it thinks it is stuck.
       const canAct = me.alive && phaseAllowsAction(client.snapshot?.match.phase ?? 'waiting');
-      client.tick(this.brain.think(me, enemy, client.map, canAct, client.mode ?? undefined));
+      const sample = this.brain.think(me, enemy, client.map, canAct, client.mode ?? undefined);
+      // Bots play with aim assist on, like a human with the default settings.
+      client.tick({ ...sample, buttons: sample.buttons | Button.AimAssist });
       this.countUsage();
     } catch (error) {
       this.errors.push(error instanceof Error ? (error.stack ?? error.message) : String(error));

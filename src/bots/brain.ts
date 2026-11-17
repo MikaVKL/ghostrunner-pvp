@@ -151,7 +151,10 @@ export class BotBrain {
     if (!fighting && Math.abs(turn) >= 0.6) wish = null; // outside a fight: turn first, then walk
     // Footwork only on solid ground with a clear, safe line to the opponent - otherwise keep following the route.
     const closeCombat = fighting && me.grounded && distance < range * FOOTWORK_DISTANCE;
-    if (closeCombat && isWalkable(map, me.pos, target.pos)) wish = this.footwork(me, target, distance, range);
+    // Close-combat footwork is walked, not sprinted (like a careful human): at sprint speed
+    // the bot would slide past its target during the wind-up of its own swing.
+    const footwork = closeCombat && isWalkable(map, me.pos, target.pos);
+    if (footwork) wish = this.footwork(me, target, distance, range);
     let keys = keysFor(wish, this.yaw);
     if (!safeSpot) keys = this.avoidLedges(me, map, keys, fighting ? LEDGE_LOOKAHEAD : toWaypoint);
 
@@ -170,7 +173,8 @@ export class BotBrain {
     if (!this.route.link && toWaypoint > 3) this.moveRandomly(me, map, moveZ);
     this.unstick(me, moveX !== 0 || moveZ !== 0);
 
-    return { moveX, moveZ, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() };
+    const walk = footwork ? Button.Walk : 0;
+    return { moveX, moveZ, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() | walk };
   }
 
   /**

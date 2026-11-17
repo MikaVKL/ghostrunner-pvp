@@ -103,11 +103,13 @@ export class LobbyUi {
     const sensitivity = element<HTMLInputElement>('sensitivity-slider');
     const killcam = element<HTMLInputElement>('killcam-checkbox');
     const windupCue = element<HTMLSelectElement>('windup-select');
+    const aimAssist = element<HTMLInputElement>('aim-assist-checkbox');
     // One checkbox per look-and-feel effect: <input id="fx-bloom"> etc. in index.html.
     const fxBoxes = FX_KEYS.map((key) => [key, element<HTMLInputElement>(`fx-${key}`)] as const);
     volume.value = String(settings.volume);
     sensitivity.value = String(settings.sensitivity);
     killcam.checked = settings.killcam;
+    aimAssist.checked = settings.aimAssist;
     windupCue.value = settings.windupCue;
     for (const [key, box] of fxBoxes) box.checked = settings[key];
     const changed = () => {
@@ -117,12 +119,14 @@ export class LobbyUi {
         volume: Number(volume.value),
         sensitivity: Number(sensitivity.value),
         killcam: killcam.checked,
+        aimAssist: aimAssist.checked,
         windupCue: isWindupCueSetting(windupCue.value) ? windupCue.value : 'auto',
       });
     };
     volume.addEventListener('input', changed);
     sensitivity.addEventListener('input', changed);
     killcam.addEventListener('change', changed);
+    aimAssist.addEventListener('change', changed);
     windupCue.addEventListener('change', changed);
     for (const [, box] of fxBoxes) box.addEventListener('change', changed);
   }

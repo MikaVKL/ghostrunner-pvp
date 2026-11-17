@@ -23,7 +23,7 @@ const dash = WEAPONS.sword.attacks.dash;
 const RULES: GameMode = {
   ...DUEL,
   lives: 3,
-  damage: { light: 1, dash: 2 },
+  damage: { light: 1, dash: 2, air: 1 },
   invulnerableTicks: 30,
   parryCounterTicks: 90,
   parryCounterBonus: 1,
@@ -62,7 +62,7 @@ function lineUp(world: WorldState): void {
 describe('game mode data', () => {
   it('the duel keeps the original rules: one hit kills, best-of-5, 60 s rounds', () => {
     expect(DUEL.lives).toBe(1);
-    expect(DUEL.damage).toEqual({ light: 1, dash: 1 });
+    expect(DUEL.damage).toEqual({ light: 1, dash: 1, air: 1 });
     expect(DUEL.invulnerableTicks).toBe(0);
     expect(DUEL.parryCounterBonus).toBe(0);
     expect(DUEL.dashAttackExtraRecoveryTicks).toBe(0);

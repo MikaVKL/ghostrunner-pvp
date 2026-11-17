@@ -3,7 +3,7 @@
  * The view direction (yaw/pitch) lives here: the mouse changes it instantly, the
  * simulation just receives it as part of the input.
  */
-import { MAX_PITCH, type InputSample } from '../../shared/input';
+import { Button, MAX_PITCH, type InputSample } from '../../shared/input';
 import { clamp, wrapAngle } from '../../shared/math/scalar';
 import { BUTTON_KEYS, MOUSE_BUTTONS, MOUSE_SENSITIVITY, MOVE_KEYS } from './bindings';
 
@@ -14,6 +14,8 @@ export class InputController {
   enabled = false;
   /** Multiplier on the mouse speed (from the settings in the menu). */
   sensitivity = 1;
+  /** Aim assist setting: sent with every input as Button.AimAssist (the server decides hits). */
+  aimAssist = true;
   private readonly keysDown = new Set<string>();
   /** Buttons currently held. */
   private heldButtons = 0;
@@ -42,7 +44,7 @@ export class InputController {
 
   /** The input for the current tick. Call exactly once per tick. */
   sample(): InputSample {
-    const buttons = this.heldButtons | this.latchedButtons;
+    const buttons = this.heldButtons | this.latchedButtons | (this.aimAssist ? Button.AimAssist : 0);
     this.latchedButtons = 0;
     if (!this.enabled) return { moveX: 0, moveZ: 0, yaw: this.yaw, pitch: this.pitch, buttons: 0 };
     return {

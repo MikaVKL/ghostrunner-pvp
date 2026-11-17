@@ -13,7 +13,7 @@
  * of the game mode (match/gameModes.ts).
  */
 import { forwardFromYaw } from '../math/vec3';
-import type { InputCmd } from '../input';
+import { Button, isDown, type InputCmd } from '../input';
 import type { GameMode } from '../match/gameModes';
 import type { GameEvent } from '../sim/events';
 import type { PlayerState } from '../sim/playerState';
@@ -31,12 +31,14 @@ function findContacts(world: WorldState, inputs: Inputs): PendingHit[] {
   const contacts: PendingHit[] = [];
   for (const attacker of world.players) {
     if (!attacker.alive || attacker.attackConnected || !isAttackActive(attacker)) continue;
-    const seenTick = effectiveViewTick(world, inputs[attacker.slot]?.viewTick);
+    const attackerInput = inputs[attacker.slot];
+    const seenTick = effectiveViewTick(world, attackerInput?.viewTick);
+    const aimAssist = attackerInput !== undefined && isDown(attackerInput, Button.AimAssist);
     for (const target of world.players) {
       // An invulnerable target is not hit; the swing may still land when that runs out.
       if (target === attacker || !target.alive || target.invulnerableTicks > 0) continue;
       const seenPos = positionAt(world, target.slot, seenTick) ?? target.pos;
-      if (!isInMeleeRange(attacker, target, currentAttack(attacker), seenPos)) continue;
+      if (!isInMeleeRange(attacker, target, currentAttack(attacker), seenPos, aimAssist)) continue;
       contacts.push({
         attacker: attacker.slot,
         target: target.slot,
@@ -97,6 +99,8 @@ function applyParry(attacker: PlayerState, target: PlayerState, mode: GameMode, 
     const away = directionBetween(target, attacker);
     attacker.vel.x = away.x * COMBAT.parryPushback;
     attacker.vel.z = away.z * COMBAT.parryPushback;
+    attacker.vel.y = Math.max(attacker.vel.y, COMBAT.parryLift);
+    attacker.lungeTicks = 0;
   }
   setAction(target, 'idle');
   target.parryCooldown = 0;
