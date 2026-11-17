@@ -29,6 +29,8 @@ export interface LobbyOptions {
    * rooms use the map their creator picked and quick-match rooms rotate through MAP_ROTATION.
    */
   forcedMapId?: string;
+  /** Rooms record replays of their matches (see Room.replay). */
+  recordReplays?: boolean;
 }
 
 export class Lobby {
@@ -66,7 +68,7 @@ export class Lobby {
   private openRoom(session: Session, mapId: string, isPublic: boolean): void {
     const code = generateUniqueRoomCode((c) => this.rooms.has(c), this.random);
     const ctx = { map: getMap(mapId), matchConfig: this.options.matchConfig };
-    const room = new Room(code, ctx, isPublic, createToken);
+    const room = new Room(code, ctx, isPublic, createToken, this.options.recordReplays ?? false);
     this.rooms.set(code, room);
     room.join(session);
   }

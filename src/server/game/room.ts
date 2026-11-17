@@ -15,13 +15,16 @@ import type { GameEvent } from '../../shared/sim/events';
 import { stepWorld, type InputsBySlot } from '../../shared/sim/stepWorld';
 import { addPlayer, createWorld, removePlayer, type SimContext } from '../../shared/sim/world';
 import type { Session } from '../net/session';
+import type { ReplayFile } from '../../shared/replay/replayFormat';
 import { InputQueue } from './inputQueue';
+import { ReplayRecorder } from './replayRecorder';
 import { createSeat, type Seat } from './seat';
 
 export class Room {
   readonly world;
   private seats: Seat[] = [];
   private pendingEvents: GameEvent[] = [];
+  private recorder: ReplayRecorder | null = null;
 
   constructor(
     readonly code: string,
@@ -29,8 +32,15 @@ export class Room {
     /** Public rooms can be filled by quick match. */
     readonly isPublic: boolean,
     private readonly createToken: () => string,
+    /** Record a replay once the match starts (see replayRecorder.ts). */
+    private readonly recordReplays = false,
   ) {
     this.world = createWorld(ctx.map.id);
+  }
+
+  /** The replay of the running (or last) match, or null if this room does not record. */
+  replay(): ReplayFile | null {
+    return this.recorder?.file() ?? null;
   }
 
   get isFull(): boolean {
@@ -57,7 +67,10 @@ export class Room {
     this.seats.push(seat);
     session.room = this;
     addPlayer(this.world, slot, this.ctx.map);
-    if (this.isFull) startMatch(this.world, this.ctx);
+    if (this.isFull) {
+      startMatch(this.world, this.ctx);
+      if (this.recordReplays) this.recorder = new ReplayRecorder(this.world, this.ctx, this.playerInfos(), 0);
+    }
     if (this.hasDisconnectedSeat) pauseMatch(this.world, this.ctx.matchConfig.reconnectTicks);
     this.markAllDisturbed();
     this.sendRoomJoined(seat);
@@ -80,6 +93,7 @@ export class Room {
     session.room = null;
     seat.session = null;
     seat.disconnectedTicks = 0;
+    this.recorder?.stop(); // a replay cannot reproduce pauses
     pauseMatch(this.world, this.ctx.matchConfig.reconnectTicks);
     this.markAllDisturbed();
     this.broadcastRoomUpdate();
@@ -107,7 +121,10 @@ export class Room {
   /** A player asks for a rematch after the match has ended. */
   handleRematch(session: Session): void {
     const seat = this.seats.find((s) => s.session === session);
-    if (seat && voteRematch(this.world, seat.slot)) this.markAllDisturbed();
+    if (seat && voteRematch(this.world, seat.slot)) {
+      this.recorder?.recordAction({ type: 'rematch', slot: seat.slot });
+      this.markAllDisturbed();
+    }
   }
 
   /** Advance the room by one simulation tick. Called by the server's tick loop. */
@@ -121,7 +138,9 @@ export class Room {
       if (!next.predictable) seat.disturbed = true;
     }
 
+    this.recorder?.recordTick(inputs);
     const result = stepWorld(this.world, inputs, this.ctx);
+    this.recorder?.afterTick();
     this.pendingEvents.push(...result.events);
     for (const seat of this.seats) {
       if (result.disturbed.includes(seat.slot)) seat.disturbed = true;
@@ -140,6 +159,7 @@ export class Room {
   }
 
   private removeSeat(seat: Seat): void {
+    this.recorder?.stop();
     this.seats = this.seats.filter((s) => s !== seat);
     removePlayer(this.world, seat.slot);
     enterWaiting(this.world, this.ctx);

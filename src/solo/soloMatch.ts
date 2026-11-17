@@ -16,6 +16,7 @@ import { Bot } from '../bots/bot';
 import { GameClient } from '../netcode/gameClient';
 import { GameServer } from '../server/gameServer';
 import { DEFAULT_MATCH_CONFIG, type MatchConfig } from '../shared/match/matchConfig';
+import type { ReplayFile } from '../shared/replay/replayFormat';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { createLoopback } from './loopback';
 
@@ -38,7 +39,7 @@ export class SoloMatch {
   readonly server: GameServer;
 
   constructor(private readonly options: SoloOptions) {
-    this.server = new GameServer({ matchConfig: options.matchConfig ?? DEFAULT_MATCH_CONFIG });
+    this.server = new GameServer({ matchConfig: options.matchConfig ?? DEFAULT_MATCH_CONFIG, recordReplays: true });
     const level = DIFFICULTIES[options.difficulty];
 
     const humanLink = createLoopback();
@@ -75,6 +76,13 @@ export class SoloMatch {
     if (match && slot !== undefined && match.phase === 'matchEnd' && match.rematchVotes[slot] !== true) {
       this.bot.client.requestRematch();
     }
+  }
+
+  /** The replay of this match so far (null before the match has started). */
+  replay(): ReplayFile | null {
+    const code = this.client.room?.code;
+    const file = code ? (this.server.lobby.getRoom(code)?.replay() ?? null) : null;
+    return file ? { ...file, seed: this.options.seed } : null;
   }
 
   /** End the match and free everything (the human goes back to the menu). */

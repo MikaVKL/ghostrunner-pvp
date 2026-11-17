@@ -22,6 +22,8 @@ export interface GameServerOptions {
   matchConfig?: MatchConfig;
   /** Force this map for every room (otherwise players choose / quick match rotates). */
   mapId?: string;
+  /** Record a replay of every match (solo mode: yes; online server: off, nothing reads it yet). */
+  recordReplays?: boolean;
 }
 
 export interface ServerStats {
@@ -44,6 +46,7 @@ export class GameServer {
     this.lobby = new Lobby({
       matchConfig: options.matchConfig ?? DEFAULT_MATCH_CONFIG,
       forcedMapId: options.mapId,
+      recordReplays: options.recordReplays ?? false,
     });
   }
 
