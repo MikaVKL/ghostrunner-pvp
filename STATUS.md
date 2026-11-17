@@ -12,14 +12,14 @@ auf GitHub Pages veröffentlicht).
 
 ## 1. So prüfst du, ob alles funktioniert
 
-**Letzter Stand (17.11.):** `npm run check` grün, alle 10 Browser-Tests grün (nach dem
-Ausbau der Bot-KI), GitHub-Pages-Workflow grün (Lauf 10, Commit `b9a4d05`).
+**Letzter Stand (17.11.):** `npm run check` grün, alle 11 Browser-Tests grün (mit Replays
+und Killcam), GitHub-Pages-Workflow grün.
 
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
-| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 341) |
-| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (10 Tests). Einmalig vorher: `npx playwright install chromium` |
+| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 369) |
+| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (11 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~1 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |
@@ -66,14 +66,13 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 | F | Lebendigere Bot-KI: Reaktionszeit je Stufe, Bestrafen (betäubter/sich erholender Gegner), Ausweich-Dash, Footwork (Kreisen/Zurücktreten/Hineingehen), Kampfstil je Runde (aggressiv/Konter/Ausweicher). `src/bots/brainFight.ts`, `brain.ts`; Tests in `tests/sim/botQuality.test.ts` | ✅ – nur gegen Bots getestet, von keinem Menschen gespielt |
 | G | Zusätzliche Tests für die neuen Mechaniken im Browser | ❌ offen – siehe Abschnitt 5 |
 
-### Vierte Aufgabe (17.11.): Reaktor, Replays, Killcam, Zeitrennen
+### Vierte Aufgabe (17.11.): Reaktor, Replays, Killcam
 
 | # | Schritt | Stand |
 |---|---|---|
 | 1 | Browser-Tests nach dem Bot-KI-Ausbau, Pages-Workflow | ✅ 10/10 grün, Workflow grün |
 | 2 | Reaktor: Stufen machten kaum Unterschied → Ursache war ein tödlicher Spalt um die Grube (Details in Abschnitt 4, „Balance“). Behoben, neu getunt | ✅ |
 | 3 | Replays: Startwelt + Eingaben speichern, exakt nachrechnen (Hash-Vergleich), Ansicht im Browser mit Pause, Zeitlupe, Vor-/Zurückspulen, freier Kamera, Export/Import als Datei; Killcam nach einem Schwert-Kill im Solo-Modus | ✅ – **nur im Solo-Modus** (siehe Abschnitt 4) |
-| 4 | Zeitrennen mit Geist | siehe unten |
 
 **So funktionieren Replays** (Code: `src/shared/replay/`, `src/server/game/replayRecorder.ts`,
 `src/client/replay/`, `src/client/app/replayWiring.ts`): Der Raum schreibt beim Matchstart
@@ -85,17 +84,30 @@ den ersten abweichenden Tick. Tests: `tests/sim/replay.test.ts` (Hash-Vergleich 
 Maps, Export/Import, Springen, Manipulation wird erkannt), `tests/unit/replayPlayback.test.ts`,
 Browser-Test „Replay und Killcam“.
 
+### Fünfte Aufgabe (17.11.): Modus-System und Kampfmodi
+
+Das zuerst geplante „Zeitrennen mit Geist“ ist gestrichen (der Besitzer hat umgeplant). Es
+war schon gebaut (Commit `893bb45`) und wurde mit `git revert` wieder entfernt; wer es
+zurückhaben will: `git revert ff8302d`.
+
+| # | Schritt | Stand |
+|---|---|---|
+| 1 | Modus-System: Spielregeln als Daten, Moduswahl im Menü (Solo + Mehrspieler), „Duell“ = bisheriges Spiel | ⏳ in Arbeit |
+| 2 | Angriffsanzeige beim Ausholen (Ring + Ton), per Einstellung schaltbar | ❌ offen |
+| 3 | Modus „Arena“: Leben, Unverwundbarkeit, Konter-Bonus, Dash-Cooldown, Leben im HUD | ❌ offen |
+| 4 | Bot-KI je Modus, `npm run tune` je Modus | ❌ offen |
+| 5 | Replays und Killcam an die Modi anpassen | ❌ offen |
+
 ---
 
 ## 3. Offen (priorisiert)
 
 1. ~~Replays und Killcam~~ – fertig (nur Solo). Ausbau: Replays für Online-Matches (Abschnitt 5.1)
-2. **Zeitrennen mit Geist** – Plan in Abschnitt 5.2
-3. **Bot-KI weiter ausbauen** (Grundstufe F ist fertig) – Ideen in Abschnitt 5.3
-4. **Die neuen Mechaniken von einem Menschen spielen lassen** und Werte nachstellen
+2. **Bot-KI weiter ausbauen** (Grundstufe F ist fertig) – Ideen in Abschnitt 5.2
+3. **Die neuen Mechaniken von einem Menschen spielen lassen** und Werte nachstellen
    (Rezept 1 in `HOW_TO_EXTEND.md`) – niemand hat Doppelsprung, Clash, Sprungfelder und die
    neuen Maps bisher *gespielt*, nur getestet.
-5. Kleinigkeiten aus Abschnitt 4.
+4. Kleinigkeiten aus Abschnitt 4.
 
 ---
 
@@ -209,35 +221,7 @@ Aufzeichnung direkt lesen kann. Für Online-Matches:
    nicht nachgerechnet werden. Wer das ändern will: Pause/Fortsetzen als `ReplayAction`
    aufnehmen (wie `rematch`) und in `ReplaySimulator.applyActions` nachspielen.
 
-### 5.2 Zeitrennen mit Geist (Priorität 2)
-
-Ziel: Allein von einem Spawn zum anderen rennen, auf Zeit. Die beste eigene Fahrt läuft als
-durchsichtiger „Geist“ mit.
-
-1. **Grundlage ist der Übungsmodus.** Ein `SoloMatch` ohne Bot bleibt in der Phase
-   `waiting`: freie Bewegung, ein Sturz setzt an den Spawn zurück (`stepWaiting` in
-   `src/shared/match/stepMatch.ts`). In `src/solo/soloMatch.ts` eine Option `withBot: false`
-   ergänzen (dann `bot` nicht anlegen und in `start`/`step`/`dispose` überspringen).
-2. **Ziel und Uhr.** Neue Datei `src/solo/timeTrial.ts`: Klasse `TimeTrial` bekommt pro
-   Tick den `PlayerState` des Spielers. Start = erster Tick mit Bewegung; Ziel = Abstand
-   zum gegnerischen Spawn (`map.spawns[1].pos`) < 2 m. Zeit in Ticks zählen (Regel 3 in
-   `CLAUDE.md`), Anzeige `ticks / 60` Sekunden. Ein Sturz (Position springt zurück zum
-   Spawn) setzt die Uhr auf 0.
-   Test `tests/unit/timeTrial.test.ts` mit einem per `stepPlayer` gesteuerten Spieler.
-3. **Geist aufzeichnen.** In `TimeTrial` pro Tick `{ x, y, z, yaw }` speichern. Bei neuer
-   Bestzeit die Liste in `localStorage` unter `ghost:<mapId>` ablegen (im Client, nicht in
-   `src/solo` – dort kein `localStorage` benutzen, sonst laufen die Node-Tests nicht).
-4. **Geist zeichnen.** In `GameView` einen `PlayerAvatar` mit halb durchsichtigen Materialien
-   (`transparent: true, opacity: 0.35` in `fighterModel.ts`) und ihn pro Frame auf die
-   Position des Geist-Ticks setzen.
-5. **Menü und HUD.** Knopf „Zeitrennen“ in `index.html` + `ui/lobbyUi.ts` (Vorbild: der
-   Solo-Knopf, Callback `onSolo`), Zeit und Bestzeit im HUD (`ui/hud.ts`, Texte in
-   `hudTexts.ts`).
-6. **Tests.** `tests/sim/…`: Ein Bot-Brain läuft die Strecke (Vorbild:
-   „a default bot reaches the other spawn“ in `tests/unit/maps.test.ts`) und die Uhr stoppt.
-   Browser-Test: Knopf klicken, HUD zeigt eine laufende Zeit.
-
-### 5.3 Bot-KI weiter ausbauen (Priorität 3)
+### 5.2 Bot-KI weiter ausbauen (Priorität 2)
 
 **Fertig (Schritt F):** In `src/bots/brainFight.ts` entscheidet der Bot pro Tick: Schlag,
 Dash-Angriff, Bestrafen (`punishChance`, wenn `isOpen(enemy)`), Parry oder Ausweich-Dash –
@@ -262,7 +246,7 @@ Mögliche nächste Ideen, je einzeln mit Test in `tests/sim/botQuality.test.ts` 
 4. **Spielgefühl prüfen lassen:** Ein Mensch spielt gegen „Mittel“ und notiert, was
    unnatürlich wirkt. Erst danach weitere Regeln hinzufügen.
 
-### 5.4 Kleinere Aufgaben
+### 5.3 Kleinere Aufgaben
 
 - Browser-Test für ein Sprungfeld: Solo auf „Neonschlucht“, Blick mit `a.look(...)` auf das
   Feld bei (−7, 4.5) richten, `W` halten, warten bis `me.pos.x > 5`.
