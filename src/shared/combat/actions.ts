@@ -4,8 +4,8 @@
  * This part depends only on the player's OWN state and input, so the client can predict
  * it. Everything that involves the OTHER player (hits, parries) is in resolveCombat.ts.
  */
-import { Button, wasPressed, type InputCmd } from '../input';
 import type { GameMode } from '../match/gameModes';
+import type { MovementResult } from '../movement/stepMovement';
 import { MOVE } from '../movement/movementConfig';
 import type { ActionState, PlayerState } from '../sim/playerState';
 import { assertNever } from '../util/assertNever';
@@ -36,17 +36,33 @@ export function isDashAttackReady(p: PlayerState, mode: GameMode): boolean {
   return p.dashCooldown > 0 && ticksSinceDashStart <= MOVE.dashTicks + COMBAT.dashAttackGraceTicks;
 }
 
-function stepIdle(p: PlayerState, input: InputCmd, mode: GameMode): void {
-  if (wasPressed(input, p.prevButtons, Button.Attack) && p.attackCooldown === 0) {
+/** Start a swing or a parry if one was pressed recently (input buffer, see sim/inputBuffer.ts). */
+function stepIdle(p: PlayerState, mode: GameMode): void {
+  if (p.bufferAttack > 0 && p.attackCooldown === 0) {
+    p.bufferAttack = 0;
     setAction(p, 'attack');
     p.attackKind = isDashAttackReady(p, mode) ? 'dash' : 'light';
-  } else if (wasPressed(input, p.prevButtons, Button.Parry) && p.parryCooldown === 0) {
+  } else if (p.bufferParry > 0 && p.parryCooldown === 0) {
+    p.bufferParry = 0;
     setAction(p, 'parry');
   }
 }
 
-/** Advance the action state machine by one tick. */
-export function stepAction(p: PlayerState, input: InputCmd, mode: GameMode): void {
+/**
+ * A dash or jump ends the recovery of a normal swing at once (flow: strike, dash on).
+ * Not for the dash attack: its long recovery is the price for its reach.
+ */
+export function canCancelRecovery(p: PlayerState): boolean {
+  if (p.action !== 'attack' || p.attackKind === 'dash') return false;
+  const attack = currentAttack(p);
+  return p.actionTicks >= attack.startupTicks + attack.activeTicks;
+}
+
+/**
+ * Advance the action state machine by one tick.
+ * @param moved what the movement did this tick (a dash or jump may cancel a recovery)
+ */
+export function stepAction(p: PlayerState, mode: GameMode, moved: MovementResult = { jumped: false, dashed: false }): void {
   if (p.attackCooldown > 0) p.attackCooldown--;
   if (p.parryCooldown > 0) p.parryCooldown--;
   if (p.invulnerableTicks > 0) p.invulnerableTicks--;
@@ -54,9 +70,14 @@ export function stepAction(p: PlayerState, input: InputCmd, mode: GameMode): voi
 
   switch (p.action) {
     case 'idle':
-      stepIdle(p, input, mode);
+      stepIdle(p, mode);
       return;
     case 'attack':
+      if ((moved.dashed || moved.jumped) && canCancelRecovery(p)) {
+        setAction(p, 'idle');
+        p.attackCooldown = getWeapon(p.weaponId).cooldownTicks;
+        return;
+      }
       p.actionTicks++;
       if (p.actionTicks >= swingTotalTicks(p, mode)) {
         setAction(p, 'idle');

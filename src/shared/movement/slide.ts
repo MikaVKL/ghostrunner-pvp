@@ -33,8 +33,8 @@ export function endSlide(p: PlayerState): void {
   p.slideCooldown = MOVE.slideCooldownTicks;
 }
 
-/** Velocity for one tick of sliding. Call only if p.slideTicks > 0. */
-export function stepSlide(p: PlayerState, jumpPressed: boolean, crouchHeld: boolean): void {
+/** Velocity for one tick of sliding. Call only if p.slideTicks > 0. Returns true on a slide-jump. */
+export function stepSlide(p: PlayerState, jumpPressed: boolean, crouchHeld: boolean): boolean {
   p.slideTicks--;
   const speed = Math.hypot(p.vel.x, p.vel.z);
   const slower = Math.max(0, speed - MOVE.slideFriction * TICK_DT);
@@ -51,6 +51,7 @@ export function stepSlide(p: PlayerState, jumpPressed: boolean, crouchHeld: bool
     endSlide(p);
   }
   p.vel.y = Math.max(p.vel.y - MOVE.gravity * TICK_DT, -MOVE.terminalFallSpeed);
+  return jumpPressed;
 }
 
 /**

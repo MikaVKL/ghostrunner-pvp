@@ -4,6 +4,7 @@
  * enemy, lunge, air attack and aim assist.
  */
 import { describe, expect, it } from 'vitest';
+import { WEAPONS } from '../../src/shared/combat/weapons';
 import { boxFromBounds, type MapDef } from '../../src/shared/maps/mapTypes';
 import { DUEL } from '../../src/shared/match/gameModes';
 import { MOVE } from '../../src/shared/movement/movementConfig';
@@ -117,5 +118,74 @@ describe('slide and crouch (Ctrl)', () => {
     const p = standingPlayer(-3, 0, -Math.PI / 2);
     for (let i = 0; i < 40; i++) stepPlayer(p, input({ yaw: p.yaw, moveZ: 1 }), map, 'playing', DUEL);
     expect(p.pos.x).toBeLessThan(-2.3);
+  });
+});
+
+describe('input buffer', () => {
+  const step = (p: PlayerState, buttons = 0, moveZ = 0) =>
+    stepPlayer(p, input({ yaw: p.yaw, buttons, moveZ }), TEST_MAP, 'playing', DUEL);
+
+  it('a jump pressed shortly before landing is done on landing', () => {
+    const p = standingPlayer(0, 5, 0);
+    p.pos.y = 0.6; // falling, no double jump left
+    p.vel.y = -6;
+    p.grounded = false;
+    p.airJumpsLeft = 0;
+    step(p, Button.Jump);
+    for (let i = 0; i < 6 && !p.grounded; i++) step(p, Button.Jump); // held, no new press
+    let jumped = false;
+    for (let i = 0; i < 6; i++) {
+      step(p);
+      if (p.vel.y > 4) jumped = true;
+    }
+    expect(jumped).toBe(true);
+  });
+
+  it('a swing pressed a moment too early starts as soon as the cooldown is over', () => {
+    const p = standingPlayer();
+    p.attackCooldown = 5;
+    step(p, Button.Attack);
+    expect(p.action).toBe('idle');
+    for (let i = 0; i < 5; i++) step(p);
+    expect(p.action).toBe('attack');
+  });
+
+  it('a press that is too old is forgotten, and holding a button does not repeat it', () => {
+    const p = standingPlayer();
+    p.attackCooldown = 20;
+    step(p, Button.Attack);
+    for (let i = 0; i < 25; i++) step(p, Button.Attack); // still held
+    expect(p.action).toBe('idle');
+  });
+});
+
+describe('cancelling the recovery of a swing', () => {
+  const step = (p: PlayerState, buttons = 0) => stepPlayer(p, input({ yaw: p.yaw, buttons, moveZ: 1 }), TEST_MAP, 'playing', DUEL);
+  const light = WEAPONS.sword.attacks.light;
+
+  it('a dash or a jump ends the recovery of a normal swing at once', () => {
+    for (const button of [Button.Dash, Button.Jump]) {
+      const p = standingPlayer(0, 5, -Math.PI / 2);
+      step(p, Button.Attack);
+      for (let i = 0; i < light.startupTicks + light.activeTicks + 1; i++) step(p);
+      expect(p.action).toBe('attack');
+      step(p, button);
+      expect(p.action).toBe('idle');
+    }
+  });
+
+  it('the wind-up cannot be cancelled, and the dash attack keeps its long recovery', () => {
+    const p = standingPlayer(0, 5, -Math.PI / 2);
+    step(p, Button.Attack);
+    step(p, Button.Jump); // during the wind-up
+    expect(p.action).toBe('attack');
+
+    const d = standingPlayer(0, 5, -Math.PI / 2);
+    step(d, Button.Dash | Button.Attack);
+    expect(d.attackKind).toBe('dash');
+    const dash = WEAPONS.sword.attacks.dash;
+    for (let i = 0; i < dash.startupTicks + dash.activeTicks + 2; i++) step(d);
+    step(d, Button.Jump);
+    expect(d.action).toBe('attack');
   });
 });

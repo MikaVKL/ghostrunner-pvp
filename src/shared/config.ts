@@ -17,6 +17,12 @@ export const TICK_MS = 1000 / TICK_RATE;
 /** The server sends a snapshot every N ticks (2 => 30 snapshots per second). */
 export const SNAPSHOT_EVERY_TICKS = 2;
 
+/**
+ * Input buffer: a press of attack, parry, dash or jump is remembered this long and done
+ * as soon as it becomes possible (e.g. a jump pressed just before landing).
+ */
+export const INPUT_BUFFER_TICKS = 9; // 0.15 s
+
 /** Bump this when the network protocol changes in an incompatible way. */
 export const PROTOCOL_VERSION = 8;
 

@@ -21,6 +21,14 @@ export function heightOf(p: PlayerState): number {
   return p.crouching ? CROUCH_HEIGHT : PLAYER_HEIGHT;
 }
 
+/**
+ * A dash goes right through the enemy (dodge past, get behind). Not a dash ATTACK: that one
+ * stops at the body, otherwise it would fly past its target and miss.
+ */
+export function passesThrough(p: PlayerState): boolean {
+  return p.dashTicks > 0 && p.action !== 'attack';
+}
+
 function heightsOverlap(a: PlayerState, b: PlayerState): boolean {
   return a.pos.y < b.pos.y + heightOf(b) && b.pos.y < a.pos.y + heightOf(a);
 }
@@ -37,6 +45,7 @@ export function separatePlayers(players: PlayerState[], map: MapDef): void {
       const a = players[i];
       const b = players[j];
       if (!a.alive || !b.alive || !heightsOverlap(a, b)) continue;
+      if (passesThrough(a) || passesThrough(b)) continue;
       let dx = b.pos.x - a.pos.x;
       let dz = b.pos.z - a.pos.z;
       const dist = Math.hypot(dx, dz);

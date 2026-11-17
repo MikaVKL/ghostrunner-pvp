@@ -30,12 +30,18 @@ function topSpeed(p: PlayerState, input: InputCmd): number {
   return isDown(input, Button.Walk) ? MOVE.walkSpeed : MOVE.runSpeed;
 }
 
+/** What the movement did this tick (a jump or dash can cancel the recovery of a swing). */
+export interface MovementResult {
+  jumped: boolean;
+  dashed: boolean;
+}
+
 export function stepMovement(
   p: PlayerState,
   input: InputCmd,
   map: MapDef,
   mods: MovementModifiers,
-): void {
+): MovementResult {
   p.yaw = input.yaw;
   p.pitch = input.pitch;
   if (p.dashCooldown > 0) p.dashCooldown--;
@@ -43,24 +49,26 @@ export function stepMovement(
   if (p.slideCooldown > 0) p.slideCooldown--;
 
   const wish = wishDirection(input);
-  const jumpPressed = wasPressed(input, p.prevButtons, Button.Jump);
+  const jumpPressed = p.bufferJump > 0; // a recent press (input buffer), see sim/inputBuffer.ts
   const crouchHeld = isDown(input, Button.Crouch);
 
   // 1) Decide the velocity for this tick (exactly one of: dash, slide, wall-run, normal).
-  tryStartDash(p, input, wish, mods);
+  const dashed = tryStartDash(p, input, wish, mods);
+  let jumped = false;
   if (p.dashTicks > 0) {
     endSlide(p);
     stepDash(p);
   } else {
     tryStartSlide(p, wasPressed(input, p.prevButtons, Button.Crouch));
     if (p.slideTicks > 0) {
-      stepSlide(p, jumpPressed, crouchHeld);
+      jumped = stepSlide(p, jumpPressed, crouchHeld);
     } else {
       updateWallRun(p, input, map);
-      if (p.wallRunning) stepWallRun(p, jumpPressed);
-      else stepLocomotion(p, wish, jumpPressed, topSpeed(p, input) * mods.speedFactor);
+      if (p.wallRunning) jumped = stepWallRun(p, jumpPressed);
+      else jumped = stepLocomotion(p, wish, jumpPressed, topSpeed(p, input) * mods.speedFactor);
     }
   }
+  if (jumped) p.bufferJump = 0;
 
   // 2) Apply the velocity and collide with the map (a crouching body is lower).
   const result = moveAndCollide(p.pos, p.vel, map.boxes, TICK_DT, heightOf(p));
@@ -81,4 +89,5 @@ export function stepMovement(
 
   // 4) Standing on a jump pad throws the player into the air.
   applyJumpPads(p, map);
+  return { jumped, dashed };
 }

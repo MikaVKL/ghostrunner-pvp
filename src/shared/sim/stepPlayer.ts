@@ -11,18 +11,20 @@ import type { InputCmd } from '../input';
 import type { MapDef } from '../maps/mapTypes';
 import type { GameMode } from '../match/gameModes';
 import { stepMovement } from '../movement/stepMovement';
+import { clearInputBuffer, updateInputBuffer } from './inputBuffer';
 import type { PlayerState } from './playerState';
 import { phaseAllowsAction, type MatchPhase } from './world';
 
 /** Full simulation step for an active player. */
 function stepActivePlayer(p: PlayerState, input: InputCmd, map: MapDef, mode: GameMode): void {
+  updateInputBuffer(p, input);
   // Movement first: a dash started this tick already turns an attack into a dash attack.
-  stepMovement(p, input, map, {
+  const moved = stepMovement(p, input, map, {
     speedFactor: actionSpeedFactor(p),
     canDash: p.action !== 'stunned',
     dashCooldownTicks: mode.dashCooldownTicks,
   });
-  stepAction(p, input, mode);
+  stepAction(p, mode, moved);
   p.prevButtons = input.buttons;
 }
 
@@ -31,6 +33,7 @@ function stepFrozenPlayer(p: PlayerState, input: InputCmd): void {
   p.yaw = input.yaw;
   p.pitch = input.pitch;
   p.prevButtons = input.buttons;
+  clearInputBuffer(p);
 }
 
 /**

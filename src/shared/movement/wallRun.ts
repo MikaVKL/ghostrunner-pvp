@@ -56,17 +56,18 @@ export function updateWallRun(p: PlayerState, input: InputCmd, map: MapDef): voi
   p.vel.z = tangentZ * speed;
 }
 
-/** Vertical motion and wall-jump while wall-running. Call only if p.wallRunning. */
-export function stepWallRun(p: PlayerState, jumpPressed: boolean): void {
+/** Vertical motion and wall-jump while wall-running. Call only if p.wallRunning. Returns true on a wall-jump. */
+export function stepWallRun(p: PlayerState, jumpPressed: boolean): boolean {
   p.wallRunLeft--;
   if (jumpPressed) {
     p.vel.x += p.wallNormalX * MOVE.wallJumpPush;
     p.vel.z += p.wallNormalZ * MOVE.wallJumpPush;
     p.vel.y = MOVE.wallJumpUp;
     endWallRun(p);
-    return;
+    return true;
   }
   const gravity = MOVE.gravity * MOVE.wallRunGravityScale;
   p.vel.y = Math.max(p.vel.y - gravity * TICK_DT, -MOVE.wallRunMaxFallSpeed);
   if (p.wallRunLeft <= 0) endWallRun(p);
+  return false;
 }

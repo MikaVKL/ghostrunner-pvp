@@ -74,6 +74,12 @@ export interface PlayerState {
   /** Ticks left in which the next own hit does bonus damage (after a successful parry). */
   counterTicks: number;
 
+  /** Input buffer: ticks left in which a recent press is still carried out (0 = none). */
+  bufferAttack: number;
+  bufferParry: number;
+  bufferDash: number;
+  bufferJump: number;
+
   /** Buttons held in the previous tick. Needed to detect "just pressed". */
   prevButtons: number;
 }
@@ -116,6 +122,10 @@ export function createPlayer(
     parryCooldown: 0,
     invulnerableTicks: 0,
     counterTicks: 0,
+    bufferAttack: 0,
+    bufferParry: 0,
+    bufferDash: 0,
+    bufferJump: 0,
     prevButtons: 0,
   };
 }

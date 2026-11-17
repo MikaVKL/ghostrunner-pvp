@@ -27,13 +27,23 @@ describe('player-vs-player collision', () => {
     expect(b.pos.x).toBeGreaterThan(startX + 0.5);
   });
 
-  it('a dash does not go through the other player either', () => {
+  it('a dash goes right through the other player and ends on the far side', () => {
     const world = playingWorld();
     const [a, b] = world.players;
     stepWorld(world, { 0: hold(a, { yaw: YAW_PLUS_X, buttons: Button.Dash }), 1: hold(b) }, TEST_CTX);
     runWorld(world, { 0: hold(a, { yaw: YAW_PLUS_X }), 1: hold(b) }, 20);
-    expect(a.pos.x).toBeLessThan(b.pos.x);
+    expect(a.pos.x).toBeGreaterThan(b.pos.x);
     expect(horizontalDistance(a.pos, b.pos)).toBeGreaterThan(PLAYER_MIN_DISTANCE - 0.01);
+  });
+
+  it('a dash ATTACK does not pass through: it stops at the body (and hits)', () => {
+    const world = playingWorld();
+    const [a, b] = world.players;
+    stepWorld(world, { 0: hold(a, { yaw: YAW_PLUS_X, buttons: Button.Dash | Button.Attack }), 1: hold(b) }, TEST_CTX);
+    expect(a.action).toBe('attack');
+    expect(a.attackKind).toBe('dash');
+    runWorld(world, { 0: hold(a, { yaw: YAW_PLUS_X }), 1: hold(b) }, 4);
+    expect(a.pos.x).toBeLessThan(b.pos.x);
   });
 
   it('nobody is pushed into a wall', () => {

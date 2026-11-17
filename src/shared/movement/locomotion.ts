@@ -44,6 +44,7 @@ function keptMomentum(p: PlayerState, wish: { x: number; z: number }, topSpeed: 
 
 /**
  * Accelerate horizontally toward the wished direction, handle jump and gravity.
+ * Returns true if the player jumped.
  * @param topSpeed the speed to run at: sprint, walk or crouch (see stepMovement.ts)
  */
 export function stepLocomotion(
@@ -51,7 +52,7 @@ export function stepLocomotion(
   wish: { x: number; z: number },
   jumpPressed: boolean,
   topSpeed: number,
-): void {
+): boolean {
   const hasInput = wish.x !== 0 || wish.z !== 0;
   const targetX = wish.x * topSpeed;
   const targetZ = wish.z * topSpeed;
@@ -68,15 +69,19 @@ export function stepLocomotion(
     p.vel.z = steerInAir(p.vel.z, targetZ, accel);
   }
 
+  let jumped = false;
   if (jumpPressed && (p.grounded || p.coyoteTicks > 0)) {
+    jumped = true;
     p.vel.y = MOVE.jumpSpeed;
     p.grounded = false;
     p.coyoteTicks = 0;
   } else if (jumpPressed && p.airJumpsLeft > 0) {
+    jumped = true;
     // Double jump: a second jump in mid-air.
     p.vel.y = MOVE.airJumpSpeed;
     p.airJumpsLeft--;
   }
 
   p.vel.y = Math.max(p.vel.y - MOVE.gravity * TICK_DT, -MOVE.terminalFallSpeed);
+  return jumped;
 }
