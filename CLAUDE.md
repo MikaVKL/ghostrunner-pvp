@@ -1,15 +1,16 @@
 # CLAUDE.md – Projektregeln für KI-Assistenten
 
 Dieses Repo ist **Ghostrunner-PvP**: ein 1v1-Schwertkampf im Browser (ein Treffer tötet,
-Parry, Dash, Wall-Run), gebaut auf einem Multiplayer-Template (autoritativer Server,
+Parry, Klingen-Clash, Dash, Doppelsprung, Wall-Run, Sprungfelder), gebaut auf einem Multiplayer-Template (autoritativer Server,
 Client-Side-Prediction). Zwei Spielarten: Mehrspieler über den Server und „Solo gegen Bot“,
 bei dem derselbe Server-Kern im Browser-Tab läuft (`src/solo/`, veröffentlichbar auf GitHub Pages). Lies diese Datei komplett, bevor du etwas änderst. Der Besitzer ist
 Programmieranfänger: erkläre, was du tust, und halte Änderungen klein.
 
 Weitere Doku: `ARCHITECTURE.md` (wie alles zusammenhängt), `HOW_TO_EXTEND.md` (Rezepte für
 Features/Waffen/Maps), `LEARNING.md` (Konzepte für Anfänger), `README.md` (Start),
-`INTERNET.md` (mit Freunden übers Internet spielen), `STATUS.md` (was fertig ist, was offen
-ist, welche Entscheidungen getroffen wurden).
+`INTERNET.md` (mit Freunden übers Internet spielen, GitHub Pages), `BALANCE.md` (gemessene
+Stärke der Bot-Stufen, wird erzeugt), **`STATUS.md` (Übergabe: was fertig ist, was offen ist,
+bekannte Fehler, nächste Schritte – zuerst lesen, wenn du hier weiterarbeitest).**
 
 ## Befehle
 
@@ -23,6 +24,7 @@ ist, welche Entscheidungen getroffen wurden).
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server. ~20 s |
 | `npm run test:browser` | Playwright: echte Chromium-Tabs spielen gegeneinander und solo gegen den Bot (auch ohne Server). ~2,5 min. Nach Client-/UI-Änderungen ausführen |
 | `npm run build:pages` / `npm run preview:pages` | Statische Solo-Version für GitHub Pages bauen (`dist/pages`) / lokal ansehen |
+| `npm run tune` | Bot-Selbstspiel: sucht die Stärke der drei Schwierigkeitsstufen und schreibt `BALANCE.md`. ~4 min (`-- --quick`: nur messen, ~1 min). Nach Änderungen an Bot-KI oder Kampfregeln ausführen |
 | `npm run check` | `npm test` + `npm run bots:sim` – vor jedem Commit ausführen |
 | `npm run check:all` | `check` + `bots` + `test:browser` – vor größeren Abgaben |
 | `npm run typecheck` | Nur TypeScript prüfen |
@@ -56,13 +58,15 @@ src/client/    Nur Browser. Darf shared + netcode importieren.
                audio/  Web Audio: audioEngine.ts + sounds.ts (alle Geräusche als Rezepte)
                ui/     Menü (lobbyUi), HUD (hud + hudTexts), Hilfe, Debug-Anzeige
                input/  Tastatur/Maus → InputSample
-src/bots/      Bots (brain, brainFight, nav, parkour), simuliertes Netzwerk, Reports.
+src/bots/      Bots (brain, brainFight, nav, parkour, steering), simuliertes Netzwerk, Reports.
                Darf alles außer client und solo importieren. brain/bot/nav/parkour laufen auch im Browser.
 src/solo/      Solo-Modus: GameServer + Bot + GameClient in EINEM Programm, verbunden per
                Loopback (soloMatch.ts, loopback.ts), Schwierigkeitsstufen (difficulty.ts).
                Darf shared, netcode, server (nur den Kern) und bots importieren – nie client.
-tests/         unit/ (einzelne Funktionen), sim/ (Bot-Matches), integration/ (echter Server,
-               auch hinter einem Reverse-Proxy), browser/ (Playwright, eigenes Skript).
+scripts/       Werkzeuge, die nur in Node laufen (tune.ts = Bot-Selbstspiel für die Balance).
+tests/         unit/ (einzelne Funktionen), sim/ (Bot-Matches, Solo-Matches, Bot-Qualität),
+               integration/ (echter Server, auch hinter einem Reverse-Proxy),
+               browser/ (Playwright, eigenes Skript). Helfer: helpers.ts, serverHelpers.ts, soloHelpers.ts.
 ```
 
 Import-Regeln (nicht brechen): `shared` importiert **nichts** aus den anderen Ordnern.
@@ -143,8 +147,27 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 - **Verbindungsabbruch ≠ Verlassen:** `Room.disconnect` reserviert den Sitz und pausiert das
   Match (Phase `paused`), `Room.leave` gibt ihn sofort frei. Bots/Tests, die „fertig“ sind,
   müssen `leaveRoom()` senden und der Nachricht Zeit geben, bevor sie die Verbindung schließen.
-- **Neue Map:** braucht `description` und `links` (darf leer sein). `tests/unit/maps.test.ts`
-  prüft jede registrierte Map automatisch (Spawns, Fußweg, jeden Parkour-Link).
+- **Neue Map:** braucht `description` und `links` (darf leer sein); `pads` (Sprungfelder) und
+  `theme` (Himmelsfarben) sind freiwillig. `tests/unit/maps.test.ts` prüft jede registrierte
+  Map automatisch (Spawns, Fußweg, jeden Parkour-Link – auch Sprungfelder und Aufstiege).
+- **Map geändert?** Danach `npx vitest run tests/unit/maps.test.ts tests/sim/botQuality.test.ts`
+  – die zeigen sofort, ob Bots irgendwo abstürzen oder stehen bleiben.
+- **Sprungfelder setzen die ganze Geschwindigkeit** (`movement/jumpPad.ts`), auch seitlich.
+  Der Flug ist dadurch immer derselbe Bogen. Weite ≈ `launch.x * 2 * launch.y / 24` (gleiche
+  Höhe). Ein Dash trägt über ein Feld hinweg, ohne auszulösen.
+- **Luftsteuerung nimmt keinen Schwung weg** (`steerInAir` in `movement/locomotion.ts`). Wer
+  das zurückbaut, lässt Spieler nach jedem Sprungfeld zu kurz fliegen.
+- **Klingen-Clash:** Schlagen beide innerhalb von `COMBAT.clashWindowTicks` zu, stirbt niemand
+  (`isClash` in `resolveCombat.ts`). Tests, die einen „Doppel-K.O.“ brauchen, müssen die
+  Schläge weiter auseinanderlegen (siehe `lagCompensation.test.ts`, „a real trade“).
+- **Bot eingefroren?** `BotBrain.think(..., canAct)` muss `false` bekommen, solange der Bot
+  nicht handeln darf (Countdown). Sonst hält er sich für „festgefahren“ und springt beim
+  Rundenstart los. `Bot.tick` macht das richtig – eigene Aufrufer müssen es auch tun.
+- **Bot läuft nicht in Blickrichtung:** Laufrichtung (`steering.ts`) und Blickrichtung sind
+  getrennt. Im Kampf schaut der Bot zum Gegner und läuft zum Wegpunkt.
+- **Schwierigkeit nie von Hand „nach Gefühl“ ändern:** `SKILL` in `src/solo/difficulty.ts`
+  kommt aus `npm run tune`. Nach Änderungen an Bot-KI/Kampf neu ausführen und `BALANCE.md`
+  mit committen.
 - **Bots sehen den Gegner interpoliert** (wie ein Mensch, ~100 ms in der Vergangenheit) und
   nicht den neuesten Snapshot – sonst würde die Lag-Kompensation für sie nicht stimmen.
 - **Neue Nachricht Client→Server:** muss in `parseClientMessage` (`shared/protocol/codec.ts`)
@@ -182,5 +205,6 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 
 Accounts/Persistenz/Ranglisten, mehr als 2 Spieler pro Raum, echte 3D-Modelle (Figuren sind
 aus Primitiven gebaut), Sound-Dateien (alle Geräusche werden erzeugt), Mobile-/Gamepad-
-Steuerung, Binärprotokoll, schräge Flächen/Rampen, Zuschauer. Hinweise dazu stehen in
+Steuerung, Binärprotokoll, schräge Flächen/Rampen, Zuschauer. Geplant, aber noch nicht
+gebaut (Schritte stehen in `STATUS.md`): Replays/Killcam, Zeitrennen mit Geist. Hinweise dazu stehen in
 `HOW_TO_EXTEND.md` (Abschnitt „Größere Baustellen“).

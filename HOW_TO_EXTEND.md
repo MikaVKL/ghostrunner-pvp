@@ -46,7 +46,11 @@ Kein Code nötig, nur Zahlen:
 | Rundenzahl (Best-of), Rundenzeit, Countdown, Rematch, Reconnect-Zeit | `src/shared/match/matchConfig.ts` |
 | Lebenspunkte | `MAX_HP` in `src/shared/sim/playerState.ts` |
 | Spielergröße, Augenhöhe | `src/shared/physics/collision.ts` |
-| Schwierigkeit der Solo-Bots (leicht/mittel/schwer) | `src/solo/difficulty.ts` |
+| Doppelsprung (Anzahl, Kraft) | `airJumps`, `airJumpSpeed` in `src/shared/movement/movementConfig.ts` |
+| Klingen-Clash (Zeitfenster, Rückstoß) | `src/shared/combat/combatConfig.ts` |
+| Sprungfelder (Ort, Wurfrichtung und -kraft) | `pads` in der jeweiligen Map, `src/shared/maps/*.ts` |
+| Himmel- und Nebelfarben einer Map | `theme` in der jeweiligen Map |
+| Schwierigkeit der Solo-Bots (leicht/mittel/schwer) | `SKILL` in `src/solo/difficulty.ts` – nicht raten, sondern `npm run tune` (siehe Rezept 11) |
 | Tasten, Mausempfindlichkeit | `src/client/input/bindings.ts` |
 | Sichtfeld (FOV), Licht, Nebel | `src/client/render/sceneSetup.ts` |
 | Farben (Spieler, Himmel, Effekte) | `src/client/render/palette.ts` |
@@ -116,6 +120,32 @@ MAP=duel npm run dev                     # Server erzwingt diese Map für alle R
 
 Als Standard-Map: `DEFAULT_MAP_ID` in `maps/index.ts` ändern.
 
+**Höhen, Sprungfelder, Farben (freiwillig):**
+
+```ts
+import { at, boxFromBounds, jumpPad, type MapDef } from './mapTypes';
+
+  theme: { skyTop: 0x02030a, skyMiddle: 0x0c1c44, skyHorizon: 0x1f7fa8, fog: 0x0d1830 },
+  boxes: [
+    boxFromBounds(4, 16, -14, 3, -6, 6, 0x35507a), // Plattform B liegt 3 m höher (Oberkante y = 3)
+  ],
+  pads: [
+    // jumpPad(x, z, bodenhöhe, abwurf-geschwindigkeit): 2 x 2 m großes Feld.
+    // Flugzeit bis zur gleichen Höhe = 2 * y / 24 Sekunden; Weite = x * Flugzeit; Gipfel = y² / 48.
+    jumpPad(-6, 3, 0, { x: 10, y: 15, z: 0 }), // wirft 10 m/s nach +X und 4,7 m hoch
+  ],
+  links: [
+    // Punkte in anderer Höhe: at(x, z, y).
+    { kind: 'jump', from: at(-8, 3), to: at(6.5, 3, 3) }, //   Sprungfeld: `from` liegt VOR dem Feld, `to` = Landepunkt
+    { kind: 'jump', from: at(6, -3, 3), to: at(-6, -3) }, //   Abstieg: einfach über die Kante laufen
+    { kind: 'jump', from: at(2, 0), to: at(5.5, 0, 2) }, //    Aufstieg bis ~2,4 m: der Bot nimmt den Doppelsprung
+  ],
+```
+
+Vorbilder: `daecher.ts` (Turm, Terrassen, Aufstiege), `reaktor.ts` (versenkte Grube,
+Sprungfelder hinaus). Die Hilfsfunktion `mirrored(...)` in `daecher.ts` legt einen Link
+gleich für beide Kartenhälften an.
+
 Regeln für Maps:
 
 - Genau **2 Spawns** (Index = Spieler-Slot), `pos.y` = Oberkante des Bodens darunter, sie
@@ -134,7 +164,16 @@ Regeln für Maps:
 - `links`: Abkürzungen für Bots, je Richtung ein Eintrag.
   - `wallRun`: `from` und `to` liegen auf einer Linie **parallel zur Wand, 0,45 m vor der
     Wandfläche**. `from` liegt 2–3 m vor der Kante (Anlauf), `to` auf dem Boden dahinter.
-  - `jump`: `from` liegt 1–2 m vor der Kante, `to` ist der Landepunkt.
+    Die Wand muss über die ganze Strecke den Oberkörper abdecken (auch wenn der Spieler
+    beim Wall-Run ~1,5 m steigt).
+  - `jump`: `from` liegt 1–2 m vor der Kante, `to` ist der Landepunkt. Dieselbe Art gilt
+    für Abstiege, Aufstiege (bis ~2,4 m, der Bot nimmt den Doppelsprung) und Sprungfelder
+    (das Feld liegt zwischen `from` und der Kante, auf der Linie zu `to`).
+- **Höhenstufen:** Laufen kann man nur über Stufen bis 0,3 m hoch / 0,6 m runter. Alles
+  Höhere braucht einen `jump`-Link (für Bots) – Menschen springen einfach.
+- **Sprungfelder testen:** `npx vitest run tests/unit/maps.test.ts` spielt jeden Link durch
+  und meldet „not landed“ mit der Position, wenn der Flug danebengeht. Dann `launch` anpassen.
+- `theme`: vier Farben (Himmel oben/Mitte/Horizont, Nebel). Fehlt es, gilt der Standardhimmel.
 - Die Darstellung entsteht automatisch aus den Quadern (`client/render/mapMesh.ts`), die
   Farbe eines Quaders bestimmt auch die Farbe seiner Neon-Kanten.
 
@@ -443,6 +482,14 @@ und prüfen einige deutsche Texte).
   `DEFAULT_PERSONALITY`. `tests/sim/difficulty.test.ts` prüft, dass „schwer“ gegen „leicht“ gewinnt.
 - Bot-Code, den der Solo-Modus benutzt (`brain`, `brainFight`, `nav`, `parkour`, `bot`),
   muss im Browser laufen: keine Node-Module importieren.
+- **Balance prüfen/neu einstellen:** `npm run tune` lässt die Stufen gegeneinander spielen,
+  sucht die `SKILL`-Werte für „Mittel gewinnt ~70 % gegen Leicht, Schwer ~90 % gegen Mittel“
+  und schreibt `BALANCE.md`. Die ausgegebenen Werte in `SKILL` (`src/solo/difficulty.ts`)
+  eintragen, dann `npm run tune -- --quick` zur Kontrolle und beides committen. Die Ziele
+  stehen oben in `scripts/tune.ts` (`TARGET`).
+- **Benimmt sich der Bot vernünftig?** `tests/sim/botQuality.test.ts` misst Abstürze,
+  Stehenbleiben und ob jede Runde mit einem Treffer endet. Neue „der Bot macht Quatsch“-
+  Beobachtungen zuerst dort als Test nachstellen (Helfer: `tests/soloHelpers.ts`), dann beheben.
 - Der Bot-Report zeigt, wie oft die Bots jede Mechanik benutzt haben („mechanics used by the
   bots“). Steht dort bei deiner neuen Mechanik 0, testen die Bots sie nicht.
 - Bots benutzen den normalen `GameClient`. Neue Fähigkeiten testen sie nur, wenn das Brain die
@@ -486,6 +533,11 @@ Der Report sagt z. B.:
 | Reconnect | `server/game/room.ts` (`disconnect`/`rejoin`), `match/lifecycle.ts` (`pauseMatch`), `netcode/gameClient.ts` (`reconnect`), `client/app/connection.ts` | `tests/unit/reconnect.test.ts` |
 | Map-Auswahl in der Lobby | `createRoom.mapId`, `server/lobby/lobby.ts` | `tests/unit/lobby.test.ts` |
 | Solo gegen Bot ohne Server, GitHub Pages | `src/solo/`, `client/app/gameApp.ts`, `vite.config.ts`, `.github/workflows/pages.yml` | `tests/sim/soloMatch.test.ts`, Browser-Tests |
+| Doppelsprung | `shared/movement/locomotion.ts`, `airJumpsLeft` in `PlayerState` | `tests/unit/doubleJump.test.ts` |
+| Klingen-Clash | `isClash`/`applyClash` in `shared/combat/resolveCombat.ts`, Event `clash` | `tests/unit/combat.test.ts` („blade clash“) |
+| Sprungfelder | `shared/movement/jumpPad.ts`, `MapDef.pads` | `tests/unit/jumpPad.test.ts`, `maps.test.ts` |
+| Farbthema je Map | `MapDef.theme`, `client/render/sceneSetup.ts` (`setTheme`) | – |
+| Schwierigkeit per Selbstspiel | `scripts/tune.ts`, `solo/difficulty.ts`, `BALANCE.md` | `tests/sim/difficulty.test.ts` |
 | Figuren, Partikel, Kamera-Effekte | `client/render/` | `npm run test:browser` |
 | Sound (prozedural, Web Audio) | `client/audio/` | – |
 
@@ -534,7 +586,7 @@ Stand des ursprünglichen Fahrplans (✅ = eingebaut):
 | 1 | One-Hit-Kill, schnelle Runden, Best-of-5 | ✅ |
 | 2 | Parkour-Maps mit Lücken, Wänden | ✅ 3 Maps + Arena |
 | 3 | Bewegungsgefühl tunen (Tempo, Luftkontrolle, Dash-Länge, Wall-Run-Dauer) | offen – nur Zahlen, Rezept 1 |
-| 4 | Doppelsprung oder Slide | offen – Rezept 4 |
+| 4 | Doppelsprung oder Slide | ✅ Doppelsprung (Slide offen) |
 | 5 | Parry verfeinern (Rückstoß, Cooldown) | ✅ |
 | 6 | Treffer-Feedback: Sound, Kamerawackeln, Partikel | ✅ |
 | 7 | Lag-Kompensation | ✅ |
@@ -542,7 +594,9 @@ Stand des ursprünglichen Fahrplans (✅ = eingebaut):
 | 9 | Richtige Modelle und Animationen | teilweise: Figuren aus Primitiven |
 | 10 | Map-Auswahl in der Lobby | ✅ |
 
-Ideen für danach: Doppelsprung (Rezept 4), mehr Maps (Rezept 2), schwerer Angriff als dritte
-Angriffsart (Rezept 3), Kill-Cam/Zeitlupe beim letzten Treffer (nur Client), Bots als
-Trainingsgegner im Browser (`src/bots/brain.ts` läuft auch im Browser, weil es nur
-`shared`/`netcode` benutzt).
+Der Doppelsprung wurde genau nach Rezept 4 gebaut – dort steht noch das ursprüngliche
+Beispiel; der echte Code ist in `movement/locomotion.ts`.
+
+**Wie es weitergeht** (priorisiert, mit Schritt-für-Schritt-Plänen): siehe `STATUS.md`,
+Abschnitt „Offen“ – zuerst Replays/Killcam, dann Zeitrennen mit Geist, dann die
+lebendigere Bot-KI.

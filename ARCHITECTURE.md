@@ -84,14 +84,16 @@ benutzen wie echte Spieler. Was die Bots testen, ist das, was im Browser läuft.
 stepWorld(world, inputs):
   ┌─ Teil 1: VORHERSAGBAR ──────────────────────────────────────────────┐
   │ für jeden Spieler: stepPlayer(player, input, map, phase)             │
-  │    stepMovement()  Dash | Wall-Run | Laufen+Springen, dann Kollision │
+  │    stepMovement()  Dash | Wall-Run | Laufen+Springen+Doppelsprung,   │
+  │                    dann Kollision, dann Sprungfelder (jumpPad.ts)    │
   │    stepAction()    Angriff/Parry-Zustandsautomat + Cooldowns         │
   │                    (combat/actions.ts; Angriff im Dash = Dash-Angriff)│
   └──────────────────────────────────────────────────────────────────────┘
         Kopie aller Spieler merken ("so hätte es jeder Client vorhergesagt")
   ┌─ Teil 2: INTERAKTION (nur der Server weiß das) ─────────────────────┐
   │ resolveCombat()    Schwung trifft (Lag-Kompensation) → pendingHits; │
-  │                    entscheiden: Parry (Stun, Rückstoß) oder Treffer │
+  │                    entscheiden: Clash (beide schlagen gleichzeitig), │
+  │                    Parry (Stun, Rückstoß) oder Treffer               │
   │ separatePlayers()  Spieler, die ineinander stehen, auseinander-     │
   │                    schieben                                          │
   │ stepMatch()        Tod (HP/Sturz), Punkte, Phasenwechsel, Respawn   │
@@ -180,9 +182,33 @@ Jeder Input trägt deshalb `viewTick`: den Server-Tick, den der Client gerade **
       └─ nein → Treffer: damage (100 = tot), Rückstoß
 ```
 
+Vor alledem wird geprüft, ob es ein **Klingen-Clash** ist: Schlägt das Ziel selbst gerade zu
+und würde seine Klinge den Angreifer innerhalb von 0,1 s (`COMBAT.clashWindowTicks`) treffen,
+prallen beide ab – niemand stirbt, beide werden zurückgeworfen, Event `clash`. Das ersetzt
+den früher häufigen Doppel-K.O.
+
 Beide Blicke in die Vergangenheit sind auf `COMBAT.maxRewindTicks` (0,3 s) begrenzt. Ohne
 `viewTick` (0, z. B. in Unit-Tests) wird nichts zurückgespult und sofort entschieden.
 `history` und `pendingHits` liegen im `WorldState`, werden aber nicht an Clients gesendet.
+
+## 4c. Maps als Daten (`shared/maps/`)
+
+Eine Map (`MapDef`) besteht nur aus Daten – Kollision, Darstellung und Bots lesen dieselben:
+
+| Feld | Bedeutung | Wer benutzt es |
+|---|---|---|
+| `boxes` | alles Feste: achsenparallele Quader (Böden in verschiedenen Höhen, Wände, Deckung) | Kollision, Wall-Run, Darstellung, Bot-Wegfindung |
+| `pads` | Sprungfelder: Rechteck am Boden + feste Abwurf-Geschwindigkeit | `movement/jumpPad.ts`, Darstellung |
+| `spawns`, `killY` | Startpunkte, Todeshöhe | Match-Regeln |
+| `navPoints`, `links` | Wegpunkte und Parkour-Abkürzungen (Sprung, Abstieg, Aufstieg, Sprungfeld, Wall-Run) | nur Bots (`bots/nav.ts`, `bots/parkour.ts`) |
+| `theme` | Himmel- und Nebelfarben | nur Darstellung |
+
+| Map | Idee |
+|---|---|
+| `schlucht` | flach: Brücke, zwei Wall-Run-Wände, Katapulte über den Abgrund |
+| `daecher` | vertikal: Turm (4 m), Terrassen (2 m), unten Rundgang mit Stegen; Sprungfelder aufs Turmdach |
+| `reaktor` | Ring um eine versenkte Grube (−3 m); hinaus nur per Sprungfeld; Wand quer über die Grube |
+| `arena` | einfacher Übungsplatz; viele Tests benutzen seine Koordinaten – nicht umbauen |
 
 ## 5. Server-Aufbau
 
@@ -256,7 +282,25 @@ Unterschiede:
 - **Takt:** kein eigener Timer. Die Spielschleife ruft nach jedem `client.tick()` einmal
   `solo.step()` auf (Server-Tick, dann Bot-Tick). Tab im Hintergrund = Spiel pausiert.
 - **Rematch:** Der Bot stimmt am Match-Ende sofort zu; es fehlt nur noch `R` vom Menschen.
-- **Schwierigkeit:** `difficulty.ts` – drei Sätze von Bot-Parametern (`BotPersonality`).
+- **Schwierigkeit:** `difficulty.ts` – jede Stufe ist eine Zahl („Können“ 0…1), aus der alle
+  Bot-Parameter (`BotPersonality`) berechnet werden. Die Zahlen findet `npm run tune`
+  (`scripts/tune.ts`) per Bot-Selbstspiel; das Ergebnis steht in `BALANCE.md`.
+
+So denkt ein Bot pro Tick (`bots/brain.ts`):
+
+```
+think(me, enemy, map, canAct)
+  eingefroren?            → nur zum Gegner drehen (waitFrozen)
+  gerade auf einem Link?  → LinkRunner steuert (parkour.ts): ausrichten → anlaufen → Flug/Wall-Run
+  Route planen            → nav.planRoute: direkter Weg, sonst über navPoints + links
+                            (jede Runde andere Lieblings-Links: linkMood)
+  am Plattformrand?       → erst zurück auf sicheren Boden (nearestStandable)
+  schauen                 → im Kampf zum Gegner, sonst zum Wegpunkt
+  laufen                  → Richtung zum Wegpunkt, unabhängig vom Blick (steering.ts);
+                            nie über eine Kante (avoidLedges)
+  kämpfen                 → brainFight.ts: Schlag, Dash-Angriff, Parry (Wahrscheinlichkeiten
+                            aus der BotPersonality)
+```
 
 Damit das im Browser läuft, benutzt der Server-Kern keine Node-Module (nur `startServer.ts`,
 `main.ts`, `http/` und `net/wsTransport.ts` tun das). Ohne erreichbaren Server (z. B. auf
@@ -296,6 +340,10 @@ Zufall für Optik (Partikel, Wackeln) darf `Math.random()` benutzen – er ist k
 | Interpolations-Verzögerung | 6 Ticks = 100 ms | `netcode/interpolation.ts` |
 | Input-Puffer max. | 6 Inputs = 100 ms | `server/game/inputQueue.ts` |
 | Lauf-/Dash-Tempo, Sprung, Wall-Run | 7 / 22 m/s, 1,5 m hoch, 1,5 s | `shared/movement/movementConfig.ts` |
+| Doppelsprung | 1 zusätzlicher Sprung in der Luft, +1,2 m | `shared/movement/movementConfig.ts` |
+| Klingen-Clash: Zeitfenster / Rückstoß / Cooldown | 6 Ticks (0,1 s) / 7 m/s / 21 Ticks | `shared/combat/combatConfig.ts` |
+| Sprungfelder | je Feld eigene Abwurf-Geschwindigkeit | `shared/maps/*.ts` (`pads`) |
+| Bot-Stufen (Können) | siehe `BALANCE.md` | `solo/difficulty.ts` (`SKILL`) |
 | Schwert normal: Schaden / Reichweite / Phasen | 100 / 2,4 m / 12+6+18 Ticks | `shared/combat/weapons.ts` |
 | Schwert Dash-Angriff | 100 / 3,2 m / 6+6+27 Ticks | `shared/combat/weapons.ts` |
 | Angriffs-Cooldown | 15 Ticks (0,25 s) | `shared/combat/weapons.ts` |
@@ -308,10 +356,11 @@ Zufall für Optik (Partikel, Wackeln) darf `Math.random()` benutzen – er ist k
 
 | Ordner | Prüft | Beispiele |
 |---|---|---|
-| `tests/unit` | einzelne Funktionen und Klassen | Sprunghöhe, One-Hit-Kill, Parry-Fenster und -Cooldown, Dash-Angriff, Best-of-5, Rematch, Lag-Kompensation, Spieler-Kollision, Reconnect, Raumcodes, Input-Validierung, Predictor |
+| `tests/unit` | einzelne Funktionen und Klassen | Sprunghöhe, Doppelsprung, Sprungfelder, Klingen-Clash, One-Hit-Kill, Parry-Fenster und -Cooldown, Dash-Angriff, Best-of-5, Rematch, Lag-Kompensation, Spieler-Kollision, Reconnect, Raumcodes, Input-Validierung, Predictor |
 | `tests/unit/maps.test.ts` | jede registrierte Map | Spawns, Abgrund, sicherer Fußweg, jeder Parkour-Link wird durchgespielt, Bots erreichen den Gegner |
 | `tests/unit/architecture.test.ts` | die Projektregeln selbst | keine verbotenen Imports zwischen Ordnern, kein `Math.random()`/`Date.now()` in der Simulation |
 | `tests/sim` | ganze Bot-Matches über simuliertes Netz | 0 Desyncs auf allen Maps bei 0/80/300 ms Lag, Verbindungsabbruch mitten im Match, „Bots benutzen alle Mechaniken“, „Detektor schlägt bei Manipulation an“ |
 | `tests/sim/soloMatch.test.ts`, `difficulty.test.ts` | Solo-Modus ohne Server | alle Maps × alle Schwierigkeiten bis zum Match-Ende, Rematch, Verlassen; „schwer“ schlägt „leicht“ |
+| `tests/sim/botQuality.test.ts` | „Benimmt sich der Bot vernünftig?“ | stürzt nie von selbst ab, bleibt nicht stehen, erreicht den Spieler jede Runde, kein Patt hinter Deckung |
 | `tests/integration` | echter Server + echte WebSockets | `/health`, Müll-Nachrichten, Live-Matches, Betrieb hinter einem Reverse-Proxy (wie ein Tunnel) |
 | `tests/browser` (eigenes Skript: `npm run test:browser`) | das echte Spiel in echtem Chromium | Menü, Raum erstellen/beitreten, Kill, Parry, Sturz, Match-Ende, Rematch, Reconnect, Seiten-Reload; Solo-Match komplett; Solo auf einer rein statischen Seite ohne Server (wie GitHub Pages) |

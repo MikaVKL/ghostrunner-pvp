@@ -1,8 +1,9 @@
 # Neonklinge – 1v1-Schwertduell im Browser
 
 Schnelles **1-gegen-1-Schwertduell** in der Ich-Perspektive, inspiriert vom Genre der
-Cyber-Ninja-Parkour-Spiele: **ein Treffer tötet**, Parry betäubt den Gegner, dazu Dash,
-Wall-Run und Wandsprung über Abgründe. Best-of-5, drei Parkour-Maps, alles im Browser.
+Cyber-Ninja-Parkour-Spiele: **ein Treffer tötet**, Parry betäubt den Gegner, gleichzeitige
+Schläge prallen ab (Klingen-Clash), dazu Dash, Doppelsprung, Wall-Run, Wandsprung und
+Sprungfelder über Abgründe. Best-of-5, drei sehr unterschiedliche Parkour-Maps, alles im Browser.
 
 Zwei Spielarten: **Mehrspieler** über einen Server (Raumcode oder schnelles Spiel) und
 **Solo gegen Bot** – das läuft komplett im Browser, ohne Server, und lässt sich deshalb als
@@ -68,7 +69,7 @@ Beenden: im Terminal `Ctrl + C`.
 |---|---|
 | Laufen | `W` `A` `S` `D` |
 | Umsehen | Maus (erst ins Spiel klicken; `Esc` gibt die Maus frei) |
-| Springen · Wandsprung | `Leertaste` |
+| Springen · Doppelsprung (in der Luft noch einmal) · Wandsprung | `Leertaste` |
 | Dash | `Shift` |
 | Schwertschlag | Linksklick oder `J` |
 | Parry | Rechtsklick (Trackpad: Zwei-Finger-Klick) oder `F` / `K` |
@@ -82,6 +83,9 @@ Regeln in Kürze:
 - **Ein Treffer tötet.** Der leuchtende Bogen zeigt genau die Reichweite deines Schlags.
 - **Parry** kurz vor dem Einschlag (und zum Gegner schauen): Der Angreifer ist 1 Sekunde
   betäubt und leuchtet gelb – dein freier Treffer. Ein Parry ins Leere hat eine Abklingzeit.
+- **Klingen-Clash:** Schlagt ihr im selben Moment zu, prallen die Klingen ab – niemand stirbt.
+- **Sprungfelder** (grün) schleudern dich in Pfeilrichtung: Katapulte über die Schlucht,
+  aufs Turmdach, aus der Reaktor-Grube.
 - **Sturz in den Abgrund** tötet; der Punkt geht an den Gegner.
 - **Best-of-5:** Wer zuerst 3 Runden gewinnt. Sterben beide, zählt die Runde nicht.
 - Bricht die Verbindung ab, pausiert das Match bis zu 20 Sekunden und der Spieler kommt von
@@ -101,8 +105,10 @@ Wie das funktioniert: Im Browser-Tab läuft derselbe Server-Kern wie beim Mehrsp
 einer der Test-Bots. Deshalb braucht der Solo-Modus keinen Server und kein Internet – und
 pausiert von selbst, wenn der Tab im Hintergrund ist.
 
-Die Schwierigkeit sind nur Zahlen (wie schnell dreht sich der Bot, wie oft schlägt und
-pariert er): `src/solo/difficulty.ts`.
+Die Schwierigkeit ist pro Stufe eine Zahl („Können“), aus der sich ergibt, wie schnell der
+Bot sich dreht und wie oft er schlägt und pariert (`src/solo/difficulty.ts`). Die Zahlen
+sind per Bot-Selbstspiel eingestellt (`npm run tune`); die gemessenen Gewinnquoten stehen in
+[BALANCE.md](BALANCE.md).
 
 Ist kein Spielserver erreichbar (z. B. auf GitHub Pages), sind die Mehrspieler-Knöpfe grau
 und ein Hinweis erklärt, warum. Solo funktioniert trotzdem.
@@ -152,6 +158,7 @@ baut das Spiel und startet den Server auf Port 3000 (Seite und WebSocket über d
 | `npm run bots:sim` | 20 Bot-Matches auf allen Maps in ~3 Sekunden (simuliertes Netzwerk mit Lag) |
 | `npm run bots` | Bot-Matches über echte WebSockets gegen einen echten Server |
 | `npm run test:browser` | Browser-Tests: echte Chromium-Tabs spielen gegeneinander und solo gegen den Bot, auch ohne Server (~2,5 min) |
+| `npm run tune` | Bot-Selbstspiel: stellt die Stärke der drei Bot-Stufen ein und schreibt `BALANCE.md` (~4 min) |
 | `npm run check` | `npm test` + `npm run bots:sim` (vor jedem Commit) |
 | `npm run check:all` | alles zusammen: `check` + `bots` + `test:browser` |
 | `npm run build` / `npm start` | Client bauen / Server starten (einzeln; `host` macht beides) |
@@ -190,7 +197,8 @@ RESULT: OK - no desyncs, no errors.
 
 | Datei | Inhalt |
 |---|---|
-| [STATUS.md](STATUS.md) | Was fertig ist, was offen ist, welche Entscheidungen getroffen wurden |
+| [STATUS.md](STATUS.md) | Übergabe: was fertig ist, was offen ist, bekannte Fehler, nächste Schritte |
+| [BALANCE.md](BALANCE.md) | Gemessene Gewinnquoten der Bot-Stufen gegeneinander (wird von `npm run tune` erzeugt) |
 | [INTERNET.md](INTERNET.md) | Mit Freunden spielen: WLAN, Tunnel, Hosting – und die Solo-Version auf GitHub Pages |
 | [LEARNING.md](LEARNING.md) | Die Konzepte einfach erklärt: Tick-Rate, Prediction, Rollback, Interpolation, Lag-Kompensation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Aufbau, Datenfluss, Diagramme |

@@ -199,6 +199,7 @@ test('Sturz in den Abgrund, Match-Ende und Rematch', async (env) => {
 });
 
 test('Reconnect: Verbindungsabbruch und Seiten-Reload', async (env) => {
+  await serverIsEmpty(env); // this test counts the rooms on the server
   const { a, b } = await openTwo(env);
   const code = await startDuel(a, b);
 
