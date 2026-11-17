@@ -30,7 +30,6 @@ import {
 } from './connection';
 import { ReplayViewer } from '../replay/replayViewer';
 import { Effects } from './effects';
-import { TimeTrialMode } from './timeTrialMode';
 import { setupReplays } from './replayWiring';
 import { startGameLoop } from './gameLoop';
 import { loadSettings, saveSettings, type Settings } from './settings';
@@ -57,9 +56,7 @@ export function startGameApp(options: AppOptions): void {
   let solo: SoloMatch | null = null;
   let connecting = false;
   /** The client of the match on screen (a solo match wins over the idle online client). */
-  // Assigned below, once `bind` exists.
-  let trial: TimeTrialMode;
-  const current = (): GameClient | null => solo?.client ?? trial?.client ?? online;
+  const current = (): GameClient | null => solo?.client ?? online;
 
   const applySettings = (next: Settings) => {
     Object.assign(settings, next);
@@ -89,7 +86,7 @@ export function startGameApp(options: AppOptions): void {
   };
 
   /** Connect a client's callbacks to the screen. Works the same for online and solo. */
-  const bind = (client: GameClient, kind: 'online' | 'solo' | 'trial') => {
+  const bind = (client: GameClient, kind: 'online' | 'solo') => {
     client.onRoomJoined = (room) => {
       view.setMap(client.map!);
       faceSpawnDirection(client);
@@ -100,7 +97,6 @@ export function startGameApp(options: AppOptions): void {
     };
     client.onRoomLeft = () => {
       if (kind === 'online') forgetSeat();
-      else if (kind === 'trial') trial.end();
       else endSolo();
       hud.setConnectionLost(false);
       showGame(false);
@@ -119,8 +115,6 @@ export function startGameApp(options: AppOptions): void {
     };
     if (kind === 'online') client.onClose = () => onlineConnectionLost(client);
   };
-
-  trial = new TimeTrialMode(hud, view, (client) => bind(client, 'trial'), options.predict);
 
   // ---------- online ----------
 
@@ -172,7 +166,7 @@ export function startGameApp(options: AppOptions): void {
   // ---------- solo ----------
 
   const startSolo = (name: string, mapId: string, difficulty: Difficulty) => {
-    if (solo || trial.active || online?.room) return; // already in a match
+    if (solo || online?.room) return; // already in a match
     solo = new SoloMatch({
       playerName: name,
       mapId,
@@ -196,9 +190,6 @@ export function startGameApp(options: AppOptions): void {
 
   const lobby = new LobbyUi(settings, {
     onSolo: startSolo,
-    onTimeTrial: (name, mapId) => {
-      if (!solo && !trial.active && !online?.room) trial.start(name, mapId);
-    },
     onQuickMatch: (name) => online?.quickMatch(name),
     onCreateRoom: (name, mapId) => online?.createRoom(name, mapId),
     onJoinRoom: (code, name) => online?.joinRoom(code, name),
@@ -222,12 +213,8 @@ export function startGameApp(options: AppOptions): void {
 
   const lastFrame = startGameLoop({
     replay: viewer,
-    ghost: () => trial.ghost(),
     getClient: current,
-    afterTick: () => {
-      solo?.step();
-      trial.step();
-    },
+    afterTick: () => solo?.step(),
     input,
     view,
     hud,
@@ -243,7 +230,6 @@ export function startGameApp(options: AppOptions): void {
     if (event.code === UI_KEYS.mute) hud.toast(audio.toggleMute() ? TEXT.soundOff : TEXT.soundOn, 700);
     const client = current();
     if (event.code === UI_KEYS.rematch && client?.snapshot?.match.phase === 'matchEnd') client.requestRematch();
-    if (event.code === UI_KEYS.rematch && trial.active) trial.restart(); // time trial: start over
   });
 
   // Debugging aids (also used by the browser tests): in the browser console,
@@ -251,7 +237,6 @@ export function startGameApp(options: AppOptions): void {
   Object.defineProperty(window, 'game', { get: current, configurable: true });
   (window as unknown as { gameInput: InputController }).gameInput = input;
   (window as unknown as { gameReplay: ReplayViewer }).gameReplay = viewer;
-  (window as unknown as { gameTrial: TimeTrialMode }).gameTrial = trial;
 
   void connectOnline();
 }

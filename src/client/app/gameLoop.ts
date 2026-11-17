@@ -23,8 +23,6 @@ const MAX_TICKS_PER_FRAME = 5;
 export interface LoopParts {
   /** While a replay is shown, it is drawn instead of the match, and the match is not ticked. */
   replay: { readonly active: boolean; frame: (deltaMs: number) => void };
-  /** Time trial: the ghost to draw this frame (or null). */
-  ghost: () => PlayerState | null;
   /** The client whose match is on screen: online or solo. Null = neither exists. */
   getClient: () => GameClient | null;
   /** Called after every 60 Hz tick (the solo mode steps its local server here). */
@@ -44,7 +42,7 @@ export interface FrameInfo {
 }
 
 export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
-  const { getClient, afterTick, input, view, hud, debug, effects, replay, ghost } = parts;
+  const { getClient, afterTick, input, view, hud, debug, effects, replay } = parts;
   let lastFrameAt = performance.now();
   let accumulator = 0;
   /** Position of the local player before the most recent tick. */
@@ -117,7 +115,7 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
       effects.frame(me, remotes, client.snapshot?.match ?? null);
       lastFrame = { listener, players: [me, ...remotes] };
 
-      view.render({ localPos, yaw: input.yaw, pitch: input.pitch, local: me, remotes, dt: deltaMs / 1000, ghost: ghost() });
+      view.render({ localPos, yaw: input.yaw, pitch: input.pitch, local: me, remotes, dt: deltaMs / 1000 });
       hud.update(client, input.pointerLocked);
     } else {
       shownBefore.clear();

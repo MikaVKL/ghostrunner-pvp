@@ -19,9 +19,6 @@ export const TEXT = {
   connectionLost: 'Verbindung verloren – verbinde neu …',
   connectionGaveUp: 'Der Server ist nicht erreichbar. Bitte lade die Seite neu.',
   restoringSeat: 'Kehre ins laufende Spiel zurück …',
-  trialReady: 'Lauf los – die Zeit startet mit dem ersten Schritt',
-  trialGoal: 'Ziel: der leuchtende Strahl beim gegnerischen Spawn',
-  trialRestart: 'R = neu starten',
   replayInvalid: 'Diese Datei ist kein Neonklinge-Replay.',
   onlineConnecting: 'Verbinde mit dem Spielserver …',
   onlineOffline:

@@ -541,7 +541,6 @@ Der Report sagt z. B.:
 | Sprungfelder | `shared/movement/jumpPad.ts`, `MapDef.pads` | `tests/unit/jumpPad.test.ts`, `maps.test.ts` |
 | Farbthema je Map | `MapDef.theme`, `client/render/sceneSetup.ts` (`setTheme`) | – |
 | Schwierigkeit per Selbstspiel | `scripts/tune.ts`, `solo/difficulty.ts`, `BALANCE.md` | `tests/sim/difficulty.test.ts` |
-| Zeitrennen mit Geist | `solo/timeTrial.ts`, `solo/trialRun.ts`, `client/app/timeTrialMode.ts`, `client/app/trialStorage.ts`, `client/render/goalMarker.ts` | `tests/sim/timeTrial.test.ts`, Browser-Test „Zeitrennen“ |
 | Replays (nur Solo), Killcam | `shared/replay/`, `server/game/replayRecorder.ts`, `client/replay/`, `client/app/replayWiring.ts` | `tests/sim/replay.test.ts`, `tests/unit/replayPlayback.test.ts`, Browser-Test „Replay und Killcam“ |
 | Figuren, Partikel, Kamera-Effekte | `client/render/` | `npm run test:browser` |
 | Sound (prozedural, Web Audio) | `client/audio/` | – |

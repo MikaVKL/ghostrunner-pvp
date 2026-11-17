@@ -76,7 +76,6 @@ Beenden: im Terminal `Ctrl + C`.
 | Dash-Angriff | Schlag während eines Dashes (oder `Shift` + Schlag gleichzeitig) |
 | Wall-Run | Im Sprung an eine Wand und `W` halten |
 | Rematch | `R` (nach dem Match, beide müssen drücken) |
-| Zeitrennen neu starten | `R` |
 | Replay ansehen (Solo) | `V` – darin `P` Pause, `,` `.` spulen, `[` `]` Tempo, `C` Kamera, „Speichern“ als Datei |
 | Ton an/aus · Hilfe · Netzwerk-Anzeige | `M` · `H` · `F3` (MacBook: `fn + F3`, oder die Taste `` ` ``) |
 
@@ -106,10 +105,6 @@ Wie das funktioniert: Im Browser-Tab läuft derselbe Server-Kern wie beim Mehrsp
 über eine Verbindung im Arbeitsspeicher statt über das Internet (`src/solo/`). Der Gegner ist
 einer der Test-Bots. Deshalb braucht der Solo-Modus keinen Server und kein Internet – und
 pausiert von selbst, wenn der Tab im Hintergrund ist.
-
-**Zeitrennen:** „Zeitrennen“ im Menü – allein vom eigenen Start zum leuchtenden Strahl beim
-gegnerischen Spawn. Die Uhr startet mit dem ersten Schritt, die Bestzeit pro Map bleibt im
-Browser gespeichert, und ein durchsichtiger Geist läuft deinen besten Lauf mit. `R` startet neu.
 
 **Replays und Killcam:** Nach einem Schwert-Kill zeigt die Killcam die letzten Sekunden in
 Zeitlupe (jede Taste überspringt; abschaltbar im Menü). Mit `V` siehst du das ganze Match

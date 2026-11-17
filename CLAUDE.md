@@ -62,8 +62,7 @@ src/client/    Nur Browser. Darf shared + netcode + solo importieren.
 src/bots/      Bots (brain, brainFight, nav, parkour, steering), simuliertes Netzwerk, Reports.
                Darf alles außer client und solo importieren. brain/bot/nav/parkour laufen auch im Browser.
 src/solo/      Solo-Modus: GameServer + Bot + GameClient in EINEM Programm, verbunden per
-               Loopback (soloMatch.ts, loopback.ts), Schwierigkeitsstufen (difficulty.ts),
-               Zeitrennen ohne Gegner (trialRun.ts, timeTrial.ts).
+               Loopback (soloMatch.ts, loopback.ts), Schwierigkeitsstufen (difficulty.ts).
                Darf shared, netcode, server (nur den Kern) und bots importieren – nie client.
 scripts/       Werkzeuge, die nur in Node laufen (tune.ts = Bot-Selbstspiel für die Balance).
 tests/         unit/ (einzelne Funktionen), sim/ (Bot-Matches, Solo-Matches, Bot-Qualität),
@@ -217,10 +216,6 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
   (`serializeReplay`/`parseReplay`). Nie `JSON.stringify` direkt für Replays benutzen.
 - **Während ein Replay oder die Killcam läuft, steht das Solo-Match** (die Spielschleife tickt
   es nicht). Der Replay-Betrachter fängt alle Tasten ab (`stopImmediatePropagation`).
-- **Drei Clients im Browser:** `current()` in `gameApp.ts` ist `solo` (Match gegen Bot),
-  sonst das Zeitrennen (`TimeTrialMode.client`), sonst `online`. Neue Spielarten dort einreihen.
-- **Zeitrennen = Übungsmodus:** Mit nur einem Spieler bleibt die Phase `waiting`. Wer die
-  Regeln für `waiting` ändert (`stepWaiting` in `match/stepMatch.ts`), ändert das Zeitrennen mit.
 - **Port belegt:** `PORT=3001 npm run dev` (Vite liest dieselbe Variable für den Proxy).
 - Die Integrationstests starten einen echten Server auf einem freien Port – keine festen Ports
   in Tests verwenden.

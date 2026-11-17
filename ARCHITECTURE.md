@@ -330,14 +330,6 @@ vergleicht Hashes der ganzen Welt. Die Ansicht (`ReplayViewer`) zeichnet mit der
 (über die Schulter des Siegers). Die Killcam spielt nach einem Schwert-Kill im Solo-Modus die
 letzten 2,5 s mit 0,35-facher Geschwindigkeit; das Match steht so lange.
 
-## 6d. Zeitrennen (`solo/timeTrial.ts`, `solo/trialRun.ts`, `client/app/timeTrialMode.ts`)
-
-`TrialRun` ist wie `SoloMatch`, aber ohne Bot: Server-Kern + ein `GameClient` im Tab. Mit
-einem Spieler bleibt die Match-Phase `waiting` (freies Laufen, Sturz = zurück zum Start).
-`TimeTrial` bekommt pro Tick den Spieler: Start beim ersten Schritt, Ziel = gegnerischer Spawn
-(Radius 2,5 m), Sprung zurück = Sturz = Neustart. Der beste Lauf (`GhostRun`: Zeit + Position
-pro Tick) liegt im `localStorage`; `GameView` zeichnet ihn als durchsichtige Figur.
-
 ## 7. Browser-Client
 
 ```
@@ -357,7 +349,6 @@ main.ts          verbindet, liest URL-Optionen (?lag ?jitter ?predict)
      │     slashArc              leuchtender Bogen = exakte Trefferzone des Schwungs
      │     particles, cameraFx   Funken/Staub; Wackeln, Sichtfeld, Neigung
      ├─ app/replayWiring.ts  Replay-Knopf (V), Killcam nach einem Kill, „Replay laden …“
-     ├─ app/timeTrialMode.ts Zeitrennen: Uhr im HUD, Ziel-Strahl, Geist, Bestzeit (trialStorage.ts)
      ├─ replay/              ReplayViewer, ReplayCamera, ReplayControls, Dateien speichern/laden
      ├─ audio/               audioEngine (Web Audio) + sounds (Rezepte, keine Dateien)
      └─ ui/                  lobbyUi (Hauptmenü), hud + hudTexts, helpOverlay, debugOverlay
