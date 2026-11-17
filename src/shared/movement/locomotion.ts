@@ -30,6 +30,19 @@ function steerInAir(current: number, target: number, maxDelta: number): number {
 }
 
 /**
+ * Momentum on the ground: if the player is faster than `topSpeed` and still moving roughly
+ * the wished way, return the speed to keep this tick (a little less than now). Otherwise 0
+ * (= normal running). Turning is still possible, the speed then follows the new direction.
+ */
+function keptMomentum(p: PlayerState, wish: { x: number; z: number }, topSpeed: number): number {
+  const speed = Math.hypot(p.vel.x, p.vel.z);
+  if (speed <= topSpeed) return 0;
+  const alignment = (p.vel.x * wish.x + p.vel.z * wish.z) / speed;
+  if (alignment < MOVE.momentumMinAlign) return 0;
+  return Math.max(topSpeed, speed - MOVE.overspeedDecay * TICK_DT);
+}
+
+/**
  * Accelerate horizontally toward the wished direction, handle jump and gravity.
  * @param walking the walk key is held: walk speed instead of the default sprint
  */
@@ -47,8 +60,9 @@ export function stepLocomotion(
 
   if (p.grounded) {
     const accel = (hasInput ? MOVE.groundAccel : MOVE.groundFriction) * TICK_DT;
-    p.vel.x = moveToward(p.vel.x, targetX, accel);
-    p.vel.z = moveToward(p.vel.z, targetZ, accel);
+    const kept = hasInput ? keptMomentum(p, wish, topSpeed) : 0;
+    p.vel.x = moveToward(p.vel.x, kept > 0 ? wish.x * kept : targetX, accel);
+    p.vel.z = moveToward(p.vel.z, kept > 0 ? wish.z * kept : targetZ, accel);
   } else if (hasInput) {
     // In the air we only steer when keys are held, so momentum is kept otherwise.
     const accel = MOVE.airAccel * TICK_DT;

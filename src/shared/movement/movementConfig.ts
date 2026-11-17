@@ -15,6 +15,14 @@ export const MOVE = {
   groundFriction: 60,
   /** How strongly you can steer in the air. */
   airAccel: 18,
+  /**
+   * Keeping momentum: on the ground, speed ABOVE the top speed (after a dash, wall-jump,
+   * jump pad or landing) only bleeds away at this rate (m/s^2) - as long as you keep
+   * moving roughly the same way (see momentumMinAlign). Normal braking is groundAccel.
+   */
+  overspeedDecay: 9,
+  /** cos of the largest angle between velocity and wished direction that keeps momentum (0.7 = 45°). */
+  momentumMinAlign: 0.7,
 
   // --- jumping / falling ---
   gravity: 24,
@@ -32,8 +40,8 @@ export const MOVE = {
   // --- dash ---
   dashSpeed: 22,
   dashTicks: secondsToTicks(0.15),
-  /** Horizontal speed kept when the dash ends. */
-  dashExitSpeed: 8,
+  /** Horizontal speed kept when the dash ends (above run speed: the momentum carries on). */
+  dashExitSpeed: 12,
   dashCooldownTicks: secondsToTicks(1),
 
   // --- wall-run ---
