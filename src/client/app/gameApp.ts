@@ -14,6 +14,8 @@ import { SoloMatch } from '../../solo/soloMatch';
 import { AudioEngine } from '../audio/audioEngine';
 import { playSound } from '../audio/sounds';
 import { UI_KEYS } from '../input/bindings';
+import { loadKeymap, primaryLabel, saveKeymap } from '../input/keymap';
+import { KeymapUi } from '../ui/keymapUi';
 import { InputController } from '../input/inputController';
 import { GameView } from '../render/gameView';
 import { DebugOverlay } from '../ui/debugOverlay';
@@ -233,6 +235,20 @@ export function startGameApp(options: AppOptions): void {
     current,
     showGame,
     killcamEnabled: () => settings.killcam,
+  });
+
+  // Key bindings (menu "Tastenbelegung"): the HUD shows the bound keys.
+  const showKeys = () => {
+    for (const action of ['attack', 'parry', 'dash'] as const) {
+      document.getElementById(`key-${action}`)!.textContent = primaryLabel(input.keymap, action);
+    }
+  };
+  input.keymap = loadKeymap();
+  showKeys();
+  new KeymapUi(document.getElementById('keymap-list')!, document.getElementById('keymap-reset')!, input.keymap, (keymap) => {
+    saveKeymap(keymap);
+    input.keymap = keymap;
+    showKeys();
   });
 
   const lastFrame = startGameLoop({

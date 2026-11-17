@@ -5,7 +5,8 @@
  */
 import { Button, MAX_PITCH, type InputSample } from '../../shared/input';
 import { clamp, wrapAngle } from '../../shared/math/scalar';
-import { BUTTON_KEYS, MOUSE_BUTTONS, MOUSE_SENSITIVITY, MOVE_KEYS } from './bindings';
+import { ACTION_BUTTONS, DEFAULT_KEYMAP, MOUSE_SENSITIVITY, type Keymap } from './bindings';
+import { actionFor } from './keymap';
 
 export class InputController {
   yaw = 0;
@@ -16,6 +17,8 @@ export class InputController {
   sensitivity = 1;
   /** Aim assist setting: sent with every input as Button.AimAssist (the server decides hits). */
   aimAssist = true;
+  /** The player's key bindings (menu "Tastenbelegung"). */
+  keymap: Keymap = DEFAULT_KEYMAP;
   private readonly keysDown = new Set<string>();
   /** Buttons currently held. */
   private heldButtons = 0;
@@ -48,16 +51,16 @@ export class InputController {
     this.latchedButtons = 0;
     if (!this.enabled) return { moveX: 0, moveZ: 0, yaw: this.yaw, pitch: this.pitch, buttons: 0 };
     return {
-      moveX: this.axis(MOVE_KEYS.right, MOVE_KEYS.left),
-      moveZ: this.axis(MOVE_KEYS.forward, MOVE_KEYS.back),
+      moveX: this.axis(this.keymap.right, this.keymap.left),
+      moveZ: this.axis(this.keymap.forward, this.keymap.back),
       yaw: this.yaw,
       pitch: this.pitch,
       buttons,
     };
   }
 
-  private axis(positive: string[], negative: string[]): number {
-    const isDown = (codes: string[]) => codes.some((code) => this.keysDown.has(code));
+  private axis(positive: readonly string[], negative: readonly string[]): number {
+    const isDown = (codes: readonly string[]) => codes.some((code) => code !== '' && this.keysDown.has(code));
     return (isDown(positive) ? 1 : 0) - (isDown(negative) ? 1 : 0);
   }
 
@@ -66,23 +69,38 @@ export class InputController {
     this.latchedButtons |= button;
   }
 
+  /** The game button bound to a key code or mouse button ("Mouse0"), or 0. */
+  private buttonFor(code: string): number {
+    const action = actionFor(this.keymap, code);
+    return action ? (ACTION_BUTTONS[action] ?? 0) : 0;
+  }
+
+  private down(code: string): void {
+    this.keysDown.add(code);
+    const button = this.buttonFor(code);
+    if (button) this.press(button);
+  }
+
+  private up(code: string): void {
+    this.keysDown.delete(code);
+    const button = this.buttonFor(code);
+    // Another key bound to the same button may still be held.
+    const stillHeld = [...this.keysDown].some((other) => this.buttonFor(other) === button);
+    if (button && !stillHeld) this.heldButtons &= ~button;
+  }
+
   private onKeyDown = (event: KeyboardEvent): void => {
     if (!this.enabled) return;
-    if (event.ctrlKey) event.preventDefault();
-    if (event.repeat) return;
-    this.keysDown.add(event.code);
-    const button = BUTTON_KEYS[event.code];
-    if (button) this.press(button);
-    if (event.code === 'Space' || event.code.startsWith('Arrow')) event.preventDefault();
     // Ctrl is the slide key: stop browser shortcuts like Ctrl+D (bookmark) or Ctrl+S.
     // Ctrl+W (close tab) cannot be stopped by a web page - gameApp.ts asks before leaving.
     if (event.ctrlKey) event.preventDefault();
+    if (event.code === 'Space' || event.code.startsWith('Arrow')) event.preventDefault();
+    if (event.repeat) return;
+    this.down(event.code);
   };
 
   private onKeyUp = (event: KeyboardEvent): void => {
-    this.keysDown.delete(event.code);
-    const button = BUTTON_KEYS[event.code];
-    if (button) this.heldButtons &= ~button;
+    this.up(event.code);
   };
 
   private onMouseDown = (event: MouseEvent): void => {
@@ -92,13 +110,11 @@ export class InputController {
       void this.canvas.requestPointerLock();
       return;
     }
-    const button = MOUSE_BUTTONS[event.button];
-    if (button) this.press(button);
+    this.down(`Mouse${event.button}`);
   };
 
   private onMouseUp = (event: MouseEvent): void => {
-    const button = MOUSE_BUTTONS[event.button];
-    if (button) this.heldButtons &= ~button;
+    this.up(`Mouse${event.button}`);
   };
 
   private onMouseMove = (event: MouseEvent): void => {

@@ -27,9 +27,9 @@
       </div>
 
       <div id="abilities">
-        <div class="ability"><div class="key">LMB</div><div class="bar"><div class="fill" id="attack-bar"></div></div><div class="label">Schlag</div></div>
-        <div class="ability"><div class="key">RMB</div><div class="bar"><div class="fill" id="parry-bar"></div></div><div class="label">Parry</div></div>
-        <div class="ability"><div class="key">Shift</div><div class="bar"><div class="fill" id="dash-bar"></div></div><div class="label">Dash</div></div>
+        <div class="ability"><div class="key" id="key-attack">Maus links</div><div class="bar"><div class="fill" id="attack-bar"></div></div><div class="label">Schlag</div></div>
+        <div class="ability"><div class="key" id="key-parry">Q</div><div class="bar"><div class="fill" id="parry-bar"></div></div><div class="label">Parry</div></div>
+        <div class="ability"><div class="key" id="key-dash">Shift links</div><div class="bar"><div class="fill" id="dash-bar"></div></div><div class="label">Dash</div></div>
       </div>
 
       <div id="hint">Klicke ins Spiel, um die Maus zu fangen · H = Steuerung</div>
@@ -125,6 +125,12 @@
             <label>Sofortiger Funke, wenn dein Schlag trifft <input id="fx-hitSpark" type="checkbox" /></label>
             <label>Ausholen betonen (Pose, Leuchten, Ton) <input id="fx-telegraph" type="checkbox" /></label>
           </details>
+          <details id="keymap-settings">
+            <summary>Tastenbelegung</summary>
+            <p class="note">Feld anklicken, dann Taste oder Maustaste drücken. Esc leert das Feld.</p>
+            <div id="keymap-list"></div>
+            <button id="keymap-reset" type="button">Standard wiederherstellen</button>
+          </details>
         </div>
 
         <div class="row">
@@ -141,13 +147,17 @@
       <div class="card wide">
         <h2>Steuerung</h2>
         <table>
-          <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>Laufen</td></tr>
+          <tr><td colspan="2" class="note">Alle Spieltasten lassen sich im Menü unter „Tastenbelegung“ ändern. Hier die Standardbelegung:</td></tr>
+          <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>Laufen – du sprintest immer</td></tr>
+          <tr><td><kbd>C</kbd> halten</td><td>Gehen (langsam, für Abstand und Kreisen)</td></tr>
           <tr><td>Maus</td><td>Umsehen</td></tr>
           <tr><td><kbd>Leertaste</kbd></td><td>Springen · in der Luft noch einmal: Doppelsprung · an der Wand: Wandsprung</td></tr>
-          <tr><td><kbd>Shift</kbd></td><td>Dash (kurzer, schneller Sprint, auch in der Luft)</td></tr>
-          <tr><td>Linke Maustaste / <kbd>J</kbd></td><td>Schwertschlag</td></tr>
-          <tr><td>Rechte Maustaste / <kbd>F</kbd></td><td>Parry (Abwehr)</td></tr>
+          <tr><td><kbd>Shift</kbd></td><td>Dash in Laufrichtung (auch in der Luft) – geht durch den Gegner hindurch</td></tr>
+          <tr><td><kbd>Strg</kbd></td><td>Beim Sprinten: Slide (schnell und flach, Sprung behält den Schwung) · sonst Ducken</td></tr>
+          <tr><td>Linke Maustaste / <kbd>J</kbd></td><td>Schwertschlag mit Vorwärtsdrang · in der Luft: Luftschlag (trifft weiter nach oben/unten)</td></tr>
+          <tr><td><kbd>Q</kbd> / rechte Maustaste</td><td>Parry (Abwehr)</td></tr>
           <tr><td><kbd>Shift</kbd> + Schlag</td><td>Dash-Angriff (größere Reichweite, aber lange Erholung)</td></tr>
+          <tr><td>Dash / Sprung nach einem Schlag</td><td>bricht die Erholung des Schlags ab</td></tr>
           <tr><td><kbd>R</kbd></td><td>Rematch nach dem Match</td></tr>
           <tr><td><kbd>V</kbd></td><td>Solo: Replay des Matches ansehen (P Pause, <kbd>,</kbd> <kbd>.</kbd> spulen, <kbd>[</kbd> <kbd>]</kbd> Tempo, <kbd>C</kbd> Kamera)</td></tr>
           <tr><td><kbd>M</kbd> · <kbd>H</kbd> · <kbd>F3</kbd> · <kbd>Esc</kbd></td><td>Ton an/aus · diese Hilfe · Netzwerk-Anzeige · Maus freigeben</td></tr>

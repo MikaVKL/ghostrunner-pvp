@@ -30,8 +30,8 @@ const PARRY_ON_SIGHT = `(() => {
   (function watch() {
     const shown = window.game.room ? window.game.sampleRemote(1 - window.game.room.slot) : null;
     if (shown && shown.action === 'attack') {
-      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
-      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' })), 80);
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' }));
+      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ' })), 80);
     } else if (performance.now() - started < 4000) requestAnimationFrame(watch);
   })();
 })()`;
@@ -339,6 +339,31 @@ test('Ohne Server (wie GitHub Pages): Mehrspieler deaktiviert, Solo läuft', asy
   await a.waitFor('round 2 starts', (s) => s.round === 2 && s.phase === 'playing', 30_000);
   await a.screenshot('12-pages-solo');
   assertEqual((await a.state()).desyncs, 0, 'desyncs');
+  noErrors(a);
+});
+
+test('Tastenbelegung: Schlag auf K umlegen, gespeichert; Slide mit Strg', async (env) => {
+  const a = await openOne(env, env.staticUrl, false);
+  await a.page.click('#keymap-settings summary');
+  await a.page.click('.keymap-slot[data-action="attack"][data-slot="0"]');
+  await a.page.keyboard.press('KeyK');
+  assertEqual(await a.text('.keymap-slot[data-action="attack"][data-slot="0"]'), 'K', 'attack slot shows K');
+  const stored = await a.page.evaluate("JSON.parse(localStorage.getItem('keymap')).attack[0]");
+  assertEqual(stored, 'KeyK', 'binding saved in the browser');
+  await a.page.uncheck('#killcam-checkbox');
+  await startSolo(a, 'arena', 'leicht');
+  await a.expectText('#key-attack', 'K');
+  // K now swings.
+  await a.page.keyboard.press('KeyK');
+  await a.waitFor('swing with K', (s) => s.me !== null && s.me.action === 'attack');
+  // Ctrl while sprinting slides.
+  await a.page.waitForTimeout(800);
+  await a.page.keyboard.down('KeyW');
+  await a.page.waitForTimeout(500);
+  await a.page.keyboard.down('ControlLeft');
+  await a.waitFor('slide', (s) => s.me !== null && (s.me.slideTicks > 0 || !s.me.alive || s.phase !== 'playing'));
+  await a.page.keyboard.up('ControlLeft');
+  await a.page.keyboard.up('KeyW');
   noErrors(a);
 });
 

@@ -1,36 +1,58 @@
 /**
- * Which keys and mouse buttons do what. Change the lists here to rebind controls.
+ * Default controls. The player can change them in the menu ("Tastenbelegung", see
+ * keymap.ts and ui/keymapUi.ts); the changes are saved in the browser.
+ *
  * Key names are `KeyboardEvent.code` values (physical key positions, layout independent).
+ * Mouse buttons are written as "Mouse0" (left), "Mouse1" (middle), "Mouse2" (right).
  */
 import { Button } from '../../shared/input';
 
-export const MOVE_KEYS = {
+/** Everything the player can bind. Order = order in the menu. */
+export const ACTIONS = ['forward', 'back', 'left', 'right', 'attack', 'parry', 'dash', 'jump', 'crouch', 'walk'] as const;
+export type Action = (typeof ACTIONS)[number];
+
+/** Each action has two slots (e.g. mouse + a key). An empty string = not bound. */
+export type Keymap = Record<Action, [string, string]>;
+
+export const DEFAULT_KEYMAP: Keymap = {
   forward: ['KeyW', 'ArrowUp'],
   back: ['KeyS', 'ArrowDown'],
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
+  attack: ['Mouse0', 'KeyJ'],
+  // Block/parry. The right mouse button parries until the shuriken (step 5) takes it over.
+  parry: ['KeyQ', 'Mouse2'],
+  dash: ['ShiftLeft', 'ShiftRight'],
+  jump: ['Space', ''],
+  crouch: ['ControlLeft', 'ControlRight'],
+  walk: ['KeyC', ''],
 };
 
-/** Keyboard key -> game button. */
-export const BUTTON_KEYS: Record<string, number> = {
-  Space: Button.Jump,
-  ShiftLeft: Button.Dash,
-  ShiftRight: Button.Dash,
-  KeyJ: Button.Attack,
-  KeyQ: Button.Parry,
-  KeyF: Button.Parry,
-  KeyC: Button.Walk,
-  ControlLeft: Button.Crouch,
-  ControlRight: Button.Crouch,
+/** German names in the menu. */
+export const ACTION_LABELS: Record<Action, string> = {
+  forward: 'Vorwärts',
+  back: 'Rückwärts',
+  left: 'Links',
+  right: 'Rechts',
+  attack: 'Schlag',
+  parry: 'Block / Parry',
+  dash: 'Dash',
+  jump: 'Springen',
+  crouch: 'Slide / Ducken',
+  walk: 'Gehen (halten)',
 };
 
-/** Mouse button index (0 = left, 2 = right) -> game button. */
-export const MOUSE_BUTTONS: Record<number, number> = {
-  0: Button.Attack,
-  2: Button.Parry,
+/** The game button of each action (movement keys are axes, not buttons). */
+export const ACTION_BUTTONS: Partial<Record<Action, number>> = {
+  attack: Button.Attack,
+  parry: Button.Parry,
+  dash: Button.Dash,
+  jump: Button.Jump,
+  crouch: Button.Crouch,
+  walk: Button.Walk,
 };
 
-/** Keys that are not game buttons (handled in app/gameApp.ts). */
+/** Keys that are not game buttons (handled in app/gameApp.ts). They cannot be rebound. */
 export const UI_KEYS = {
   rematch: 'KeyR',
   mute: 'KeyM',

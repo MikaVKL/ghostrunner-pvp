@@ -214,6 +214,23 @@ button:disabled:hover {
   margin-bottom: 8px;
 }
 
+.keymap-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.keymap-slot {
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.keymap-slot.listening {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
 .settings summary {
   cursor: pointer;
   color: var(--muted);
