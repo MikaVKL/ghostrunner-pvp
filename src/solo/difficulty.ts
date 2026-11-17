@@ -20,6 +20,9 @@ const WEAKEST: BotPersonality = {
   attackChance: 0.02,
   dashAttackChance: 0.002,
   parryChance: 0.02,
+  dodgeChance: 0.02,
+  punishChance: 0.03,
+  reactionTicks: 16,
   wallJumpChance: 0,
   linkCost: 1.6,
 };
@@ -31,6 +34,9 @@ const STRONGEST: BotPersonality = {
   attackChance: 0.3,
   dashAttackChance: 0.1,
   parryChance: 0.95,
+  dodgeChance: 0.3,
+  punishChance: 0.7,
+  reactionTicks: 3,
   wallJumpChance: 0.05,
   linkCost: 0.5,
 };
@@ -45,6 +51,9 @@ export function personalityForSkill(skill: number): BotPersonality {
     attackChance: blend('attackChance'),
     dashAttackChance: blend('dashAttackChance'),
     parryChance: blend('parryChance'),
+    dodgeChance: blend('dodgeChance'),
+    punishChance: blend('punishChance'),
+    reactionTicks: Math.round(blend('reactionTicks')),
     wallJumpChance: blend('wallJumpChance'),
     linkCost: blend('linkCost'),
   };

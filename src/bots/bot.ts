@@ -24,6 +24,10 @@ export interface BotUsage {
   padLaunches: number;
   /** Blade clashes this bot was part of. */
   clashes: number;
+  /** Dashes out of the way of a swing. */
+  dodges: number;
+  /** Hits on a stunned or recovering opponent. */
+  punishes: number;
   dashes: number;
   swings: number;
   dashAttacks: number;
@@ -41,7 +45,7 @@ export class Bot {
   /** Exceptions thrown inside the bot's own tick. */
   readonly errors: string[] = [];
   readonly usage: BotUsage = {
-    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0,
+    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dodges: 0, punishes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0,
   };
   private readonly brain: BotBrain;
   /** Own state one tick ago, to notice when something starts. */
@@ -68,6 +72,8 @@ export class Bot {
   private countUsage(): void {
     const me = this.client.localPlayer;
     if (!me) return;
+    this.usage.dodges = this.brain.fightStats.dodges;
+    this.usage.punishes = this.brain.fightStats.punishes;
     const now = {
       wallRunning: me.wallRunning,
       dashing: me.dashTicks > 0,

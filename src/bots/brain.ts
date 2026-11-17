@@ -19,11 +19,13 @@ import { FightHabits } from './brainFight';
 import { ButtonHolder } from './buttonHolder';
 import { ARRIVE_DISTANCE, canStandAt, isWalkable, nearestStandable, planRoute, type NavStep } from './nav';
 import { LinkRunner } from './parkour';
-import { directionOf, directionTo, keysFor, NO_KEYS, type MoveKeys } from './steering';
+import { directionOf, directionTo, keysFor, NO_KEYS, type Direction, type MoveKeys } from './steering';
 
 /** Closer than this, the bot looks at the enemy instead of at its waypoint. */
 const FIGHT_DISTANCE = 6.5;
 const REPATH_EVERY_TICKS = 10;
+/** Closer than this many sword lengths, the bot does its close-combat footwork. */
+const FOOTWORK_DISTANCE = 1.5;
 /** How far ahead the bot checks for floor before walking. */
 const LEDGE_LOOKAHEAD = 0.9;
 /** Seconds a normal jump stays in the air (up and down again). */
@@ -40,6 +42,12 @@ export interface BotPersonality {
   dashAttackChance: number;
   /** Chance to try a parry when the enemy starts a swing. */
   parryChance: number;
+  /** Chance to dash out of the way instead (only if the parry roll failed). */
+  dodgeChance: number;
+  /** Chance per tick to hit an opponent that is stunned or recovering from a missed swing. */
+  punishChance: number;
+  /** Ticks between seeing a swing start and reacting to it (6 ticks = 0.1 s). */
+  reactionTicks: number;
   /** Chance per tick for a random jump / dash. */
   jumpChance: number;
   dashChance: number;
@@ -54,6 +62,9 @@ export const DEFAULT_PERSONALITY: BotPersonality = {
   attackChance: 0.12,
   dashAttackChance: 0.05,
   parryChance: 0.4,
+  dodgeChance: 0.15,
+  punishChance: 0.3,
+  reactionTicks: 6,
   jumpChance: 0.006,
   dashChance: 0.006,
   wallJumpChance: 0.04,
@@ -76,6 +87,9 @@ export class BotBrain {
    * takes the bridge once, a wall-run the next time, then the jump pad.
    */
   private linkMood = new Map<ParkourLink, number>();
+  /** Current close-combat step (see `footwork`) and how many ticks it still lasts. */
+  private step: 'circle' | 'back' | 'in' = 'circle';
+  private stepTicks = 0;
   private stuckChecks = 0;
   private stuckPos: Vec3 | null = null;
   private lastPos: Vec3 | null = null;
@@ -132,25 +146,62 @@ export class BotBrain {
     const wantsToWalk = toWaypoint > 0.5 || (speed < 2 && toWaypoint > 0.15);
     let wish = wantsToWalk ? directionTo(me.pos, waypoint) : null;
     if (!fighting && Math.abs(turn) >= 0.6) wish = null; // outside a fight: turn first, then walk
-    if (fighting && distance < range * 0.75) {
-      if (this.rng() < 0.03) this.strafe = -this.strafe;
-      const toEnemy = directionTo(me.pos, target.pos);
-      wish = toEnemy ? { x: -toEnemy.z * this.strafe, z: toEnemy.x * this.strafe } : null;
-    }
+    // Footwork only on solid ground with a clear, safe line to the opponent - otherwise keep following the route.
+    const closeCombat = fighting && me.grounded && distance < range * FOOTWORK_DISTANCE;
+    if (closeCombat && isWalkable(map, me.pos, target.pos)) wish = this.footwork(me, target, distance, range);
     let keys = keysFor(wish, this.yaw);
     if (!safeSpot) keys = this.avoidLedges(me, map, keys, fighting ? LEDGE_LOOKAHEAD : toWaypoint);
-    const { moveX, moveZ } = keys;
 
     if (fighting) {
       const aimError = Math.abs(angleDifference(this.yaw, yawToward(me.pos, target.pos)));
       const pathIsSafe = () => isWalkable(map, me.pos, target.pos);
-      this.buttons.press(this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe }));
+      const plan = this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe });
+      this.buttons.press(plan.buttons);
+      // A dash goes where the movement keys point: a dash attack must point at the enemy
+      // (during footwork the keys may point backward - straight over an edge).
+      if (plan.buttons & Button.Dash) keys = keysFor(directionTo(me.pos, target.pos), this.yaw);
+      if (plan.dodge) keys = this.dodge(me, target, map) ?? keys;
     }
+    const { moveX, moveZ } = keys;
     // No stunts right before a parkour link or a narrow waypoint - they need a clean approach.
     if (!this.route.link && toWaypoint > 3) this.moveRandomly(me, map, moveZ);
     this.unstick(me, moveX !== 0 || moveZ !== 0);
 
     return { moveX, moveZ, yaw: this.yaw, pitch: 0, buttons: this.buttons.current() };
+  }
+
+  /**
+   * Close combat movement: instead of only circling, the bot mixes circling, stepping
+   * back out of reach and stepping in again - re-decided a few times per second.
+   */
+  private footwork(me: PlayerState, enemy: PlayerState, distance: number, range: number): Direction | null {
+    const toEnemy = directionTo(me.pos, enemy.pos);
+    if (!toEnemy) return null;
+    if (--this.stepTicks <= 0) {
+      this.stepTicks = 15 + Math.floor(this.rng() * 30);
+      const roll = this.rng();
+      this.step = roll < 0.45 ? 'circle' : roll < 0.75 ? 'back' : 'in';
+      if (this.rng() < 0.4) this.strafe = -this.strafe;
+    }
+    const sideways = { x: -toEnemy.z * this.strafe, z: toEnemy.x * this.strafe };
+    if (this.step === 'back' && distance < range * 1.3) return { x: -toEnemy.x, z: -toEnemy.z };
+    if (this.step === 'in' && distance > range * 0.6) return toEnemy;
+    return distance < range * 0.75 ? sideways : toEnemy;
+  }
+
+  /** Dash away from a swing: backward if there is floor, else to a side. Null = no safe way out. */
+  private dodge(me: PlayerState, enemy: PlayerState, map: MapDef): MoveKeys | null {
+    const toEnemy = directionTo(me.pos, enemy.pos);
+    if (!toEnemy || !me.grounded) return null;
+    const back = { x: -toEnemy.x, z: -toEnemy.z };
+    const side = { x: -toEnemy.z * this.strafe, z: toEnemy.x * this.strafe };
+    for (const dir of [back, side, { x: -side.x, z: -side.z }]) {
+      const safe = [2, 3.5, 5].every((d) => canStandAt(map, me.pos.x + dir.x * d, me.pos.z + dir.z * d, me.pos.y));
+      if (!safe) continue;
+      this.buttons.press(Button.Dash);
+      return keysFor(dir, this.yaw);
+    }
+    return null;
   }
 
   /**
@@ -205,6 +256,12 @@ export class BotBrain {
     this.route = null;
     this.yaw = me.yaw;
     this.linkMood.clear(); // new round, new favorite routes
+    this.fight.newRound(); // ... and a new fighting style
+  }
+
+  /** Counters of the fight habits (for the bot report). */
+  get fightStats(): { dodges: number; punishes: number } {
+    return this.fight.stats;
   }
 
   /** Random jumps and dashes for variety - but only where the bot will land on solid ground. */

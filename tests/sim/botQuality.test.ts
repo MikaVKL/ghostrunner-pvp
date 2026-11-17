@@ -5,7 +5,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { BotBrain, DEFAULT_PERSONALITY } from '../../src/bots/brain';
+import { FightHabits, FIGHT_STYLES, isOpen, type FightSituation } from '../../src/bots/brainFight';
 import { canStandAt, nearestStandable } from '../../src/bots/nav';
+import { totalUsage } from '../../src/bots/report';
+import { runSimulatedMatch } from '../../src/bots/simulation';
+import { COMBAT } from '../../src/shared/combat/combatConfig';
+import { WEAPONS } from '../../src/shared/combat/weapons';
+import { createRng } from '../../src/shared/math/rng';
 import { directionOf, directionTo, keysFor } from '../../src/bots/steering';
 import { Button } from '../../src/shared/input';
 import { MAPS } from '../../src/shared/maps';
@@ -92,5 +98,81 @@ describe('steering: walking somewhere while looking somewhere else', () => {
     expect(keysFor(null, 1.2)).toEqual({ moveX: 0, moveZ: 0 });
     expect(directionTo({ x: 1, z: 1 }, { x: 1, z: 1 })).toBeNull();
     expect(directionTo({ x: 0, z: 0 }, { x: 3, z: 4 })).toEqual({ x: 0.6, z: 0.8 });
+  });
+});
+
+describe('fight habits: the bot reacts like a fighter, not like a dice', () => {
+  const light = WEAPONS.sword.attacks.light;
+
+  /** Two fighters 2 m apart, looking at each other. */
+  function situation(change: (enemy: ReturnType<typeof createPlayer>) => void = () => {}): FightSituation {
+    const me = createPlayer(0, { pos: { x: 0, y: 0, z: 0 }, yaw: -Math.PI / 2 });
+    const enemy = createPlayer(1, { pos: { x: 2, y: 0, z: 0 }, yaw: Math.PI / 2 });
+    me.grounded = enemy.grounded = true;
+    change(enemy);
+    return { me, enemy, distance: 2, aimError: 0, pathIsSafe: () => true };
+  }
+  const habits = (overrides: Partial<typeof DEFAULT_PERSONALITY>) => {
+    const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, ...overrides });
+    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 }; // neutral style for exact chances
+    return h;
+  };
+
+  it('knows when an opponent cannot defend itself', () => {
+    expect(isOpen(situation().enemy)).toBe(false);
+    expect(isOpen(situation((e) => (e.action = 'stunned')).enemy)).toBe(true);
+    const winding = situation((e) => { e.action = 'attack'; e.actionTicks = 2; }).enemy;
+    const recovering = situation((e) => { e.action = 'attack'; e.actionTicks = light.startupTicks + light.activeTicks + 1; }).enemy;
+    expect(isOpen(winding)).toBe(false);
+    expect(isOpen(recovering)).toBe(true);
+  });
+
+  it('punishes a stunned opponent at once, even if it normally hesitates', () => {
+    const h = habits({ attackChance: 0, punishChance: 1 });
+    expect(h.decide(situation()).buttons & Button.Attack).toBe(0); // no opening: it waits
+    expect(h.decide(situation((e) => (e.action = 'stunned'))).buttons & Button.Attack).toBe(Button.Attack);
+    expect(h.stats.punishes).toBe(1);
+  });
+
+  it('answers a swing only after its reaction time', () => {
+    const reactionTicks = 8;
+    const h = habits({ attackChance: 0, parryChance: 1, reactionTicks });
+    const swing = situation((e) => (e.action = 'attack'));
+    for (let tick = 0; tick < reactionTicks; tick++) expect(h.decide(swing).buttons, `tick ${tick}`).toBe(0);
+    expect(h.decide(swing).buttons).toBe(Button.Parry);
+    expect(h.decide(swing).buttons).toBe(0); // one answer per swing
+  });
+
+  it('a slow bot reacts too late to parry in time, a fast one does not', () => {
+    // The parry must start before the blade lands (lag compensation gives no extra time here).
+    expect(habits({ reactionTicks: 16 })['personality'].reactionTicks).toBeGreaterThan(light.startupTicks);
+    expect(habits({ reactionTicks: 3 })['personality'].reactionTicks).toBeLessThan(light.startupTicks);
+    expect(COMBAT.parryWindowTicks).toBeGreaterThan(light.startupTicks - 3);
+  });
+
+  it('dodges instead of parrying when its style says so', () => {
+    const h = habits({ attackChance: 0, parryChance: 0, dodgeChance: 1, reactionTicks: 0 });
+    const plan = h.decide(situation((e) => (e.action = 'attack')));
+    expect(plan).toEqual({ buttons: 0, dodge: true });
+    expect(h.stats.dodges).toBe(1);
+  });
+
+  it('picks one of the fighting styles every round', () => {
+    const h = habits({});
+    const seen = new Set<string>();
+    for (let round = 0; round < 40; round++) {
+      h.newRound();
+      seen.add(h.style.name);
+    }
+    expect([...seen].sort()).toEqual(FIGHT_STYLES.map((style) => style.name).sort());
+  });
+
+  it('in whole matches the bots really punish and dodge', () => {
+    const reports = [1, 2, 3, 4, 5, 6, 7, 8].map((seed) =>
+      runSimulatedMatch({ seed, mapId: seed % 2 ? 'schlucht' : 'arena', latencyMs: 30 }),
+    );
+    const usage = totalUsage(reports);
+    expect(usage.punishes).toBeGreaterThan(3);
+    expect(usage.dodges).toBeGreaterThan(3);
   });
 });
