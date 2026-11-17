@@ -10,10 +10,10 @@ Stand: gesucht und gemessen. Ziel: Mittel gewinnt ~70 % gegen Leicht, Schwer ~90
 
 | Paarung | gesamt | Neonschlucht | Dächer | Reaktor | Arena | Parry-Quote | Matches |
 |---|---|---|---|---|---|---|---|
-| Leicht gegen Leicht (Kontrolle, soll ~50 % sein) | **53 %** | 50 % | 45 % | 61 % | 57 % | 2 % | 160 |
-| Mittel gegen Leicht (Ziel 70 %) | **65 %** | 55 % | 60 % | 79 % | 68 % | 3 % | 160 |
-| Schwer gegen Mittel (Ziel 90 %) | **93 %** | 100 % | 100 % | 73 % | 100 % | 2 % | 160 |
-| Schwer gegen Leicht | **91 %** | 100 % | 100 % | 63 % | 100 % | 2 % | 160 |
+| Leicht gegen Leicht (Kontrolle, soll ~50 % sein) | **43 %** | 48 % | 43 % | 50 % | 30 % | 0 % | 160 |
+| Mittel gegen Leicht (Ziel 70 %) | **76 %** | 85 % | 90 % | 43 % | 85 % | 0 % | 160 |
+| Schwer gegen Mittel (Ziel 90 %) | **88 %** | 100 % | 95 % | 56 % | 100 % | 3 % | 160 |
+| Schwer gegen Leicht | **88 %** | 100 % | 100 % | 51 % | 100 % | 2 % | 160 |
 
 - **Gewinnquote:** Siege der zuerst genannten Stufe; ein Unentschieden zählt als halber Sieg.
 - **Parry-Quote:** erfolgreiche Parrys der zuerst genannten Stufe, geteilt durch alle
@@ -27,8 +27,8 @@ Stand: gesucht und gemessen. Ziel: Mittel gewinnt ~70 % gegen Leicht, Schwer ~90
 | Stufe | Können (0 = schwächster, 1 = stärkster Bot) |
 |---|---|
 | leicht | 0.05 |
-| mittel | 0.08 |
-| schwer | 0.94 |
+| mittel | 0.17 |
+| schwer | 0.99 |
 
 Aus dem Können werden alle Bot-Parameter berechnet (`personalityForSkill`): Drehtempo,
 Angriffs-, Dash-Angriffs- und Parry-Wahrscheinlichkeit, Lust auf Parkour.

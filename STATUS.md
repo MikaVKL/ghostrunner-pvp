@@ -60,7 +60,7 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 | D | Sprungfelder (`MapDef.pads`, `movement/jumpPad.ts`) | ✅ |
 | E | Maps überarbeitet: Neonschlucht (Katapulte), Dächer (Turm 4 m, Terrassen 2 m), Reaktor (versenkte Grube, Wand quer darüber); Farbthema je Map (`MapDef.theme`); Luftsteuerung nimmt keinen Schwung mehr weg; Bots bevorzugen jede Runde andere Wege | ✅ |
 | T | `npm run tune`: Bot-Selbstspiel stellt die drei Stufen ein, Ergebnis in `BALANCE.md`, Werte in `SKILL` (`src/solo/difficulty.ts`) | ✅ – Ergebnis siehe Abschnitt 4 |
-| F | Lebendigere Bot-KI (Ausweichen, Bestrafen, Kampfstile, Reaktionszeit) | ❌ **nicht begonnen** – Plan in Abschnitt 5 |
+| F | Lebendigere Bot-KI: Reaktionszeit je Stufe, Bestrafen (betäubter/sich erholender Gegner), Ausweich-Dash, Footwork (Kreisen/Zurücktreten/Hineingehen), Kampfstil je Runde (aggressiv/Konter/Ausweicher). `src/bots/brainFight.ts`, `brain.ts`; Tests in `tests/sim/botQuality.test.ts` | ✅ – nur gegen Bots getestet, von keinem Menschen gespielt |
 | G | Zusätzliche Tests für die neuen Mechaniken im Browser | ❌ offen – siehe Abschnitt 5 |
 
 ---
@@ -69,7 +69,7 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 
 1. **Replays und Killcam** – Plan in Abschnitt 5.1
 2. **Zeitrennen mit Geist** – Plan in Abschnitt 5.2
-3. **Lebendigere Bot-KI** (Schritt F oben) – Plan in Abschnitt 5.3
+3. **Bot-KI weiter ausbauen** (Grundstufe F ist fertig) – Ideen in Abschnitt 5.3
 4. **Die neuen Mechaniken von einem Menschen spielen lassen** und Werte nachstellen
    (Rezept 1 in `HOW_TO_EXTEND.md`) – niemand hat Doppelsprung, Clash, Sprungfelder und die
    neuen Maps bisher *gespielt*, nur getestet.
@@ -93,22 +93,28 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 
 | Paarung (Best-of-5, Bot gegen Bot, 160 Matches) | Ziel | gemessen |
 |---|---|---|
-| Leicht gegen Leicht (Kontrolle) | 50 % | 53 % |
-| Mittel gegen Leicht | 70 % | **65 %** |
-| Schwer gegen Mittel | 90 % | **93 %** |
-| Schwer gegen Leicht | – | 91 % |
+| Leicht gegen Leicht (Kontrolle) | 50 % | 43 % |
+| Mittel gegen Leicht | 70 % | **76 %** |
+| Schwer gegen Mittel | 90 % | **88 %** |
+| Schwer gegen Leicht | – | 88 % |
 
-- Die Ziele sind ungefähr getroffen, **aber Mittel (Können 0,08) liegt in den Parametern
-  sehr nah an Leicht (0,05)**. Grund: Am schwachen Ende entscheidet schon ein etwas
-  häufigerer Angriff die meisten Bot-Duelle. Für einen Menschen fühlen sich Leicht und
-  Mittel deshalb vermutlich fast gleich an, während Schwer (0,94) ein großer Sprung ist.
-  Wenn das beim Spielen stört: in `scripts/tune.ts` das Ziel `mittelVsLeicht` z. B. auf 0.85
-  setzen, `npm run tune` ausführen und die Werte übernehmen – oder `SKILL.mittel` bewusst
-  von Hand auf ~0.4 setzen und das in `BALANCE.md`/hier vermerken.
-- **„Reaktor“ fällt aus dem Rahmen:** Dort gewinnt Schwer nur 73 % gegen Mittel und 63 %
-  gegen Leicht (auf den anderen Maps ~100 %). Vermutlich verliert der starke Bot Runden in
-  und um die Grube. Nicht untersucht – mit `tests/soloHelpers.ts` (`playMatch`, Feld
-  `behavior`) lässt sich nachsehen, wie die Runden dort enden.
+Können-Werte (`SKILL`): leicht 0,05 · mittel 0,17 · schwer 0,99 (nach dem Ausbau der Bot-KI
+neu eingestellt; vorher lag Mittel mit 0,08 fast auf Leicht).
+
+- Die Ziele sind ungefähr getroffen. **Schwer liegt am oberen Rand (0,99)** – stärker kann
+  der Bot mit den jetzigen Regeln nicht werden. Soll Schwer noch stärker sein, muss
+  `STRONGEST` in `src/solo/difficulty.ts` stärker werden (z. B. `reactionTicks` 1–2), danach
+  `npm run tune`.
+- **„Reaktor“ fällt deutlich aus dem Rahmen:** Dort gewinnt Schwer nur ~55 % gegen Mittel
+  und ~51 % gegen Leicht, Mittel sogar nur 43 % gegen Leicht (auf den anderen Maps 85–100 %).
+  Auf dieser Map ist Können also fast egal. Vermutete Ursache: Die Kämpfe finden in/um die
+  Grube statt, wo Sprungfelder und Abstürze den Ausgang zufällig machen. **Nicht
+  untersucht** – nächster Schritt: mit `tests/soloHelpers.ts` (`playMatch`, Feld
+  `behavior`: `botFalls`, `humanFalls`, `botKills`) Schwer gegen Leicht auf `reaktor`
+  spielen und nachsehen, wie die Runden enden.
+- Auch „Leicht gegen Leicht“ ist mit 43 % (Arena: 30 %) nicht ganz ausgeglichen; bei 160
+  Matches sind ±4 Prozentpunkte Zufall, das ist etwas mehr. Möglicherweise hat Spawn-Seite 0
+  auf der Arena einen Vorteil.
 - Die „Parry-Quote“ in `BALANCE.md` ist klein (2–3 %), weil sie durch *alle* Schwünge des
   Gegners geteilt wird, auch die außer Reichweite.
 - Gemessen wird Bot gegen Bot. Ob die Stufen für Menschen passen, ist ungeprüft.
@@ -117,9 +123,12 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 
 - Bots nehmen Parkour nur an den in der Map eingetragenen `links`. Freies Parkour können
   sie nicht.
-- Im Kampf laufen Bots nur im Kreis um den Gegner und schlagen/parieren nach
-  Wahrscheinlichkeit. Sie weichen nicht aus, bestrafen keine Fehlschläge gezielt und
-  benutzen den Doppelsprung nur beim Klettern. Das ist Schritt F.
+- Bots benutzen den Doppelsprung nur beim Klettern, nie im Kampf. Sie täuschen nicht an
+  (z. B. Parry ködern) und lesen keine Muster des Spielers.
+- Der Ausweich-Dash prüft nur, ob 2–5 m weiter Boden ist, nicht ob dort eine Wand im Weg ist.
+- Die Parry-Quote der Bots ist trotz hoher `parryChance` niedrig, weil ein Parry vor dem
+  Einschlag kommen muss: Leichte Bots (Reaktionszeit 16 Ticks) sind dafür fast immer zu
+  langsam. Das ist gewollt, sollte aber von einem Menschen gegengespielt werden.
 - Auf „Reaktor“ springt ein Bot auch dann in die Grube, wenn der Gegner oben bleibt
   (er kommt per Sprungfeld wieder heraus – kein Fehler, wirkt aber manchmal ziellos).
 
@@ -215,29 +224,30 @@ durchsichtiger „Geist“ mit.
    „a default bot reaches the other spawn“ in `tests/unit/maps.test.ts`) und die Uhr stoppt.
    Browser-Test: Knopf klicken, HUD zeigt eine laufende Zeit.
 
-### 5.3 Lebendigere Bot-KI (Priorität 3, Schritt F)
+### 5.3 Bot-KI weiter ausbauen (Priorität 3)
 
-Ziel: Der Bot soll sich nicht wie ein Automat anfühlen. Alles in `src/bots/brainFight.ts`
-(Kampfentscheidungen) und `src/bots/brain.ts` (Bewegung). Jede Idee einzeln einbauen, mit
-einem Zähler in `BotUsage` (`src/bots/bot.ts`) und einem Test in
-`tests/sim/botQuality.test.ts`, danach `npm run tune`.
+**Fertig (Schritt F):** In `src/bots/brainFight.ts` entscheidet der Bot pro Tick: Schlag,
+Dash-Angriff, Bestrafen (`punishChance`, wenn `isOpen(enemy)`), Parry oder Ausweich-Dash –
+Parry/Ausweichen erst `reactionTicks` nach dem Sichtbarwerden eines Schlags, einmal pro
+Schlag. `FIGHT_STYLES` verschiebt die Chancen je Runde (`newRound()`, aufgerufen aus
+`noticeRespawn` in `brain.ts`). In `brain.ts` wählt `footwork()` alle 0,25–0,75 s zwischen
+Kreisen, Zurücktreten und Hineingehen; `dodge()` sucht eine Richtung mit Boden. Alle neuen
+Werte sind Teil von `WEAKEST`/`STRONGEST` (`src/solo/difficulty.ts`), werden also von
+`npm run tune` mit eingestellt. Der Bot-Report zählt `dodges` und `punishes`.
 
-1. **Bestrafen:** Ist der Gegner `stunned` oder in der Erholungsphase eines Fehlschlags
-   (`enemy.action === 'attack'` und `!isAttackActive(enemy)` nach der aktiven Phase) und in
-   Reichweite → sofort zuschlagen (neuer Parameter `punishChance` in `BotPersonality`).
-2. **Ausweichen statt Parieren:** Beim Beginn eines gegnerischen Schlags mit
-   `dodgeChance` einen Dash nach hinten/zur Seite drücken (nur wenn dort Boden ist:
-   `canStandAt`). Die Laufrichtung dafür kommt aus `steering.ts`.
-3. **Vor und zurück:** Statt im Kreis zu laufen, zwischen „knapp außer Reichweite“ und
-   „hinein zum Schlag“ pendeln (Zeitgeber in Ticks im Brain; Bewegungsrichtung zum/vom
-   Gegner über `directionTo` und `keysFor`).
-4. **Kampfstil pro Runde:** In `noticeRespawn` einen Stil würfeln (`this.rng()`), z. B.
-   aggressiv / Konter / Ausweicher, der die Wahrscheinlichkeiten der Runde verschiebt –
-   wie `linkMood` es schon für die Wege macht.
-5. **Reaktionszeit:** Entscheidungen über Parry/Ausweichen erst `reactionTicks` nach dem
-   Sichtbarwerden des Schlags treffen (leicht: ~15, schwer: ~4).
-6. Neue Parameter in `WEAKEST`/`STRONGEST` (`src/solo/difficulty.ts`) aufnehmen, damit
-   `npm run tune` sie mit einstellt.
+Mögliche nächste Ideen, je einzeln mit Test in `tests/sim/botQuality.test.ts` und danach
+`npm run tune`:
+
+1. **Doppelsprung im Kampf:** über einen heranstürmenden Dash-Angriff springen
+   (`airJumpsLeft` prüfen, nur wenn unter dem Landepunkt Boden ist: `canStandAt`).
+2. **Anpassen an den Spieler:** zählen, wie oft der Spieler pariert (Event `parry` mit
+   `defender` = Spieler-Slot); pariert er oft, seltener zuschlagen und stattdessen auf einen
+   Fehl-Parry warten (`isOpen` gilt auch in dessen Erholungszeit – dafür `isOpen` um
+   `enemy.action === 'parry' && !isParryActive(enemy)` erweitern).
+3. **Ausweichen gegen Wände prüfen:** in `dodge()` zusätzlich prüfen, ob auf dem Weg ein
+   Quader steht (Vorbild: `isBlocked` in `src/bots/nav.ts`).
+4. **Spielgefühl prüfen lassen:** Ein Mensch spielt gegen „Mittel“ und notiert, was
+   unnatürlich wirkt. Erst danach weitere Regeln hinzufügen.
 
 ### 5.4 Kleinere Aufgaben
 

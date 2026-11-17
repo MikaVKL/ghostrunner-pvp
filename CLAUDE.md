@@ -165,6 +165,10 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
   Rundenstart los. `Bot.tick` macht das richtig – eigene Aufrufer müssen es auch tun.
 - **Bot läuft nicht in Blickrichtung:** Laufrichtung (`steering.ts`) und Blickrichtung sind
   getrennt. Im Kampf schaut der Bot zum Gegner und läuft zum Wegpunkt.
+- **Ein Dash geht in die gedrückte Laufrichtung**, nicht in Blickrichtung. Wer einen Bot
+  dashen lässt, muss die Laufrichtung passend setzen (Dash-Angriff: zum Gegner; Ausweichen:
+  `dodge()` in `brain.ts`). Sonst dasht der Bot z. B. rückwärts über eine Kante – genau so
+  ist es schon passiert.
 - **Schwierigkeit nie von Hand „nach Gefühl“ ändern:** `SKILL` in `src/solo/difficulty.ts`
   kommt aus `npm run tune`. Nach Änderungen an Bot-KI/Kampf neu ausführen und `BALANCE.md`
   mit committen.

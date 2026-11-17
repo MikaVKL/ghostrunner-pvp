@@ -65,8 +65,8 @@ export function personalityForSkill(skill: number): BotPersonality {
  */
 export const SKILL: Record<Difficulty, number> = {
   leicht: 0.05,
-  mittel: 0.08,
-  schwer: 0.94,
+  mittel: 0.17,
+  schwer: 0.99,
 };
 
 export interface DifficultyLevel {

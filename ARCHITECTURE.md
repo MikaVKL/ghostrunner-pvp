@@ -298,8 +298,10 @@ think(me, enemy, map, canAct)
   schauen                 → im Kampf zum Gegner, sonst zum Wegpunkt
   laufen                  → Richtung zum Wegpunkt, unabhängig vom Blick (steering.ts);
                             nie über eine Kante (avoidLedges)
-  kämpfen                 → brainFight.ts: Schlag, Dash-Angriff, Parry (Wahrscheinlichkeiten
-                            aus der BotPersonality)
+  Nahkampf-Footwork       → kreisen / zurücktreten / hineingehen (nur auf sicherem Boden)
+  kämpfen                 → brainFight.ts: Schlag, Dash-Angriff, Bestrafen (Gegner betäubt
+                            oder erholt sich), Parry oder Ausweich-Dash – Abwehr erst nach der
+                            Reaktionszeit; Chancen aus BotPersonality × Kampfstil der Runde
 ```
 
 Damit das im Browser läuft, benutzt der Server-Kern keine Node-Module (nur `startServer.ts`,
