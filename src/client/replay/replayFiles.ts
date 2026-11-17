@@ -3,13 +3,16 @@
  * A replay file is plain text (JSON, see shared/replay/replayFormat.ts).
  */
 import { getMap, isMapId } from '../../shared/maps';
+import { getMode } from '../../shared/match/gameModes';
 import { serializeReplay, type ReplayFile } from '../../shared/replay/replayFormat';
+import type { PlayerState } from '../../shared/sim/playerState';
+import { livesText } from '../ui/hudTexts';
 
-/** File name like "neonklinge-reaktor-2026-11-17-1405.json". */
+/** File name like "neonklinge-arena-reaktor-2026-11-17-1405.json" (mode, map, time). */
 export function replayFileName(file: ReplayFile, now = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
-  return `neonklinge-${file.mapId}-${stamp}.json`;
+  return `neonklinge-${file.modeId}-${file.mapId}-${stamp}.json`;
 }
 
 /** Let the browser download the replay as a file. */
@@ -30,8 +33,16 @@ export function readTextFile(file: File): Promise<string> {
   return file.text();
 }
 
-/** German title for a replay, e.g. "Mika gegen Bot Schwer · Reaktor". */
+/** German title for a replay, e.g. "Mika gegen Bot Schwer · Reaktor · Arena". */
 export function replayTitle(file: ReplayFile): string {
   const names = file.players.map((p) => p.name).join(' gegen ');
-  return `${names} · ${isMapId(file.mapId) ? getMap(file.mapId).name : file.mapId}`;
+  const map = isMapId(file.mapId) ? getMap(file.mapId).name : file.mapId;
+  return `${names} · ${map} · ${getMode(file.modeId).name}`;
+}
+
+/** Lives of both fighters for the replay bar, e.g. "Mika ♥♡♡ · Bot Schwer ♥♥♥" (empty in the duel). */
+export function livesLine(file: ReplayFile, players: PlayerState[], lives: number): string {
+  if (lives <= 1) return '';
+  const name = (slot: number) => file.players.find((p) => p.slot === slot)?.name ?? '?';
+  return players.map((p) => `${name(p.slot)} ${livesText(p.hp, lives)}`).join('  ·  ');
 }

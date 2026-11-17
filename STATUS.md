@@ -96,7 +96,7 @@ zurückhaben will: `git revert ff8302d`.
 | 2 | Angriffsanzeige beim Ausholen (Ring + Ton), per Einstellung schaltbar | ✅ – Einstellung „Nach Modus / An / Aus“; Duell: aus. Nur für den Gegner, nicht im Replay |
 | 3 | Modus „Arena“: Leben, Unverwundbarkeit, Konter-Bonus, Dash-Cooldown, Leben im HUD | ✅ – Werte geschätzt, von keinem Menschen gespielt; Bots noch nicht angepasst (Schritt 4) |
 | 4 | Bot-KI je Modus, `npm run tune` je Modus | ✅ – siehe `BALANCE.md` |
-| 5 | Replays und Killcam an die Modi anpassen | ⏳ teilweise: die Replay-Datei speichert schon den Modus (`modeId`, Format-Version 2) |
+| 5 | Replays und Killcam an die Modi anpassen | ✅ – weiterhin nur im Solo-Modus (Online-Replays: Abschnitt 5.1) |
 
 **So funktioniert das Modus-System** (Schritt 1): `src/shared/match/gameModes.ts` enthält
 `GameMode` (Leben, Schaden je Angriffsart, Unverwundbarkeit nach Treffer, Konter-Fenster und
@@ -143,6 +143,14 @@ Leicht, Schwer 93 % gegen Mittel). Die Parry-Quote der Bots ist in der Arena hö
 1 % aller gegnerischen Schwünge). Tests: `tests/sim/botQuality.test.ts` („fight tactics per
 game mode“), `tests/sim/difficulty.test.ts` (je Modus).
 
+**Replays je Modus** (Schritt 5): Die Datei speichert `modeId` (Format-Version 2, ältere
+Dateien werden abgelehnt), der `ReplaySimulator` rechnet mit den Regeln dieses Modus nach.
+Die Ansicht zeigt den Modus im Titel, in der Arena die Herzen beider Spieler
+(`#replay-lives`) und die Angriffsanzeige nach der Einstellung. Dateiname
+`neonklinge-<modus>-<map>-<zeit>.json`. Killcam weiterhin nur beim tödlichen Treffer.
+Tests: `tests/sim/replay.test.ts` (Hash-Vergleich auf jeder Map in jedem Modus, falscher
+Modus wird erkannt, Datei ohne Modus wird abgelehnt), Browser-Test „Arena gegen Bot“ (Replay).
+
 **Bekannte Grenzen:** Ein Konter mit dem Dash-Angriff macht 2+1 = 3 Schaden und tötet damit
 sofort aus vollen Leben – gewollt als große Belohnung, aber nicht von Menschen erprobt. Die
 Map „Arena“ und der Modus „Arena“ heißen gleich (HUD zeigt „Arena · Arena“).
@@ -154,8 +162,10 @@ Map „Arena“ und der Modus „Arena“ heißen gleich (HUD zeigt „Arena · 
 1. ~~Replays und Killcam~~ – fertig (nur Solo). Ausbau: Replays für Online-Matches (Abschnitt 5.1)
 2. **Bot-KI weiter ausbauen** (Grundstufe F ist fertig) – Ideen in Abschnitt 5.2
 3. **Die neuen Mechaniken von einem Menschen spielen lassen** und Werte nachstellen
-   (Rezept 1 in `HOW_TO_EXTEND.md`) – niemand hat Doppelsprung, Clash, Sprungfelder und die
-   neuen Maps bisher *gespielt*, nur getestet.
+   (Rezept 1 in `HOW_TO_EXTEND.md`) – niemand hat Doppelsprung, Clash, Sprungfelder, die
+   neuen Maps, den Modus **Arena** und die **Angriffsanzeige** bisher *gespielt*, nur getestet.
+   Arena-Werte stehen in `ARENA_MODE` (`src/shared/match/gameModes.ts`); nach einer Änderung
+   `npm run tune` (Bots je Modus neu einstellen).
 4. Kleinigkeiten aus Abschnitt 4.
 
 ---

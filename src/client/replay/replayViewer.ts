@@ -7,6 +7,7 @@
  */
 import { PROTOCOL_VERSION } from '../../shared/config';
 import { getMap } from '../../shared/maps';
+import { getMode, type GameMode } from '../../shared/match/gameModes';
 import type { ReplayFile } from '../../shared/replay/replayFormat';
 import { ReplayPlayback } from '../../shared/replay/replayPlayback';
 import { hashState } from '../../shared/sim/stateDiff';
@@ -17,7 +18,7 @@ import type { InputController } from '../input/inputController';
 import type { GameView } from '../render/gameView';
 import { ReplayCamera } from './replayCamera';
 import { ReplayControls } from './replayControls';
-import { downloadReplay, replayTitle } from './replayFiles';
+import { downloadReplay, livesLine, replayTitle } from './replayFiles';
 
 /** The killcam shows this many ticks before the kill, at KILLCAM_SPEED. */
 const KILLCAM_TICKS = 150;
@@ -31,6 +32,8 @@ export interface KillcamTarget {
 export class ReplayViewer {
   private playback: ReplayPlayback | null = null;
   private file: ReplayFile | null = null;
+  /** Rules of the replayed match (lives display, wind-up cue). */
+  private mode: GameMode = getMode('duel');
   private readonly camera: ReplayCamera;
   private readonly controls: ReplayControls;
   private killcam = false;
@@ -42,6 +45,8 @@ export class ReplayViewer {
     private readonly view: GameView,
     private readonly input: InputController,
     private readonly effects: Effects,
+    /** Is the wind-up cue on for a match of this mode? (player setting, see settings.ts) */
+    private readonly windupCueFor: (mode: GameMode) => boolean,
   ) {
     this.camera = new ReplayCamera(input);
     this.controls = new ReplayControls({
@@ -92,6 +97,8 @@ export class ReplayViewer {
     const frame = playback.advance(deltaMs);
     const pose = this.camera.update(frame.players, deltaMs / 1000);
     const listener = { pos: pose.pos, yaw: pose.yaw };
+    const cue = this.windupCueFor(this.mode);
+    this.effects.windupCue = cue;
     for (const p of frame.current) {
       const before = frame.previous.find((q) => q.slot === p.slot);
       if (before) for (const moment of detectMoments(before, p)) this.effects.moment(moment, p, listener);
@@ -99,9 +106,10 @@ export class ReplayViewer {
     for (const event of frame.events) this.effects.gameEvent(event, -1, frame.players, listener);
     this.effects.frame(null, frame.players, null);
     const feet = { x: pose.pos.x, y: pose.pos.y - EYE_HEIGHT, z: pose.pos.z };
-    this.view.render({ localPos: feet, yaw: pose.yaw, pitch: pose.pitch, local: null, remotes: frame.players, dt: deltaMs / 1000, windupCue: false });
+    this.view.render({ localPos: feet, yaw: pose.yaw, pitch: pose.pitch, local: null, remotes: frame.players, dt: deltaMs / 1000, windupCue: cue });
     this.updateCheck(playback);
-    this.controls.update(playback, this.camera.label, this.check);
+    const lives = this.file ? livesLine(this.file, frame.current, this.mode.lives) : '';
+    this.controls.update(playback, this.camera.label, this.check, lives);
     if (this.killcam && playback.finished) this.close();
   }
 
@@ -113,6 +121,7 @@ export class ReplayViewer {
   private start(file: ReplayFile, playback: ReplayPlayback, killcam: boolean, onClose: () => void): void {
     this.playback = playback;
     this.file = file;
+    this.mode = getMode(file.modeId);
     this.killcam = killcam;
     this.onClose = onClose;
     this.view.setMap(getMap(file.mapId));

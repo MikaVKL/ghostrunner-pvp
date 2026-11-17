@@ -379,6 +379,15 @@ test('Arena gegen Bot: Leben im HUD, ein Treffer kostet ein Leben, Angriffsanzei
   const cues = await a.page.evaluate(() => (window as unknown as { gameEffects: { windupCues: number } }).gameEffects.windupCues);
   assert(cues > 0, 'the wind-up cue is on by default in the arena');
   assertEqual((await a.state()).desyncs, 0, 'desyncs');
+
+  // The replay knows the mode: title and lives of both fighters.
+  await a.page.keyboard.press('KeyV');
+  await a.page.waitForSelector('#replay:not(.killcam)', { state: 'visible' });
+  await a.expectText('#replay-title', '· Arena · Arena');
+  await a.expectText('#replay-lives', 'Bot Schwer ♥');
+  await a.screenshot('16-arena-replay');
+  await a.page.keyboard.press('KeyV');
+  await a.page.waitForSelector('#replay', { state: 'hidden' });
   noErrors(a);
 });
 
@@ -397,6 +406,7 @@ test('Replay und Killcam: ansehen, Pause, Spulen, Kamera, Export, Import, Hash-P
   await a.page.keyboard.press('KeyV');
   await a.page.waitForSelector('#replay:not(.killcam)', { state: 'visible' });
   await a.expectText('#replay-title', 'Bot Schwer');
+  assertEqual(await a.text('#replay-lives'), '', 'no lives display in the duel');
   type ReplayWindow = { gameReplay: { state: { playing: boolean; speed: number; tick: number; sim: { lastTick: number; firstTick: number } } | null } };
   // Copy the values explicitly: `tick` is a getter, which page.evaluate would not transfer.
   const playback = () =>
@@ -423,7 +433,7 @@ test('Replay und Killcam: ansehen, Pause, Spulen, Kamera, Export, Import, Hash-P
   const [download] = await Promise.all([a.page.waitForEvent('download'), a.page.click('#replay-export')]);
   const path = `${SCREENSHOT_DIR}/test-replay.json`;
   await download.saveAs(path);
-  assert(download.suggestedFilename().startsWith('neonklinge-arena-'), `file name ${download.suggestedFilename()}`);
+  assert(download.suggestedFilename().startsWith('neonklinge-duel-arena-'), `file name ${download.suggestedFilename()}`);
   assert(parseReplay(readFileSync(path, 'utf8')) !== null, 'the downloaded file is a replay');
 
   // Jump to the end: the viewer checks that the calculated match is identical to the recording.

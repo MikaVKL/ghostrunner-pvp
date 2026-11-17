@@ -349,6 +349,13 @@ vergleicht Hashes der ganzen Welt. Die Ansicht (`ReplayViewer`) zeichnet mit der
 (über die Schulter des Siegers). Die Killcam spielt nach einem Schwert-Kill im Solo-Modus die
 letzten 2,5 s mit 0,35-facher Geschwindigkeit; das Match steht so lange.
 
+**Modus:** Die Datei speichert `modeId` (Format-Version 2); der `ReplaySimulator` rechnet mit
+den Regeln dieses Modus nach (`SimContext.mode`). Dieselben Eingaben mit anderen Regeln
+ergeben ein anderes Match – der Hash-Vergleich merkt das. Die Ansicht zeigt den Modus im
+Titel, in Modi mit mehreren Leben die Herzen beider Spieler (`#replay-lives`) und die
+Angriffsanzeige nach der Einstellung des Spielers. Die Killcam startet nur beim tödlichen
+Treffer (`hit.hpLeft === 0`), in der Arena also nicht bei jedem Treffer.
+
 ## 7. Browser-Client
 
 ```

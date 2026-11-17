@@ -200,7 +200,7 @@ export function startGameApp(options: AppOptions): void {
     onOpenHelp: () => help.setVisible(true),
   });
 
-  const viewer = new ReplayViewer(view, input, effects);
+  const viewer = new ReplayViewer(view, input, effects, (mode) => windupCueEnabled(settings.windupCue, mode));
   const replays = setupReplays({
     viewer,
     view,

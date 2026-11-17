@@ -61,7 +61,7 @@ export class ReplayControls {
     this.root.classList.add('hidden');
   }
 
-  update(playback: ReplayPlayback, cameraLabel: string, check: string): void {
+  update(playback: ReplayPlayback, cameraLabel: string, check: string, lives: string): void {
     const { sim } = playback;
     const length = sim.lastTick - sim.firstTick;
     const done = playback.tick - sim.firstTick;
@@ -70,6 +70,7 @@ export class ReplayControls {
     element('replay-speed').textContent = `${playback.speed}×`;
     element('replay-camera').textContent = `${cameraLabel} (C)`;
     element('replay-check').textContent = check;
+    element('replay-lives').textContent = lives;
     if (!this.dragging) this.slider.value = String(length > 0 ? Math.round((done / length) * Number(this.slider.max)) : 0);
   }
 }

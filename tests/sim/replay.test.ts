@@ -4,14 +4,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { MAPS } from '../../src/shared/maps';
+import { MODE_IDS, type ModeId } from '../../src/shared/match/gameModes';
 import { packInput, parseReplay, serializeReplay, unpackInput, type ReplayFile } from '../../src/shared/replay/replayFormat';
 import { ReplaySimulator } from '../../src/shared/replay/replaySimulator';
 import { hashState } from '../../src/shared/sim/stateDiff';
 import { startSolo } from '../soloHelpers';
 
 /** Play a whole solo match (human steered by a bot brain) and return its replay. */
-function recordMatch(mapId = 'reaktor', seed = 3): { file: ReplayFile; serverHash: number } {
-  const run = startSolo({ mapId, difficulty: 'schwer', seed, human: 'fights' });
+function recordMatch(mapId = 'reaktor', seed = 3, modeId: ModeId = 'duel'): { file: ReplayFile; serverHash: number } {
+  const run = startSolo({ mapId, difficulty: 'schwer', seed, human: 'fights', modeId });
   run.runUntil('match end', () => run.phase() === 'matchEnd');
   const room = run.solo.server.lobby.getRoom(run.solo.client.room!.code)!;
   return { file: run.solo.replay()!, serverHash: hashState(room.world) };
@@ -102,9 +103,39 @@ describe('replay of a whole match', () => {
   });
 });
 
-describe('replays on every map', () => {
-  it.each(Object.keys(MAPS))('%s: a recorded match is calculated again identically', (mapId) => {
-    const { file } = recordMatch(mapId, 7);
-    expect(new ReplaySimulator(parseReplay(serializeReplay(file))!).verifyAll()).toBe(true);
+describe('replays on every map and in every mode', () => {
+  const cases = Object.keys(MAPS).flatMap((mapId) => MODE_IDS.map((modeId) => ({ mapId, modeId })));
+  it.each(cases)('$mapId, $modeId: a recorded match is calculated again identically', ({ mapId, modeId }) => {
+    const { file, serverHash } = recordMatch(mapId, 7, modeId);
+    expect(file.modeId).toBe(modeId);
+    const sim = new ReplaySimulator(parseReplay(serializeReplay(file))!);
+    expect(sim.verifyAll()).toBe(true);
+    expect(hashState(sim.world)).toBe(serverHash);
+  });
+});
+
+describe('replays know their mode', () => {
+  let arenaRecording: ReplayFile | null = null;
+  const arenaFile = () => (arenaRecording ??= recordMatch('arena', 4, 'arena').file);
+
+  it('an arena replay has non-lethal hits and its world keeps the lives', () => {
+    const sim = new ReplaySimulator(arenaFile());
+    let wounds = 0;
+    while (!sim.atEnd) {
+      for (const event of sim.step()) if (event.type === 'hit' && event.hpLeft > 0) wounds++;
+    }
+    expect(wounds).toBeGreaterThan(0);
+  });
+
+  it('the mode is part of the recording: the same inputs under other rules do not match', () => {
+    const wrongRules = { ...parseReplay(serializeReplay(arenaFile()))!, modeId: 'duel' as const };
+    expect(new ReplaySimulator(wrongRules).verifyAll()).toBe(false);
+  });
+
+  it('a file without a valid mode is rejected', () => {
+    const raw = JSON.parse(serializeReplay(arenaFile())) as Record<string, unknown>;
+    delete raw.modeId;
+    expect(parseReplay(JSON.stringify(raw))).toBeNull();
+    expect(parseReplay(JSON.stringify({ ...raw, modeId: 'chess' }))).toBeNull();
   });
 });

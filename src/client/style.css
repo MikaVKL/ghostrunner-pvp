@@ -626,6 +626,23 @@ body.stunned #vignette {
   text-shadow: 0 0 18px rgba(255, 90, 60, 0.7);
 }
 
+/* Lives of both fighters in modes with several lives (empty in the duel). */
+#replay-lives {
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: #ff8a9a;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px #000;
+}
+
+#replay.killcam #replay-lives {
+  top: calc(22% + 70px);
+}
+
 #replay-check {
   position: absolute;
   top: 60px;
