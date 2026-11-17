@@ -397,7 +397,12 @@ test('Spielgefühl: Bloom, Treffer-Funke; Bloom schaltet sich bei zu langsamer G
       continue;
     }
     await a.page.keyboard.press('KeyJ');
-    await a.page.waitForTimeout(500);
+    // Keep the bot in view during the wind-up, like a human with the mouse (it circles us).
+    for (let i = 0; i < 8; i++) {
+      const now = await a.state();
+      if (now.me && now.enemy) await a.look(yawToward(now.me.pos, now.enemy.pos));
+      await a.page.waitForTimeout(50);
+    }
   }
   assert(await a.page.evaluate('window.gameEffects.contacts > 0'), 'contact spark shown when our swing reached the bot');
   noErrors(a);

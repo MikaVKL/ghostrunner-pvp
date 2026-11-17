@@ -105,8 +105,10 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
    (wie `Room.join/leave`), muss er `markAllDisturbed()` aufrufen – **und** die Änderung als
    `ReplayAction` aufzeichnen (wie die Rematch-Stimme) oder die Aufnahme beenden, sonst
    rechnen Replays falsch nach (`tests/sim/replay.test.ts` merkt das).
-7. **Buttons sind flankengesteuert**: Aktionen starten mit `wasPressed(input, p.prevButtons, Button.X)`,
-   nicht mit `isDown`, sonst lösen sie jeden Tick aus.
+7. **Buttons sind flankengesteuert**: Ein neuer Druck (`wasPressed`) füllt den Tasten-Puffer
+   (`sim/inputBuffer.ts`, `p.bufferAttack` usw., 0,15 s); Schlag, Parry, Dash und Sprung starten
+   aus dem Puffer und leeren ihn dabei. Nie `isDown` für Aktionen benutzen, sonst lösen sie
+   jeden Tick aus. Halte-Tasten (Gehen, Ducken) dürfen `isDown` benutzen.
 
 ## Konventionen
 
@@ -151,6 +153,17 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 - **Verbindungsabbruch ≠ Verlassen:** `Room.disconnect` reserviert den Sitz und pausiert das
   Match (Phase `paused`), `Room.leave` gibt ihn sofort frei. Bots/Tests, die „fertig“ sind,
   müssen `leaveRoom()` senden und der Nachricht Zeit geben, bevor sie die Verbindung schließen.
+- **Körperhöhe ist variabel:** Beim Ducken/Slide ist der Spieler `CROUCH_HEIGHT` hoch
+  (`p.crouching`). Kollision immer mit `heightOf(p)` (`physics/playerCollision.ts`) aufrufen,
+  nie mit der festen `PLAYER_HEIGHT`.
+- **Zielhilfe ist ein Eingabe-Flag** (`Button.AimAssist`, keine Taste): Der Client setzt es
+  nach Einstellung in jede Eingabe, der Server weitet damit den Trefferkegel
+  (`isInMeleeRange(..., aimAssist)`). Bots setzen es immer (`bots/bot.ts`). Der Sofort-Funke
+  des Clients (`contactWatcher.ts`) muss dieselbe Prüfung benutzen.
+- **Dash geht durch den Gegner, Dash-Angriff nicht** (`passesThrough` in
+  `physics/playerCollision.ts`) – sonst überfliegt der Dash-Angriff sein Ziel und verfehlt.
+- **Vorwärtsdrang:** Jeder Schlag schiebt nach vorn (`lungeSpeed`/`lungeTicks` im
+  Angriffsprofil). Tests, die genaue Abstände brauchen, müssen das einrechnen.
 - **Spielmodi:** Regeln stehen in `GameMode` (`match/gameModes.ts`), nicht in Waffen oder
   Configs. `hp` zählt **Leben** (Duell: 1). Der Modus „Duell“ ist das Original und bleibt
   unverändert. `stepPlayer` und `resolveCombat` bekommen den Modus übergeben – wer eine neue

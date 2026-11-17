@@ -13,10 +13,10 @@ Regeln: 1 Leben, erster mit 3 Rundensiegen gewinnt.
 
 | Paarung | gesamt | Neonschlucht | Dächer | Reaktor | Arena | Parry-Quote | Matches |
 |---|---|---|---|---|---|---|---|
-| Leicht gegen Leicht (Kontrolle, soll ~50 % sein) | **44 %** | 48 % | 43 % | 57 % | 30 % | 0 % | 160 |
-| Mittel gegen Leicht (Ziel 70 %) | **66 %** | 68 % | 68 % | 70 % | 60 % | 0 % | 160 |
-| Schwer gegen Mittel (Ziel 90 %) | **95 %** | 98 % | 95 % | 90 % | 98 % | 1 % | 160 |
-| Schwer gegen Leicht | **98 %** | 98 % | 100 % | 98 % | 98 % | 2 % | 160 |
+| Leicht gegen Leicht (Kontrolle, soll ~50 % sein) | **52 %** | 45 % | 63 % | 57 % | 43 % | 0 % | 160 |
+| Mittel gegen Leicht (Ziel 70 %) | **63 %** | 63 % | 57 % | 73 % | 60 % | 0 % | 160 |
+| Schwer gegen Mittel (Ziel 90 %) | **91 %** | 93 % | 93 % | 95 % | 85 % | 0 % | 160 |
+| Schwer gegen Leicht | **92 %** | 95 % | 93 % | 90 % | 90 % | 1 % | 160 |
 
 ## Modus Arena
 
@@ -24,10 +24,10 @@ Regeln: 3 Leben, erster mit 2 Rundensiegen gewinnt.
 
 | Paarung | gesamt | Neonschlucht | Dächer | Reaktor | Arena | Parry-Quote | Matches |
 |---|---|---|---|---|---|---|---|
-| Leicht gegen Leicht (Kontrolle, soll ~50 % sein) | **53 %** | 50 % | 50 % | 56 % | 55 % | 0 % | 160 |
-| Mittel gegen Leicht (Ziel 70 %) | **70 %** | 73 % | 73 % | 76 % | 57 % | 0 % | 160 |
-| Schwer gegen Mittel (Ziel 90 %) | **93 %** | 95 % | 85 % | 100 % | 93 % | 7 % | 160 |
-| Schwer gegen Leicht | **97 %** | 98 % | 98 % | 100 % | 93 % | 8 % | 160 |
+| Leicht gegen Leicht (Kontrolle, soll ~50 % sein) | **48 %** | 53 % | 40 % | 44 % | 57 % | 0 % | 160 |
+| Mittel gegen Leicht (Ziel 70 %) | **57 %** | 68 % | 63 % | 43 % | 55 % | 0 % | 160 |
+| Schwer gegen Mittel (Ziel 90 %) | **91 %** | 100 % | 83 % | 98 % | 83 % | 5 % | 160 |
+| Schwer gegen Leicht | **96 %** | 95 % | 93 % | 100 % | 98 % | 6 % | 160 |
 
 - **Gewinnquote:** Siege der zuerst genannten Stufe; ein Unentschieden zählt als halber Sieg.
 - **Parry-Quote:** erfolgreiche Parrys der zuerst genannten Stufe, geteilt durch alle
@@ -41,8 +41,8 @@ Regeln: 3 Leben, erster mit 2 Rundensiegen gewinnt.
 | Stufe | Duell | Arena |
 |---|---|---|
 | leicht | 0.05 | 0.05 |
-| mittel | 0.09 | 0.11 |
-| schwer | 0.55 | 0.5 |
+| mittel | 0.08 | 0.09 |
+| schwer | 0.25 | 0.45 |
 
 Können: 0 = schwächster, 1 = stärkster Bot. Daraus werden alle Bot-Parameter berechnet
 (`personalityForSkill`): Drehtempo, Reaktionszeit, Angriffs-, Dash-Angriffs- und

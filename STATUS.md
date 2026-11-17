@@ -38,6 +38,114 @@ Ausweichen werden der Kern. Alles im geteilten Kern, Desync-Tests bleiben grün.
 | # | Schritt | Stand |
 |---|---|---|
 | 1 | Gefühl (nur Client) | ✅ – siehe unten; Schwertspur und Sounds von keinem Menschen gesehen/gehört |
+| 2 | Bewegung | ✅ – siehe unten; **wartet auf Playtest** (Checkpoint 1) |
+| 3–7 | Dash-Ladungen, Haltung, Shuriken, Maps, Bot-Stile | ⏸ nicht begonnen – erst nach deinem Feedback |
+
+### ⏸ PLAYTEST-CHECKPOINT 1 – bitte testen und Rückmeldung geben
+
+Ich habe hier angehalten. Starte `npm run dev` → <http://localhost:5173> → „Solo gegen Bot“
+(oder die GitHub-Pages-Seite, sobald der Workflow durch ist). Bitte probiere, am besten
+erst gegen „Leicht“, dann „Mittel“, auf **Neonschlucht** und **Dächer**:
+
+1. **Grundtempo:** Sprinten ist jetzt Standard (8,5 m/s statt 7). Zu schnell, zu langsam,
+   gerade richtig? Fühlt sich **C halten = Gehen** (4 m/s) für Abstand/Kreisen sinnvoll an?
+2. **Schwung:** Nach einem Dash (endet mit 12 m/s), Wandsprung oder Sprungfeld W gedrückt
+   halten – das Übertempo baut sich am Boden über ~0,5–1 s ab. Fühlt sich das flüssig an,
+   oder „rutschig“?
+3. **Slide (Strg beim Sprinten):** ~0,7 s, mind. 12,5 m/s, Sprung aus dem Slide behält den
+   Schwung. Zu lang/kurz? **Ducken** (Strg im Stand/Gehen) – merkst du den Unterschied?
+   ⚠ **Strg+W schließt im Browser den Tab** und lässt sich von einer Webseite nicht
+   abfangen. Während eines Matches fragt der Browser deshalb vor dem Verlassen nach. Wenn
+   dich das stört: unter „Tastenbelegung“ Slide auf eine andere Taste legen (z. B. Shift
+   links und Dash auf eine Maustaste). (Vollbild allein hilft nicht; dafür bräuchte es die
+   Keyboard-Lock-API des Browsers – nicht eingebaut, ginge aber, wenn du es willst.)
+4. **Tasten-Puffer:** Sprung kurz vor der Landung, Schlag kurz vor Ende der Abklingzeit –
+   wird beides ausgeführt? Löst es je etwas aus, das du *nicht* wolltest?
+5. **Erholung abbrechen:** Nach einem normalen Schlag sofort Dash oder Sprung – kommst du
+   flüssig weiter? (Der Dash-Angriff ist absichtlich nicht abbrechbar.)
+6. **Dash durch den Gegner:** Normaler Dash geht durch ihn hindurch (hinter ihn kommen,
+   Parry geht nur nach vorn). Der Dash-*Angriff* prallt dagegen am Körper ab und trifft.
+7. **Vorwärtsdrang:** Ein Schlag aus dem Stand schiebt ~0,7 m nach vorn. Hilft das, oder
+   rutschst du an seitlich stehenden Gegnern vorbei?
+8. **Luftschlag:** Schlag in der Luft = kurzes Schweben, trifft weiter nach oben/unten.
+9. **Zielhilfe** (Menü, standardmäßig an): Trefferkegel 12° je Seite breiter. Merkst du
+   sie? Zu stark/schwach? Fühlt es sich mit ausgeschalteter Zielhilfe fair an?
+10. **Gefühl aus Schritt 1:** Bloom, Speedlines, Schwertspur, Hitstop, Sofort-Funke, betontes
+    Ausholen (Klinge glüht, „Shing“-Ton). Was ist zu viel/zu wenig? Alles einzeln im Menü
+    unter „Grafik & Spielgefühl“ abschaltbar. Ruckelt es auf deinem Rechner? (Bloom schaltet
+    sich unter 30 Bildern/s selbst ab.)
+11. **Tastenbelegung** (Menü): Umbelegen, Neuladen – bleibt es gespeichert?
+12. **Das Kernproblem:** Laufen Bots und du immer noch nur stumpf aufeinander zu? (Erwartet:
+    ja, noch weitgehend – das sollen Schritte 3, 4 und 7 lösen. Aber sag, ob die Bewegung
+    schon mehr Möglichkeiten gibt.)
+
+Am hilfreichsten: konkrete Zahlen („Slide eher 1 s“) oder Momente („nach dem Wandsprung bin
+ich immer über die Kante gerutscht“). Alle Werte stehen in `src/shared/movement/movementConfig.ts`
+(Bewegung), `src/shared/combat/weapons.ts` (Vorwärtsdrang, Luftschlag) und
+`src/shared/combat/combatConfig.ts` (Zielhilfe, Parry-Rückstoß).
+
+**Schritt 2 – so funktioniert es** (alles im geteilten Kern `src/shared`, also auf Server,
+Client-Vorhersage, Bots und Replays gleich; `PROTOCOL_VERSION` 8, alte Replays ungültig):
+
+- **Immer sprinten / Gehen:** `MOVE.runSpeed` ist jetzt das Sprinttempo (8,5), `MOVE.walkSpeed`
+  (4) gilt, solange `Button.Walk` gehalten wird. Bots gehen im Nahkampf-Footwork (sonst
+  rutschten sie während ihres eigenen Ausholens am Gegner vorbei), sprinten sonst.
+- **Schwung erhalten** (`keptMomentum` in `movement/locomotion.ts`): Am Boden baut sich Tempo
+  über dem Laufziel nur mit `MOVE.overspeedDecay` (9 m/s²) ab, solange man grob (≤ 45°) in
+  Bewegungsrichtung drückt. Loslassen oder Umdrehen bremst wie bisher. `dashExitSpeed` 8 → 12.
+- **Slide/Ducken** (`movement/slide.ts`, `Button.Crouch`, Felder `crouching`, `slideTicks`,
+  `slideCooldown`): Kollision benutzt die aktuelle Körperhöhe (`heightOf`, 1,1 m geduckt);
+  unter niedriger Decke bleibt man geduckt. Slide-Spam bringt keinen Dauer-Schub
+  (`slideCooldownTicks`). Kamera geht runter, Gegnerfigur wird gestaucht, Slide-Ton/-Funken.
+- **Tasten-Puffer** (`sim/inputBuffer.ts`, `INPUT_BUFFER_TICKS` = 0,15 s in `shared/config.ts`).
+- **Erholung abbrechen** (`canCancelRecovery` in `combat/actions.ts`): Dash oder Sprung in
+  der Erholungsphase eines normalen oder Luftschlags → sofort `idle` (Abklingzeit bleibt).
+- **Dash durch den Gegner** (`passesThrough` in `physics/playerCollision.ts`).
+- **Vorwärtsdrang** (`movement/lunge.ts`, `lungeSpeed`/`lungeTicks` im Angriffsprofil):
+  setzt die Geschwindigkeit in Blickrichtung auf mindestens 5,5 m/s für 8 Ticks – bremst nie.
+- **Luftschlag:** neue Angriffsart `air` (`weapons.ts`): Kegel 100°, Höhenreichweite 2,6 m
+  (statt 1,8), Ausholen 0,15 s, kleiner Hüpfer `COMBAT.airAttackHop`. Schaden je Modus
+  (`GameMode.damage.air`, Duell 1).
+- **Zielhilfe:** `Button.AimAssist` in jeder Eingabe (Einstellung „Zielhilfe für Schläge“),
+  `COMBAT.aimAssistDegrees` = 12° mehr Kegel je Seite, entschieden in `findContacts`
+  (Server, mit Lag-Kompensation). Keine Zielsuche, keine Kamerabewegung.
+- **Parry-Rückstoß** jetzt spürbar (5 m/s + Hüpfer `COMBAT.parryLift`).
+- **Tastenbelegung** (`client/input/bindings.ts` Standard, `keymap.ts` Laden/Umlegen,
+  `ui/keymapUi.ts` Menü): 2 Felder je Aktion, eine Taste macht genau eine Sache, Esc/R/M/H/V
+  sind gesperrt. Rechte Maustaste pariert noch, bis Schritt 5 (Shuriken) sie übernimmt.
+- Tests: `tests/unit/flowMovement.test.ts` (18 Tests), `tests/unit/keymap.test.ts`, angepasst
+  `playerCollision`, `lagCompensation`, `combat`, Browser-Test „Tastenbelegung“ (15 Browser-Tests).
+- Bot-Tests unter Lag: `npm run bots:sim -- --lag 150 --jitter 50` und `--lag 250 --jitter 80`
+  ohne Desync nach jedem Teilschritt.
+
+**Ehrliche Befunde aus Schritt 2:**
+
+- **Bots parieren beim neuen Tempo praktisch nicht mehr** (20 Bot-Matches: 0 Parrys; vorher
+  ~10). Sie kommen schneller in Reichweite, als ihre Reaktionszeit erlaubt. Damit die
+  Desync-Prüfung Parrys weiter abdeckt, spielt im Abdeckungstest (`tests/sim/botMatch.test.ts`)
+  ein parierfreudiger Bot mit. Wird mit Schritt 4 (Block/Parry neu) und 7 (Bot-Stile) angegangen.
+- Zwei Bot-Tests musste ich an das Tempo anpassen (mehr Matches statt niedrigerer Schwelle;
+  ein Countdown-Test prüft jetzt 1,5 statt 2 s, weil der Bot danach legitim einen Parkour-Sprung
+  erreicht). Der Korrektur-Anteil-Test erlaubt 15 % statt 10 % – gemessen waren schon vorher
+  6–13 % je nach Seed; Seed 2 lag nur zufällig darunter.
+- Der Vorwärtsdrang geht in Blickrichtung, nicht zum Gegner (das müsste der Client sonst aus
+  der Gegnerposition vorhersagen → ständige Korrekturen). Folge: An einem seitlich stehenden
+  Gegner kann man vorbeirutschen. Die Zielhilfe gleicht das nur teilweise aus.
+- Der Sofort-Funke wird jetzt in jedem 60-Hz-Tick geprüft statt einmal pro Bild – bei
+  wenigen Bildern/s (schwacher Rechner, Test-Chromium) übersprang ein Bild sonst die ganze
+  Trefferphase (0,1 s).
+- Beobachtung im Browser-Test: Ein Testskript, das während des Ausholens nicht nachzielt,
+  verfehlt den (jetzt gehend kreisenden) Bot aus 1–1,5 m regelmäßig. Für Menschen mit Maus
+  vermutlich kein Problem – aber bitte beim Playtest darauf achten, ob Treffen zu schwer ist.
+- **Balance nach Schritt 2** (`npm run tune`, `BALANCE.md`): `SKILL` Duell 0,05/0,08/0,25
+  (vorher 0,05/0,09/0,55), Arena 0,05/0,09/0,45. Duell gemessen: Mittel gegen Leicht **63 %**
+  (Ziel 70; die Suche fand 70 % mit 128 Matches, die Endmessung mit 160 liegt darunter),
+  Schwer gegen Mittel **91 %**. Arena: 57 % / 91 %. Leicht und Mittel unterscheiden sich
+  also weniger als gewünscht, und Parrys kommen in Bot-Matches praktisch nicht vor (0 %).
+  Ursache vermutlich dieselbe wie oben: Beim Sprinttempo entscheidet fast nur, wer zuerst
+  trifft. Nicht weiter nachgestellt – Schritte 3, 4 und 7 ändern genau das.
+- `client/app/gameApp.ts` ist auf ~290 Zeilen gewachsen (Richtwert 150) – Einstellungs-
+  Verdrahtung sollte in eine eigene Datei.
 
 **Schritt 1 – so funktioniert es** (alles nur Darstellung, die Simulation weiß nichts davon;
 jedes Effekt im Menü unter „Grafik & Spielgefühl“ abschaltbar, `FxSettings` in
@@ -77,14 +185,14 @@ jedes Effekt im Menü unter „Grafik & Spielgefühl“ abschaltbar, `FxSettings
 
 ## 1. So prüfst du, ob alles funktioniert
 
-**Letzter Stand (17.11., nach Schritt 1 Flow):** `npm run check` grün (428 Tests), alle 14 Browser-Tests grün (mit Moduswahl,
+**Letzter Stand (17.11., nach Schritt 2 Flow):** `npm run check` grün (452 Tests), alle 15 Browser-Tests grün (mit Moduswahl,
 Angriffsanzeige und Arena), GitHub-Pages-Workflow grün.
 
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
 | `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 418) |
-| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (14 Tests). Einmalig vorher: `npx playwright install chromium` |
+| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (15 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~3 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen je Modus) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |
@@ -256,7 +364,8 @@ Map „Arena“ und der Modus „Arena“ heißen gleich (HUD zeigt „Arena · 
 | Schwer gegen Mittel | 90 % | **95 %** (je Map 90–98 %) |
 | Schwer gegen Leicht | – | 98 % |
 
-Können-Werte (`SKILL`): leicht 0,05 · mittel 0,09 · schwer 0,55.
+Können-Werte (`SKILL`): leicht 0,05 · mittel 0,09 · schwer 0,55. **Veraltet** – aktueller Stand
+nach Schritt 2 der Flow-Aufgabe in Abschnitt 0 und in `BALANCE.md`.
 
 - **Reaktor-Befund (17.11., behoben):** Auf Reaktor machte die Stufe kaum einen Unterschied
   (Schwer nur ~55 % gegen Mittel). Ursache war die Map-Geometrie, nicht die KI: Zwischen
@@ -311,14 +420,12 @@ Können-Werte (`SKILL`): leicht 0,05 · mittel 0,09 · schwer 0,55.
 - Die freie Replay-Kamera braucht die eingefangene Maus (ins Bild klicken); mit der Maus
   über der Bedienleiste wird nicht geschaut.
 
-- Der Rückstoß beim Parry ist schwach (~0,1 m), weil die Bodenreibung ihn sofort auffrisst.
-  Beim Clash ist das gelöst (kleiner Hüpfer, `COMBAT.clashLift`); beim Parry könnte man
-  dasselbe tun (`applyParry` in `resolveCombat.ts`).
+- ~~Parry-Rückstoß schwach~~ – behoben (Schritt 2): kleiner Hüpfer `COMBAT.parryLift`, Rückstoß 5 m/s.
 - Dateien über dem Richtwert von 150 Zeilen: `netcode/gameClient.ts`, `bots/brain.ts`,
   `bots/nav.ts`, `server/game/room.ts`, `client/app/gameApp.ts`, `client/app/effects.ts`.
 - Ein echter Tunnel, Hosting und `docker build` wurden nie getestet (`INTERNET.md` sagt das).
 - Mehrspieler-Clients mit altem Stand vertragen sich nicht mit einem neuen Server
-  (`PROTOCOL_VERSION` ist jetzt 6; es gibt keine Versionsprüfung beim Verbinden).
+  (`PROTOCOL_VERSION` ist jetzt 8; es gibt keine Versionsprüfung beim Verbinden).
 
 ---
 
@@ -374,7 +481,6 @@ Mögliche nächste Ideen, je einzeln mit Test in `tests/sim/botQuality.test.ts` 
 
 - Browser-Test für ein Sprungfeld: Solo auf „Neonschlucht“, Blick mit `a.look(...)` auf das
   Feld bei (−7, 4.5) richten, `W` halten, warten bis `me.pos.x > 5`.
-- Parry-Rückstoß spürbar machen (siehe Abschnitt 4, „Technik“).
 - `brain.ts` und `gameClient.ts` in kleinere Dateien teilen.
 
 ---

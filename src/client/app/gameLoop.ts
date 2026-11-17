@@ -67,6 +67,16 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
     client.tick(input.sample());
     const after = client.localPlayer;
     if (before && after) for (const moment of detectMoments(before, after)) effects.moment(moment, after, null);
+    // Our swing reached the enemy as shown: spark + tick at once (the server decides the rest).
+    // Checked every tick, not every frame: at a low frame rate a frame could skip the whole hit phase.
+    if (after && client.room) {
+      const shown = (client.snapshot?.players ?? [])
+        .filter((p) => p.slot !== client.room!.slot)
+        .map((p) => client.sampleRemote(p.slot))
+        .filter((p): p is PlayerState => p !== null);
+      const touched = contacts.check(after, shown, input.aimAssist);
+      if (touched) effects.contact(touched);
+    }
     afterTick();
   };
 
@@ -124,9 +134,6 @@ export function startGameLoop(parts: LoopParts): () => FrameInfo | null {
       }
       effects.frame(me, remotes, client.snapshot?.match ?? null);
       lastFrame = { listener, players: [me, ...remotes] };
-      // Our swing reached the enemy as shown: spark + tick at once (the server decides the rest).
-      const touched = contacts.check(me, remotes, input.aimAssist);
-      if (touched) effects.contact(touched);
 
       const animMs = effects.hitstop.advance(deltaMs);
       view.render({

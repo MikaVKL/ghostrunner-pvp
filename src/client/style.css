@@ -210,6 +210,17 @@ button:disabled:hover {
   gap: 8px;
 }
 
+.settings details > label {
+  display: flex;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.keymap-row span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .settings details[open] summary {
   margin-bottom: 8px;
 }
@@ -754,4 +765,9 @@ body.stunned #vignette {
 
 #replay.killcam #replay-skip {
   display: block;
+}
+
+.settings input[type='checkbox'] {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
