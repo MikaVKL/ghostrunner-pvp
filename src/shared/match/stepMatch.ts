@@ -73,7 +73,7 @@ function stepMatchEnd(world: WorldState, ctx: SimContext): void {
 /** In practice mode a fall just puts the player back on the spawn. */
 function stepWaiting(world: WorldState, ctx: SimContext): void {
   for (const p of world.players) {
-    if (p.pos.y < ctx.map.killY) resetPlayer(p, ctx.map.spawns[p.slot]);
+    if (p.pos.y < ctx.map.killY) resetPlayer(p, ctx.map.spawns[p.slot], ctx.mode.lives);
   }
 }
 

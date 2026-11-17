@@ -7,7 +7,7 @@ import { resetPlayer } from '../sim/playerState';
 import type { SimContext, WorldState } from '../sim/world';
 
 function respawnAll(world: WorldState, ctx: SimContext): void {
-  for (const player of world.players) resetPlayer(player, ctx.map.spawns[player.slot]);
+  for (const player of world.players) resetPlayer(player, ctx.map.spawns[player.slot], ctx.mode.lives);
   // Everyone teleported: old positions and undecided hits are meaningless now.
   world.history = [];
   world.pendingHits = [];

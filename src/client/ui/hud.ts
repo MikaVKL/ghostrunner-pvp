@@ -6,7 +6,7 @@
 import { getWeapon } from '../../shared/combat/weapons';
 import { COMBAT } from '../../shared/combat/combatConfig';
 import { getMap } from '../../shared/maps';
-import { MOVE } from '../../shared/movement/movementConfig';
+import { getMode, type GameMode } from '../../shared/match/gameModes';
 import type { PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
 import { teamColor } from '../render/palette';
@@ -94,7 +94,8 @@ export class Hud {
     this.root.style.setProperty('--enemy', css(enemySlot));
 
     this.roomCode.textContent = room.code;
-    this.mapName.textContent = getMap(room.mapId).name;
+    const mode = getMode(room.modeId);
+    this.mapName.textContent = `${getMap(room.mapId).name} · ${mode.name}`;
     this.ping.textContent = `${client.stats.rttMs.toFixed(0)} ms`;
     this.hint.classList.toggle('hidden', pointerLocked);
 
@@ -113,13 +114,13 @@ export class Hud {
     this.subMessage.textContent = center.sub;
     this.message.classList.toggle('countdown', match.phase === 'countdown');
 
-    this.updateAbilities(me);
+    this.updateAbilities(me, mode);
     document.body.classList.toggle('dead', !me.alive);
     document.body.classList.toggle('stunned', me.alive && me.action === 'stunned');
   }
 
   /** Cooldown bars: full = ready. */
-  private updateAbilities(me: PlayerState): void {
+  private updateAbilities(me: PlayerState, mode: GameMode): void {
     const weapon = getWeapon(me.weaponId);
     const busy = me.action !== 'idle';
     const set = (bar: HTMLElement, ready: number) => {
@@ -128,7 +129,7 @@ export class Hud {
     };
     set(this.attackBar, busy ? 0 : 1 - me.attackCooldown / weapon.cooldownTicks);
     set(this.parryBar, busy ? 0 : 1 - me.parryCooldown / COMBAT.parryCooldownTicks);
-    set(this.dashBar, me.action === 'stunned' ? 0 : 1 - me.dashCooldown / MOVE.dashCooldownTicks);
+    set(this.dashBar, me.action === 'stunned' ? 0 : 1 - me.dashCooldown / mode.dashCooldownTicks);
   }
 }
 

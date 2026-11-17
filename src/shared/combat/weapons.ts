@@ -11,14 +11,15 @@
  *   startup  -> the swing is winding up, cannot hit yet (this is when the enemy can parry)
  *   active   -> the blade can hit
  *   recovery -> the swing is over, the attacker cannot act yet
+ *
+ * How much damage a hit does is NOT a weapon property but a rule of the game mode
+ * (match/gameModes.ts), so the same sword kills in one hit in "Duell".
  */
 import { secondsToTicks } from '../config';
 
 export type AttackKind = 'light' | 'dash';
 
 export interface AttackProfile {
-  /** HP removed by a hit. MAX_HP is 100, so 100 = one-hit kill. */
-  damage: number;
   /** Reach in meters, measured from the attacker's center to the target's surface. */
   range: number;
   /** Full width of the hit cone in front of the attacker, in degrees. */
@@ -45,7 +46,6 @@ export const WEAPONS: Record<string, WeaponDef> = {
     name: 'Katana',
     attacks: {
       light: {
-        damage: 100,
         range: 2.4,
         arcDegrees: 90,
         startupTicks: secondsToTicks(0.2),
@@ -54,7 +54,6 @@ export const WEAPONS: Record<string, WeaponDef> = {
         knockback: 6,
       },
       dash: {
-        damage: 100,
         range: 3.2,
         arcDegrees: 60,
         startupTicks: secondsToTicks(0.1),

@@ -15,7 +15,8 @@
 import { Bot } from '../bots/bot';
 import { GameClient } from '../netcode/gameClient';
 import { GameServer } from '../server/gameServer';
-import { DEFAULT_MATCH_CONFIG, type MatchConfig } from '../shared/match/matchConfig';
+import type { ModeId } from '../shared/match/gameModes';
+import type { MatchConfig } from '../shared/match/matchConfig';
 import type { ReplayFile } from '../shared/replay/replayFormat';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { createLoopback } from './loopback';
@@ -23,10 +24,12 @@ import { createLoopback } from './loopback';
 export interface SoloOptions {
   playerName: string;
   mapId: string;
+  /** Game mode (rules). Default: the duel. */
+  modeId?: ModeId;
   difficulty: Difficulty;
   /** Random seed of the bot. Same seed + same inputs = same match. */
   seed: number;
-  /** Rules (default: the normal best-of-5 rules). Tests use shorter timers. */
+  /** Timers and round rules (default: real timers, rounds from the mode). Tests use shorter timers. */
   matchConfig?: MatchConfig;
   /** Set to false to turn the human's prediction off (URL option ?predict=0). */
   predict?: boolean;
@@ -39,7 +42,7 @@ export class SoloMatch {
   readonly server: GameServer;
 
   constructor(private readonly options: SoloOptions) {
-    this.server = new GameServer({ matchConfig: options.matchConfig ?? DEFAULT_MATCH_CONFIG, recordReplays: true });
+    this.server = new GameServer({ matchConfig: options.matchConfig, recordReplays: true });
     const level = DIFFICULTIES[options.difficulty];
 
     const humanLink = createLoopback();
@@ -56,7 +59,7 @@ export class SoloMatch {
    * BEFORE calling this - with a loopback everything happens immediately.
    */
   start(): void {
-    this.client.createRoom(this.options.playerName, this.options.mapId);
+    this.client.createRoom(this.options.playerName, this.options.mapId, this.options.modeId);
     const room = this.client.room;
     if (!room) throw new Error('Solo match: the local server did not create a room');
     this.bot.client.joinRoom(room.code, this.bot.name);

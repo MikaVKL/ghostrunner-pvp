@@ -10,6 +10,7 @@
  */
 import { sanitizeInput, type InputSample } from '../shared/input';
 import { getMap, type MapDef } from '../shared/maps';
+import { getMode, type GameMode, type ModeId } from '../shared/match/gameModes';
 import { cloneVec3, type Vec3 } from '../shared/math/vec3';
 import { encodeMessage, parseServerMessage } from '../shared/protocol/codec';
 import type {
@@ -40,6 +41,8 @@ export interface RoomInfo {
   /** Our own player slot. */
   slot: number;
   mapId: string;
+  /** Game mode of the room (rules; the predictor needs them too). */
+  modeId: ModeId;
   /** Secret for taking our seat again after a connection loss (see `reconnect`). */
   token: string;
   /** Round wins needed to win the match (3 = best-of-5). */
@@ -68,6 +71,7 @@ export class GameClient {
   /** The room we are in. Stays set while the connection is lost, so we can rejoin. */
   room: RoomInfo | null = null;
   map: MapDef | null = null;
+  mode: GameMode | null = null;
   /** The newest snapshot received from the server. */
   snapshot: SnapshotMessage | null = null;
   /** False after the connection broke, until `reconnect` is called with a new one. */
@@ -125,17 +129,23 @@ export class GameClient {
 
   // ---------- lobby ----------
 
-  /** Create a private room. Without `mapId` the server uses its default map. */
-  createRoom(name: string, mapId?: string): void {
-    this.send(mapId ? { type: 'createRoom', name, mapId } : { type: 'createRoom', name });
+  /** Create a private room. Without `mapId`/`modeId` the server uses its defaults. */
+  createRoom(name: string, mapId?: string, modeId?: ModeId): void {
+    this.send({
+      type: 'createRoom',
+      name,
+      ...(mapId ? { mapId } : {}),
+      ...(modeId ? { modeId } : {}),
+    });
   }
 
   joinRoom(code: string, name: string): void {
     this.send({ type: 'joinRoom', code, name });
   }
 
-  quickMatch(name: string): void {
-    this.send({ type: 'quickMatch', name });
+  /** Join a waiting public room with the same mode (or open one). */
+  quickMatch(name: string, modeId?: ModeId): void {
+    this.send(modeId ? { type: 'quickMatch', name, modeId } : { type: 'quickMatch', name });
   }
 
   leaveRoom(): void {
@@ -182,7 +192,7 @@ export class GameClient {
 
     // Inputs are only sent once we know our starting state (first snapshot received).
     if (!this.connected) return;
-    if (!this.room || !this.map || !this.snapshot || !this.predictor.state) return;
+    if (!this.room || !this.map || !this.mode || !this.snapshot || !this.predictor.state) return;
     // viewTick tells the server which moment of the other players we are looking at (lag compensation).
     const viewTick = Math.round(this.renderClock.renderTick * 100) / 100;
     const cmd = sanitizeInput({ ...sample, seq: this.nextSeq, viewTick });
@@ -190,7 +200,7 @@ export class GameClient {
     this.nextSeq++;
     this.send({ type: 'input', cmd });
     this.stats.inputsSent++;
-    if (this.predict) this.predictor.predict(cmd, this.map, this.snapshot.match.phase);
+    if (this.predict) this.predictor.predict(cmd, this.map, this.snapshot.match.phase, this.mode);
   }
 
   // ---------- incoming messages ----------
@@ -214,11 +224,13 @@ export class GameClient {
           code: message.code,
           slot: message.slot,
           mapId: message.mapId,
+          modeId: message.modeId,
           token: message.token,
           roundsToWin: message.roundsToWin,
           players: message.players,
         };
         this.map = getMap(message.mapId);
+        this.mode = getMode(message.modeId);
         this.onRoomJoined(this.room);
         return;
       case 'roomUpdate':
@@ -261,7 +273,7 @@ export class GameClient {
   }
 
   private handleSnapshot(snapshot: SnapshotMessage): void {
-    if (!this.room || !this.map) return;
+    if (!this.room || !this.map || !this.mode) return;
     const previousPhase = this.snapshot?.match.phase ?? null;
     this.snapshot = snapshot;
     this.stats.snapshots++;
@@ -269,15 +281,15 @@ export class GameClient {
     this.renderClock.onSnapshot(snapshot.tick);
 
     const me = snapshot.players.find((p) => p.slot === this.room!.slot);
-    if (me) this.reconcile(me, snapshot, this.map);
+    if (me) this.reconcile(me, snapshot, this.map, this.mode);
     for (const event of snapshot.events) this.onGameEvent(event);
     if (snapshot.match.phase !== previousPhase) this.onPhaseChange(snapshot.match.phase, previousPhase);
   }
 
   /** Compare our prediction with the server's truth, then roll back and replay. */
-  private reconcile(me: PlayerState, snapshot: SnapshotMessage, map: MapDef): void {
+  private reconcile(me: PlayerState, snapshot: SnapshotMessage, map: MapDef, mode: GameMode): void {
     const before = this.predictor.state ? cloneVec3(this.predictor.state.pos) : null;
-    const result = this.predictor.reconcile(me, snapshot.ack, map, snapshot.match.phase);
+    const result = this.predictor.reconcile(me, snapshot.ack, map, snapshot.match.phase, mode);
     this.stats.pendingInputs = result.replayed;
 
     if (result.compared && result.difference > PREDICTION_EPSILON) {

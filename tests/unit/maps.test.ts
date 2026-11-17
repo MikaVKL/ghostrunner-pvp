@@ -14,12 +14,13 @@ import { angleDifference, clamp } from '../../src/shared/math/scalar';
 import { horizontalDistance, yawToward } from '../../src/shared/math/vec3';
 import { createPlayer, type PlayerState } from '../../src/shared/sim/playerState';
 import { stepPlayer } from '../../src/shared/sim/stepPlayer';
+import { DUEL } from '../../src/shared/match/gameModes';
 
 const maps = Object.values(MAPS);
 
 function playerAt(map: MapDef, x: number, y: number, z: number, yaw: number): PlayerState {
   const p = createPlayer(0, { pos: { x, y, z }, yaw });
-  stepPlayer(p, { seq: 1, moveX: 0, moveZ: 0, yaw, pitch: 0, buttons: 0, viewTick: 0 }, map, 'playing');
+  stepPlayer(p, { seq: 1, moveX: 0, moveZ: 0, yaw, pitch: 0, buttons: 0, viewTick: 0 }, map, 'playing', DUEL);
   return p;
 }
 
@@ -34,7 +35,7 @@ function runLink(map: MapDef, link: ParkourLink, wallJump: boolean): { p: Player
     if (out.done) break;
     yaw += clamp(angleDifference(yaw, out.yaw), -0.2, 0.2);
     const cmd: InputCmd = { seq: tick + 2, moveX: out.moveX, moveZ: out.moveZ, yaw, pitch: 0, buttons: out.jump ? Button.Jump : 0, viewTick: 0 };
-    stepPlayer(p, cmd, map, 'playing');
+    stepPlayer(p, cmd, map, 'playing', DUEL);
     wallRan ||= p.wallRunning;
   }
   return { p, wallRan };
@@ -149,7 +150,7 @@ describe.each(maps)('map "$id"', (map) => {
       let arrived = false;
       for (let tick = 0; tick < 60 * 40 && !arrived; tick++) {
         const sample = brain.think(me, enemy, map);
-        stepPlayer(me, { ...sample, seq: tick + 2, viewTick: 0 }, map, 'playing');
+        stepPlayer(me, { ...sample, seq: tick + 2, viewTick: 0 }, map, 'playing', DUEL);
         expect(me.pos.y, `fell at tick ${tick}`).toBeGreaterThan(map.killY);
         arrived = horizontalDistance(me.pos, enemy.pos) < 2.5;
       }

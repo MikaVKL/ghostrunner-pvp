@@ -117,6 +117,7 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 - Tuning-Werte nie im Code verstreuen, sondern in den Config-Dateien:
   `movement/movementConfig.ts`, `combat/weapons.ts` (Angriffsprofile `light`/`dash`),
   `combat/combatConfig.ts` (Parry, Stun, Lag-Kompensation), `match/matchConfig.ts`,
+  `match/gameModes.ts` (Spielregeln je Modus: Leben, Schaden, Cooldowns, Rundenzahl),
   `shared/config.ts`, `client/input/bindings.ts`.
 - Texte, die der Spieler sieht, sind **Deutsch** (auch `name`/`description` von Maps und Waffen).
 - Koordinaten: +X rechts, +Y oben, **−Z ist vorwärts bei Yaw 0** (wie Three.js). `pos` eines
@@ -150,6 +151,11 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
 - **Verbindungsabbruch ≠ Verlassen:** `Room.disconnect` reserviert den Sitz und pausiert das
   Match (Phase `paused`), `Room.leave` gibt ihn sofort frei. Bots/Tests, die „fertig“ sind,
   müssen `leaveRoom()` senden und der Nachricht Zeit geben, bevor sie die Verbindung schließen.
+- **Spielmodi:** Regeln stehen in `GameMode` (`match/gameModes.ts`), nicht in Waffen oder
+  Configs. `hp` zählt **Leben** (Duell: 1). Der Modus „Duell“ ist das Original und bleibt
+  unverändert. `stepPlayer` und `resolveCombat` bekommen den Modus übergeben – wer eine neue
+  vorhersagbare Regel einbaut, muss sie über `mode` lesen, sonst rechnet der Client mit
+  anderen Zahlen (Desync). Rezept 15 in `HOW_TO_EXTEND.md`.
 - **Neue Map:** braucht `description` und `links` (darf leer sein); `pads` (Sprungfelder) und
   `theme` (Himmelsfarben) sind freiwillig. `tests/unit/maps.test.ts` prüft jede registrierte
   Map automatisch (Spawns, Fußweg, jeden Parkour-Link – auch Sprungfelder und Aufstiege).

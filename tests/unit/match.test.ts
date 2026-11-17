@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { enterWaiting, startMatch, voteRematch } from '../../src/shared/match/lifecycle';
 import { DEFAULT_MATCH_CONFIG } from '../../src/shared/match/matchConfig';
 import type { GameEvent } from '../../src/shared/sim/events';
-import { MAX_HP } from '../../src/shared/sim/playerState';
+import { DUEL } from '../../src/shared/match/gameModes';
 import { stepWorld } from '../../src/shared/sim/stepWorld';
 import { addPlayer, createWorld, type SimContext, type WorldState } from '../../src/shared/sim/world';
 import { playingWorld, runWorld, TEST_CTX, TEST_MAP } from '../helpers';
@@ -23,7 +23,7 @@ function runUntilPhaseChange(world: WorldState, limit = 5000): GameEvent[] {
 describe('match flow', () => {
   it('a single player waits in practice mode and respawns after falling', () => {
     const world = createWorld(TEST_MAP.id);
-    const p = addPlayer(world, 0, TEST_MAP);
+    const p = addPlayer(world, 0, TEST_CTX);
     expect(world.match.phase).toBe('waiting');
     p.pos.y = TEST_MAP.killY - 1;
     stepWorld(world, {}, TEST_CTX);
@@ -33,8 +33,8 @@ describe('match flow', () => {
 
   it('starts with a countdown in which players are frozen at their spawns', () => {
     const world = createWorld(TEST_MAP.id);
-    addPlayer(world, 0, TEST_MAP);
-    addPlayer(world, 1, TEST_MAP);
+    addPlayer(world, 0, TEST_CTX);
+    addPlayer(world, 1, TEST_CTX);
     startMatch(world, TEST_CTX);
     expect(world.match.phase).toBe('countdown');
     const events = runWorld(world, {}, cfg.countdownTicks).flatMap((r) => r.events);
@@ -73,7 +73,7 @@ describe('match flow', () => {
 
   it('when the round time runs out, the player with more HP wins', () => {
     const world = playingWorld();
-    world.players[1].hp = 50;
+    world.players[0].hp = 2; // more lives than player 1
     runUntilPhaseChange(world);
     expect(world.match.phase).toBe('roundEnd');
     expect(world.match.roundWinner).toBe(0);
@@ -87,7 +87,7 @@ describe('match flow', () => {
     expect(world.match.phase).toBe('countdown');
     expect(world.match.round).toBe(2);
     expect(world.players[1].alive).toBe(true);
-    expect(world.players[1].hp).toBe(MAX_HP);
+    expect(world.players[1].hp).toBe(DUEL.lives);
   });
 
   it('the match ends when a player reaches roundsToWin, then restarts', () => {
@@ -135,6 +135,7 @@ describe('best-of-5 and rematch', () => {
   /** Fast timers, but the real rules: first to 3 wins, rematch only by vote. */
   const BO5_CTX: SimContext = {
     map: TEST_MAP,
+    mode: DUEL,
     matchConfig: { ...cfg, roundsToWin: DEFAULT_MATCH_CONFIG.roundsToWin, maxRounds: DEFAULT_MATCH_CONFIG.maxRounds, matchEndTicks: 0 },
   };
 

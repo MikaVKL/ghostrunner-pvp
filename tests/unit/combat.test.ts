@@ -4,11 +4,11 @@ import { COMBAT } from '../../src/shared/combat/combatConfig';
 import { isInMeleeRange } from '../../src/shared/combat/hitDetection';
 import { attackTotalTicks, WEAPONS } from '../../src/shared/combat/weapons';
 import { MOVE } from '../../src/shared/movement/movementConfig';
-import { MAX_HP } from '../../src/shared/sim/playerState';
 import type { GameEvent } from '../../src/shared/sim/events';
 import { stepWorld } from '../../src/shared/sim/stepWorld';
 import type { WorldState } from '../../src/shared/sim/world';
 import { Button, hold, playingWorld, runWorld, standingPlayer, TEST_CTX } from '../helpers';
+import { DUEL } from '../../src/shared/match/gameModes';
 
 const sword = WEAPONS.sword;
 const light = sword.attacks.light;
@@ -39,10 +39,9 @@ function swing(world: WorldState, defenderButtons = 0, defenderDelay = 0): GameE
 const GOOD_PARRY_DELAY = light.startupTicks - 4;
 
 describe('weapon data', () => {
-  it('every attack of every weapon is a one-hit kill (Ghostrunner rule)', () => {
-    for (const weapon of Object.values(WEAPONS)) {
-      for (const attack of Object.values(weapon.attacks)) expect(attack.damage).toBeGreaterThanOrEqual(MAX_HP);
-    }
+  it('in the duel every attack is a one-hit kill (Ghostrunner rule)', () => {
+    expect(Object.keys(DUEL.damage).sort()).toEqual(Object.keys(WEAPONS.sword.attacks).sort());
+    for (const damage of Object.values(DUEL.damage)) expect(damage).toBeGreaterThanOrEqual(DUEL.lives);
   });
 
   it('the dash attack reaches further but recovers slower than the normal swing', () => {
@@ -158,7 +157,7 @@ describe('parry', () => {
     const events = swing(world, Button.Parry, GOOD_PARRY_DELAY);
     expect(events.some((e) => e.type === 'parry')).toBe(true);
     expect(events.some((e) => e.type === 'hit')).toBe(false);
-    expect(world.players[1].hp).toBe(MAX_HP);
+    expect(world.players[1].hp).toBe(DUEL.lives);
     expect(world.players[1].alive).toBe(true);
     expect(world.players[0].action).toBe('stunned');
     expect(world.players[0].pos.x).toBeLessThan(-1); // pushed away from the defender

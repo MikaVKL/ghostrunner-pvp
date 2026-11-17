@@ -5,6 +5,7 @@
 import type { AttackKind } from '../combat/weapons';
 import type { MapDef } from '../maps/mapTypes';
 import type { Vec3 } from '../math/vec3';
+import type { GameMode } from '../match/gameModes';
 import type { MatchConfig } from '../match/matchConfig';
 import { createPlayer, type PlayerState } from './playerState';
 
@@ -50,6 +51,8 @@ export interface PendingHit {
   /** Server tick at which the swing connected. */
   tick: number;
   kind: AttackKind;
+  /** The attacker swung inside its parry counter window (bonus damage, see GameMode). */
+  counter: boolean;
 }
 
 export interface WorldState {
@@ -68,6 +71,8 @@ export interface WorldState {
 export interface SimContext {
   map: MapDef;
   matchConfig: MatchConfig;
+  /** The rules of this room (lives, damage, cooldowns ...). */
+  mode: GameMode;
 }
 
 export function createWorld(mapId: string): WorldState {
@@ -95,8 +100,8 @@ export function getPlayer(world: WorldState, slot: number): PlayerState | undefi
   return world.players.find((p) => p.slot === slot);
 }
 
-export function addPlayer(world: WorldState, slot: number, map: MapDef): PlayerState {
-  const player = createPlayer(slot, map.spawns[slot]);
+export function addPlayer(world: WorldState, slot: number, ctx: Pick<SimContext, 'map' | 'mode'>): PlayerState {
+  const player = createPlayer(slot, ctx.map.spawns[slot], undefined, ctx.mode.lives);
   world.players.push(player);
   world.players.sort((a, b) => a.slot - b.slot);
   return player;

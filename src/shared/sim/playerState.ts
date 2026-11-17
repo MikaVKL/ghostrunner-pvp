@@ -11,16 +11,16 @@
 import { DEFAULT_WEAPON_ID, type AttackKind } from '../combat/weapons';
 import { cloneVec3, type Vec3 } from '../math/vec3';
 import type { SpawnPoint } from '../maps/mapTypes';
+import { DUEL } from '../match/gameModes';
 
 /** What the player is currently doing in combat. See src/shared/combat/actions.ts. */
 export type ActionState = 'idle' | 'attack' | 'parry' | 'stunned';
-
-export const MAX_HP = 100;
 
 export interface PlayerState {
   /** Seat in the room: 0 or 1. Also selects the spawn point. */
   slot: number;
   alive: boolean;
+  /** Lives left in this round (starts at GameMode.lives, a hit removes GameMode.damage). */
   hp: number;
 
   /** Feet position (bottom center of the collision box). */
@@ -63,6 +63,10 @@ export interface PlayerState {
   attackCooldown: number;
   /** Ticks until the next parry may start. */
   parryCooldown: number;
+  /** Ticks left in which hits do nothing (after being hit, see GameMode.invulnerableTicks). */
+  invulnerableTicks: number;
+  /** Ticks left in which the next own hit does bonus damage (after a successful parry). */
+  counterTicks: number;
 
   /** Buttons held in the previous tick. Needed to detect "just pressed". */
   prevButtons: number;
@@ -72,11 +76,12 @@ export function createPlayer(
   slot: number,
   spawn: SpawnPoint,
   weaponId = DEFAULT_WEAPON_ID,
+  lives = DUEL.lives,
 ): PlayerState {
   return {
     slot,
     alive: true,
-    hp: MAX_HP,
+    hp: lives,
     pos: cloneVec3(spawn.pos),
     vel: { x: 0, y: 0, z: 0 },
     yaw: spawn.yaw,
@@ -100,6 +105,8 @@ export function createPlayer(
     attackKind: 'light',
     attackCooldown: 0,
     parryCooldown: 0,
+    invulnerableTicks: 0,
+    counterTicks: 0,
     prevButtons: 0,
   };
 }
@@ -110,6 +117,6 @@ export function clonePlayer(p: PlayerState): PlayerState {
 }
 
 /** Overwrite `target` in place with a fresh spawn state (keeps the object identity). */
-export function resetPlayer(target: PlayerState, spawn: SpawnPoint): void {
-  Object.assign(target, createPlayer(target.slot, spawn, target.weaponId));
+export function resetPlayer(target: PlayerState, spawn: SpawnPoint, lives = DUEL.lives): void {
+  Object.assign(target, createPlayer(target.slot, spawn, target.weaponId, lives));
 }

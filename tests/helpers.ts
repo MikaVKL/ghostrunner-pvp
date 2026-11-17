@@ -9,6 +9,7 @@ import { createPlayer, type PlayerState } from '../src/shared/sim/playerState';
 import { stepPlayer } from '../src/shared/sim/stepPlayer';
 import { stepWorld, type InputsBySlot, type StepResult } from '../src/shared/sim/stepWorld';
 import { addPlayer, createWorld, type SimContext, type WorldState } from '../src/shared/sim/world';
+import { DUEL } from '../src/shared/match/gameModes';
 
 export { Button };
 
@@ -33,7 +34,7 @@ export const TEST_MAP: MapDef = {
   links: [],
 };
 
-export const TEST_CTX: SimContext = { map: TEST_MAP, matchConfig: FAST_MATCH_CONFIG };
+export const TEST_CTX: SimContext = { map: TEST_MAP, matchConfig: FAST_MATCH_CONFIG, mode: DUEL };
 
 /** Build an input command. Unspecified fields are neutral. */
 export function input(partial: Partial<InputCmd> = {}, seq = 1): InputCmd {
@@ -43,21 +44,21 @@ export function input(partial: Partial<InputCmd> = {}, seq = 1): InputCmd {
 /** A player standing on the floor of the test map (already grounded). */
 export function standingPlayer(x = 0, z = 0, yaw = 0): PlayerState {
   const p = createPlayer(0, { pos: { x, y: 0, z }, yaw });
-  stepPlayer(p, input({ yaw }), TEST_MAP, 'playing'); // one tick so `grounded` is set
+  stepPlayer(p, input({ yaw }), TEST_MAP, 'playing', DUEL); // one tick so `grounded` is set
   return p;
 }
 
 /** Simulate one player for `ticks` ticks with the same input. */
 export function runPlayer(p: PlayerState, partial: Partial<InputSample>, ticks: number): void {
-  for (let i = 0; i < ticks; i++) stepPlayer(p, input({ yaw: p.yaw, ...partial }), TEST_MAP, 'playing');
+  for (let i = 0; i < ticks; i++) stepPlayer(p, input({ yaw: p.yaw, ...partial }), TEST_MAP, 'playing', DUEL);
 }
 
 /** A world with two players that is already in the 'playing' phase. */
 export function playingWorld(ctx: SimContext = TEST_CTX): WorldState {
   const world = createWorld(ctx.map.id);
   // Tests always use the sword, even if the default weapon is changed later.
-  addPlayer(world, 0, ctx.map).weaponId = 'sword';
-  addPlayer(world, 1, ctx.map).weaponId = 'sword';
+  addPlayer(world, 0, ctx).weaponId = 'sword';
+  addPlayer(world, 1, ctx).weaponId = 'sword';
   startMatch(world, ctx);
   while (world.match.phase !== 'playing') stepWorld(world, {}, ctx);
   stepWorld(world, {}, ctx); // let both players land

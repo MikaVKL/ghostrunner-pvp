@@ -1,18 +1,23 @@
 /**
- * The main menu: name, map, "Solo gegen Bot" with a difficulty, the multiplayer buttons
- * (quick match, create room, join by code), settings and the controls help.
+ * The main menu: name, game mode, map, "Solo gegen Bot" with a difficulty, the multiplayer
+ * buttons (quick match, create room, join by code), settings and the controls help.
+ * The chosen mode counts for solo, quick match and new rooms; joining by code plays the
+ * mode of that room.
  *
  * The menu does not know HOW a match is started - it only reports what the player
  * clicked (see LobbyCallbacks). app/gameApp.ts decides what happens.
  */
 import { DEFAULT_MAP_ID, isMapId, MAPS } from '../../shared/maps';
+import { DEFAULT_MODE_ID, isModeId, MODES, type ModeId } from '../../shared/match/gameModes';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES, isDifficulty, type Difficulty } from '../../solo/difficulty';
 import type { Settings } from '../app/settings';
+import { ChoiceButtons } from './choiceButtons';
 import { TEXT } from './hudTexts';
 
 const NAME_STORAGE_KEY = 'playerName';
 const MAP_STORAGE_KEY = 'mapId';
 const DIFFICULTY_STORAGE_KEY = 'difficulty';
+const MODE_STORAGE_KEY = 'modeId';
 
 function element<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -24,9 +29,9 @@ function element<T extends HTMLElement>(id: string): T {
 export type OnlineState = 'connecting' | 'online' | 'offline';
 
 export interface LobbyCallbacks {
-  onSolo: (name: string, mapId: string, difficulty: Difficulty) => void;
-  onQuickMatch: (name: string) => void;
-  onCreateRoom: (name: string, mapId: string) => void;
+  onSolo: (name: string, mapId: string, modeId: ModeId, difficulty: Difficulty) => void;
+  onQuickMatch: (name: string, modeId: ModeId) => void;
+  onCreateRoom: (name: string, mapId: string, modeId: ModeId) => void;
   onJoinRoom: (code: string, name: string) => void;
   /** The player wants to try the server connection again. */
   onRetryOnline: () => void;
@@ -43,27 +48,42 @@ export class LobbyUi {
   private readonly onlineStatus = element('online-status');
   private readonly retryButton = element<HTMLButtonElement>('retry-button');
   private selectedMap: string;
-  private selectedDifficulty: Difficulty;
+  private readonly difficulty: ChoiceButtons<Difficulty>;
+  private readonly mode: ChoiceButtons<ModeId>;
 
   constructor(settings: Settings, callbacks: LobbyCallbacks) {
     this.nameInput.value = localStorage.getItem(NAME_STORAGE_KEY) ?? '';
     const storedMap = localStorage.getItem(MAP_STORAGE_KEY);
     this.selectedMap = isMapId(storedMap) ? storedMap : DEFAULT_MAP_ID;
-    const storedDifficulty = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
-    this.selectedDifficulty = isDifficulty(storedDifficulty) ? storedDifficulty : DEFAULT_DIFFICULTY;
     this.buildMapList();
-    this.buildDifficultyList();
+    const storedDifficulty = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
+    this.difficulty = new ChoiceButtons(
+      element('difficulty-list'),
+      Object.entries(DIFFICULTIES).flatMap(([id, level]) => (isDifficulty(id) ? [{ id, label: level.label }] : [])),
+      isDifficulty(storedDifficulty) ? storedDifficulty : DEFAULT_DIFFICULTY,
+      (id) => this.remember(DIFFICULTY_STORAGE_KEY, id),
+      'difficulty',
+    );
+    const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
+    this.mode = new ChoiceButtons(
+      element('mode-list'),
+      Object.values(MODES).map((mode) => ({ id: mode.id, label: mode.name })),
+      isModeId(storedMode) ? storedMode : DEFAULT_MODE_ID,
+      (id) => this.remember(MODE_STORAGE_KEY, id),
+      'mode',
+    );
+    this.showDescriptions();
 
     element('solo-button').addEventListener('click', () => {
-      callbacks.onSolo(this.playerName(), this.selectedMap, this.selectedDifficulty);
+      callbacks.onSolo(this.playerName(), this.selectedMap, this.mode.value, this.difficulty.value);
     });
     element('quick-button').addEventListener('click', () => {
       this.setStatus('Suche einen Gegner …');
-      callbacks.onQuickMatch(this.playerName());
+      callbacks.onQuickMatch(this.playerName(), this.mode.value);
     });
     element('create-button').addEventListener('click', () => {
       this.setStatus('Erstelle Raum …');
-      callbacks.onCreateRoom(this.playerName(), this.selectedMap);
+      callbacks.onCreateRoom(this.playerName(), this.selectedMap, this.mode.value);
     });
     const join = () => {
       const code = this.codeInput.value.trim().toUpperCase();
@@ -134,33 +154,21 @@ export class LobbyUi {
     this.markSelected();
   }
 
-  /** One button per difficulty level (labels from solo/difficulty.ts). */
-  private buildDifficultyList(): void {
-    const list = element('difficulty-list');
-    for (const [id, level] of Object.entries(DIFFICULTIES)) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.dataset.difficulty = id;
-      button.textContent = level.label;
-      button.addEventListener('click', () => {
-        if (!isDifficulty(id)) return;
-        this.selectedDifficulty = id;
-        localStorage.setItem(DIFFICULTY_STORAGE_KEY, id);
-        this.markSelected();
-      });
-      list.append(button);
-    }
-    this.markSelected();
-  }
-
   private markSelected(): void {
     for (const card of element('map-list').querySelectorAll<HTMLElement>('.map-card')) {
       card.classList.toggle('selected', card.dataset.map === this.selectedMap);
     }
-    for (const button of element('difficulty-list').querySelectorAll<HTMLElement>('button')) {
-      button.classList.toggle('selected', button.dataset.difficulty === this.selectedDifficulty);
-    }
-    element('difficulty-description').textContent = DIFFICULTIES[this.selectedDifficulty].description;
+  }
+
+  /** Save a menu choice for the next visit and update the description texts. */
+  private remember(key: string, value: string): void {
+    localStorage.setItem(key, value);
+    this.showDescriptions();
+  }
+
+  private showDescriptions(): void {
+    element('difficulty-description').textContent = DIFFICULTIES[this.difficulty.value].description;
+    element('mode-description').textContent = MODES[this.mode.value].description;
   }
 
   setVisible(visible: boolean): void {

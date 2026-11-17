@@ -8,6 +8,7 @@
  * Everything on screen works with `current()`, whichever of the two is being played.
  */
 import { GameClient } from '../../netcode/gameClient';
+import { getMode, type ModeId } from '../../shared/match/gameModes';
 import { DIFFICULTIES, type Difficulty } from '../../solo/difficulty';
 import { SoloMatch } from '../../solo/soloMatch';
 import { AudioEngine } from '../audio/audioEngine';
@@ -165,17 +166,18 @@ export function startGameApp(options: AppOptions): void {
 
   // ---------- solo ----------
 
-  const startSolo = (name: string, mapId: string, difficulty: Difficulty) => {
+  const startSolo = (name: string, mapId: string, modeId: ModeId, difficulty: Difficulty) => {
     if (solo || online?.room) return; // already in a match
     solo = new SoloMatch({
       playerName: name,
       mapId,
+      modeId,
       difficulty,
       seed: Math.floor(Math.random() * 2 ** 31), // every match is different
       predict: options.predict,
     });
     bind(solo.client, 'solo');
-    hud.setSoloLabel(`Solo · ${DIFFICULTIES[difficulty].label}`);
+    hud.setSoloLabel(`Solo · ${getMode(modeId).name} · ${DIFFICULTIES[difficulty].label}`);
     solo.start();
   };
 
@@ -190,8 +192,8 @@ export function startGameApp(options: AppOptions): void {
 
   const lobby = new LobbyUi(settings, {
     onSolo: startSolo,
-    onQuickMatch: (name) => online?.quickMatch(name),
-    onCreateRoom: (name, mapId) => online?.createRoom(name, mapId),
+    onQuickMatch: (name, modeId) => online?.quickMatch(name, modeId),
+    onCreateRoom: (name, mapId, modeId) => online?.createRoom(name, mapId, modeId),
     onJoinRoom: (code, name) => online?.joinRoom(code, name),
     onRetryOnline: () => void connectOnline(),
     onSettingsChange: applySettings,

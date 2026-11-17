@@ -9,15 +9,16 @@ import { hashState, listDifferences, stateDifference } from '../../src/shared/si
 import { stepWorld } from '../../src/shared/sim/stepWorld';
 import { addPlayer, createWorld, type SimContext } from '../../src/shared/sim/world';
 import { hold, playingWorld, runWorld } from '../helpers';
+import { DUEL } from '../../src/shared/match/gameModes';
 
-const ARENA_CTX: SimContext = { map: ARENA, matchConfig: FAST_MATCH_CONFIG };
+const ARENA_CTX: SimContext = { map: ARENA, matchConfig: FAST_MATCH_CONFIG, mode: DUEL };
 
 /** Run a full world for `ticks` ticks with pseudo random inputs; returns the final hash. */
 function simulateRandomMatch(seed: number, ticks: number): number {
   const rng = createRng(seed);
   const world = createWorld(ARENA.id);
-  addPlayer(world, 0, ARENA);
-  addPlayer(world, 1, ARENA);
+  addPlayer(world, 0, ARENA_CTX);
+  addPlayer(world, 1, ARENA_CTX);
   startMatch(world, ARENA_CTX);
   const inputs: InputCmd[] = [0, 1].map(() => ({ seq: 0, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, buttons: 0, viewTick: 0 }));
   for (let tick = 0; tick < ticks; tick++) {
@@ -65,7 +66,7 @@ describe('disturbed detection', () => {
   it('reports everybody when the phase changes', () => {
     const world = playingWorld();
     world.players[0].hp = 0;
-    expect(stepWorld(world, {}, { map: ARENA, matchConfig: FAST_MATCH_CONFIG }).disturbed).toEqual([0, 1]);
+    expect(stepWorld(world, {}, ARENA_CTX).disturbed).toEqual([0, 1]);
   });
 });
 

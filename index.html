@@ -70,18 +70,21 @@
     <div id="lobby">
       <div class="card menu">
         <h1>NEON<span>KLINGE</span></h1>
-        <p class="tagline">1 gegen 1 · Ein Treffer tötet · Best-of-5</p>
+        <p class="tagline">1 gegen 1 · Schwertkampf · Parry · Wall-Run</p>
 
         <div class="menu-columns">
           <div class="column">
             <label>Dein Name <input id="name-input" maxlength="16" placeholder="Spieler" /></label>
+            <div class="section-title">Modus – für Solo und Mehrspieler</div>
+            <div id="mode-list" class="choice-list"></div>
+            <p id="mode-description" class="note"></p>
             <div class="section-title">Map</div>
             <div id="map-list"></div>
           </div>
 
           <div class="column">
             <div class="section-title">Solo – läuft ohne Server</div>
-            <div id="difficulty-list"></div>
+            <div id="difficulty-list" class="choice-list"></div>
             <p id="difficulty-description" class="note"></p>
             <button id="solo-button" class="primary">Solo gegen Bot</button>
 

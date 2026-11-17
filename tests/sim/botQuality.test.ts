@@ -21,6 +21,7 @@ import { createPlayer } from '../../src/shared/sim/playerState';
 import { stepPlayer } from '../../src/shared/sim/stepPlayer';
 import { DIFFICULTIES, type Difficulty } from '../../src/solo/difficulty';
 import { expectHealthy, playMatch } from '../soloHelpers';
+import { DUEL } from '../../src/shared/match/gameModes';
 
 const LEVELS = Object.keys(DIFFICULTIES) as Difficulty[];
 const cases = Object.keys(MAPS).flatMap((mapId) => LEVELS.map((difficulty) => ({ mapId, difficulty })));
@@ -58,12 +59,12 @@ describe('bot brain details', () => {
     const brain = new BotBrain(1, { ...DEFAULT_PERSONALITY, jumpChance: 0, dashChance: 0 });
     const me = createPlayer(1, map.spawns[1]);
     const enemy = createPlayer(0, map.spawns[0]);
-    stepPlayer(me, { seq: 1, moveX: 0, moveZ: 0, yaw: me.yaw, pitch: 0, buttons: 0, viewTick: 0 }, map, 'playing');
+    stepPlayer(me, { seq: 1, moveX: 0, moveZ: 0, yaw: me.yaw, pitch: 0, buttons: 0, viewTick: 0 }, map, 'playing', DUEL);
     for (let tick = 0; tick < 400; tick++) brain.think(me, enemy, map, false); // a long countdown
     for (let tick = 0; tick < 120; tick++) {
       const sample = brain.think(me, enemy, map, true);
       expect(sample.buttons & Button.Jump, `jumped at tick ${tick} after the countdown`).toBe(0);
-      stepPlayer(me, { ...sample, seq: tick + 2, viewTick: 0 }, map, 'playing');
+      stepPlayer(me, { ...sample, seq: tick + 2, viewTick: 0 }, map, 'playing', DUEL);
     }
     expect(me.pos.y).toBeGreaterThan(map.killY);
   });

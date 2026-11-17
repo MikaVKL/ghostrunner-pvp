@@ -181,7 +181,7 @@ describe('lag-compensated parry', () => {
 
   it('undecided hits are thrown away when the next round starts', () => {
     const world = playingWorld();
-    world.pendingHits.push({ attacker: 0, target: 1, tick: world.tick, kind: 'light' });
+    world.pendingHits.push({ attacker: 0, target: 1, tick: world.tick, kind: 'light', counter: false });
     world.players[1].pos.y = TEST_CTX.map.killY - 1; // slot 1 falls to its death
     runWorld(world, {}, 200);
     expect(world.pendingHits).toEqual([]);

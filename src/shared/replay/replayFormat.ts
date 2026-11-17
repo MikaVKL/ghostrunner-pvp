@@ -11,11 +11,12 @@
  * the replay prove that: if a hash differs, the replay does not match this game version.
  */
 import type { InputCmd } from '../input';
+import { isModeId, type ModeId } from '../match/gameModes';
 import type { MatchConfig } from '../match/matchConfig';
 import type { WorldState } from '../sim/world';
 
 export const REPLAY_FORMAT = 'neonklinge-replay';
-export const REPLAY_VERSION = 1;
+export const REPLAY_VERSION = 2;
 
 /** One input packed into an array (keeps files small): [moveX, moveZ, yaw, pitch, buttons, viewTick]. */
 export type PackedInput = [number, number, number, number, number, number];
@@ -34,6 +35,8 @@ export interface ReplayFile {
   /** PROTOCOL_VERSION of the game that recorded it (rules may differ between versions). */
   protocol: number;
   mapId: string;
+  /** Game mode (rules) of the match. */
+  modeId: ModeId;
   matchConfig: MatchConfig;
   /**
    * Random seed of the recording. The simulation itself uses no randomness; this is the
@@ -104,6 +107,7 @@ export function parseReplay(text: string): ReplayFile | null {
   }
   if (!isObject(raw) || raw.format !== REPLAY_FORMAT || raw.version !== REPLAY_VERSION) return null;
   if (typeof raw.mapId !== 'string' || !isObject(raw.matchConfig) || !isObject(raw.startWorld)) return null;
+  if (!isModeId(raw.modeId)) return null;
   if (!Array.isArray(raw.ticks) || !Array.isArray(raw.actions) || !Array.isArray(raw.checkpoints)) return null;
   if (!Array.isArray(raw.players) || typeof raw.finalHash !== 'number') return null;
   const world = raw.startWorld;

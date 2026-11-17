@@ -9,6 +9,7 @@
  */
 import type { InputCmd } from '../shared/input';
 import type { MapDef } from '../shared/maps/mapTypes';
+import type { GameMode } from '../shared/match/gameModes';
 import { distance } from '../shared/math/vec3';
 import { clonePlayer, type PlayerState } from '../shared/sim/playerState';
 import { stateDifference } from '../shared/sim/stateDiff';
@@ -52,9 +53,9 @@ export class Predictor {
   }
 
   /** Apply one input right now and remember it until the server confirms it. */
-  predict(cmd: InputCmd, map: MapDef, phase: MatchPhase): void {
+  predict(cmd: InputCmd, map: MapDef, phase: MatchPhase, mode: GameMode): void {
     if (!this.state) return;
-    stepPlayer(this.state, cmd, map, phase);
+    stepPlayer(this.state, cmd, map, phase, mode);
     this.pending.push({ cmd, predicted: clonePlayer(this.state) });
     if (this.pending.length > MAX_PENDING) this.pending.shift();
   }
@@ -64,7 +65,7 @@ export class Predictor {
    * @param server state of the local player from the snapshot
    * @param ack    sequence number of the last input included in that state
    */
-  reconcile(server: PlayerState, ack: number, map: MapDef, phase: MatchPhase): ReconcileResult {
+  reconcile(server: PlayerState, ack: number, map: MapDef, phase: MatchPhase, mode: GameMode): ReconcileResult {
     // 1) What did we predict for the input the server just confirmed?
     let predicted: PlayerState | null = null;
     while (this.pending.length > 0 && this.pending[0].cmd.seq <= ack) {
@@ -75,7 +76,7 @@ export class Predictor {
     // 2) Roll back to the server state and replay everything it has not seen yet.
     this.state = clonePlayer(server);
     for (const entry of this.pending) {
-      stepPlayer(this.state, entry.cmd, map, phase);
+      stepPlayer(this.state, entry.cmd, map, phase, mode);
       entry.predicted = clonePlayer(this.state);
     }
 

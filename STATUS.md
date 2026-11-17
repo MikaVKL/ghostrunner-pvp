@@ -18,7 +18,7 @@ und Killcam), GitHub-Pages-Workflow grün.
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
-| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 369) |
+| `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 384) |
 | `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (11 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~1 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen) |
@@ -92,11 +92,25 @@ zurückhaben will: `git revert ff8302d`.
 
 | # | Schritt | Stand |
 |---|---|---|
-| 1 | Modus-System: Spielregeln als Daten, Moduswahl im Menü (Solo + Mehrspieler), „Duell“ = bisheriges Spiel | ⏳ in Arbeit |
+| 1 | Modus-System: Spielregeln als Daten, Moduswahl im Menü (Solo + Mehrspieler), „Duell“ = bisheriges Spiel | ✅ – bisher gibt es nur „Duell“ (Arena folgt in Schritt 3) |
 | 2 | Angriffsanzeige beim Ausholen (Ring + Ton), per Einstellung schaltbar | ❌ offen |
 | 3 | Modus „Arena“: Leben, Unverwundbarkeit, Konter-Bonus, Dash-Cooldown, Leben im HUD | ❌ offen |
 | 4 | Bot-KI je Modus, `npm run tune` je Modus | ❌ offen |
-| 5 | Replays und Killcam an die Modi anpassen | ❌ offen |
+| 5 | Replays und Killcam an die Modi anpassen | ⏳ teilweise: die Replay-Datei speichert schon den Modus (`modeId`, Format-Version 2) |
+
+**So funktioniert das Modus-System** (Schritt 1): `src/shared/match/gameModes.ts` enthält
+`GameMode` (Leben, Schaden je Angriffsart, Unverwundbarkeit nach Treffer, Konter-Fenster und
+-Bonus nach Parry, Dash-Cooldown, Extra-Erholung nach Dash-Angriff, Rundenzahl, Rundenzeit,
+Standard der Angriffsanzeige) und `MODES`. Der Modus steht in `SimContext.mode` und wird an
+`stepPlayer` (Vorhersage!) und `resolveCombat` übergeben. `hp` zählt jetzt **Leben** (Duell:
+1 statt früher 100 – am Spiel ändert das nichts, alte Replay-Dateien passen aber nicht mehr).
+Schaden steht nicht mehr in der Waffe, sondern im Modus. Protokoll: `createRoom.modeId`,
+`quickMatch.modeId` (paart nur gleiche Modi), `roomJoined.modeId`; `PROTOCOL_VERSION` 7.
+Menü: Abschnitt „Modus“ links (gilt für Solo, Schnelles Spiel und Raum erstellen; wer per
+Code beitritt, spielt den Modus des Raums). HUD: Modusname neben der Map.
+Tests: `tests/unit/gameModes.test.ts` (ein Test-Modus schaltet jede Regel einzeln ein).
+**Noch nicht getestet:** dass das schnelle Spiel zwei verschiedene Modi getrennt hält – das
+geht erst, wenn es einen zweiten Modus gibt (Schritt 3).
 
 ---
 

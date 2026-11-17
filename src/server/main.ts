@@ -8,7 +8,7 @@
  *               quick match rotates; ids are in src/shared/maps/index.ts)
  */
 import { networkInterfaces } from 'node:os';
-import { DEFAULT_MATCH_CONFIG, FAST_MATCH_CONFIG } from '../shared/match/matchConfig';
+import { FAST_MATCH_CONFIG } from '../shared/match/matchConfig';
 import { startServer } from './startServer';
 
 /** Addresses under which other devices in the same Wi-Fi can reach this computer. */
@@ -20,7 +20,8 @@ function lanAddresses(): string[] {
 }
 
 const port = Number(process.env.PORT ?? 3000);
-const matchConfig = process.env.FAST_MATCH === '1' ? FAST_MATCH_CONFIG : DEFAULT_MATCH_CONFIG;
+// Without FAST_MATCH the real timers apply and every room takes its round rules from its mode.
+const matchConfig = process.env.FAST_MATCH === '1' ? FAST_MATCH_CONFIG : undefined;
 
 const server = await startServer({ port, matchConfig, mapId: process.env.MAP });
 console.log(`[server] listening on http://localhost:${server.port}  (WebSocket: /ws, stats: /stats)`);

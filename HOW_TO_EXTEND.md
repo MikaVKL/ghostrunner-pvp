@@ -23,6 +23,7 @@ Inhalt:
 12. [Desync gefunden – was nun?](#12-desync-gefunden--was-nun)
 13. [Größere Baustellen](#13-größere-baustellen)
 14. [Fahrplan: Ghostrunner-artiges PvP](#14-fahrplan-ghostrunner-artiges-pvp)
+15. [Neuer Spielmodus](#15-neuer-spielmodus)
 
 Die wichtigste Frage vor jedem Feature:
 
@@ -41,10 +42,10 @@ Kein Code nötig, nur Zahlen:
 | Was | Datei |
 |---|---|
 | Lauftempo, Sprungkraft, Schwerkraft, Dash, Wall-Run | `src/shared/movement/movementConfig.ts` |
-| Schaden, Reichweite, Schwung-Phasen, Knockback (je Angriffsart `light`/`dash`), Angriffs-Cooldown | `src/shared/combat/weapons.ts` |
+| Reichweite, Schwung-Phasen, Knockback (je Angriffsart `light`/`dash`), Angriffs-Cooldown | `src/shared/combat/weapons.ts` |
+| **Spielregeln je Modus:** Leben, Schaden je Angriffsart, Unverwundbarkeit nach Treffer, Parry-Konter-Bonus, Dash-Cooldown, längere Erholung nach Dash-Angriff, Rundenzahl, Rundenzeit, Angriffsanzeige an/aus | `src/shared/match/gameModes.ts` (Rezept 15) |
 | Parry-Fenster, Parry-Cooldown, Stun-Dauer, Rückstoß, Dash-Angriff-Zeitfenster, Lag-Kompensation | `src/shared/combat/combatConfig.ts` |
-| Rundenzahl (Best-of), Rundenzeit, Countdown, Rematch, Reconnect-Zeit | `src/shared/match/matchConfig.ts` |
-| Lebenspunkte | `MAX_HP` in `src/shared/sim/playerState.ts` |
+| Countdown, Pause nach der Runde, Rematch, Reconnect-Zeit (für alle Modi gleich) | `src/shared/match/matchConfig.ts` |
 | Spielergröße, Augenhöhe | `src/shared/physics/collision.ts` |
 | Doppelsprung (Anzahl, Kraft) | `airJumps`, `airJumpSpeed` in `src/shared/movement/movementConfig.ts` |
 | Klingen-Clash (Zeitfenster, Rückstoß) | `src/shared/combat/combatConfig.ts` |
@@ -61,10 +62,10 @@ Kein Code nötig, nur Zahlen:
 Zeiten immer als `secondsToTicks(0.25)` schreiben. Danach `npm test` – ein paar Tests prüfen
 physikalische Werte relativ zur Config und sollten weiter grün sein.
 
-**One-Hit-Kill** ist nur eine Zahl: Beide Angriffe des Schwerts haben `damage: 100`
-(= `MAX_HP`). Für ein Spiel mit mehreren Treffern z. B. `damage: 34` setzen – der Rest
-(HP, Tod bei 0 HP) funktioniert weiter. Der Test „every attack … is a one-hit kill“ in
-`tests/unit/combat.test.ts` muss dann angepasst werden.
+**One-Hit-Kill** ist eine Regel des Modus „Duell“: `lives: 1`, `damage: { light: 1, dash: 1 }`
+in `src/shared/match/gameModes.ts`. `hp` eines Spielers zählt **Leben**, nicht Prozent. Das
+Duell nicht verändern (es ist das Original-Spiel) – für andere Regeln einen neuen Modus
+anlegen (Rezept 15).
 
 ---
 
@@ -191,12 +192,12 @@ dagger: {
   name: 'Dolch',
   attacks: {
     light: {
-      damage: 100, range: 1.8, arcDegrees: 70,
+      range: 1.8, arcDegrees: 70,
       startupTicks: secondsToTicks(0.12), activeTicks: secondsToTicks(0.08),
       recoveryTicks: secondsToTicks(0.15), knockback: 3,
     },
     dash: {
-      damage: 100, range: 2.4, arcDegrees: 50,
+      range: 2.4, arcDegrees: 50,
       startupTicks: secondsToTicks(0.07), activeTicks: secondsToTicks(0.08),
       recoveryTicks: secondsToTicks(0.35), knockback: 5,
     },
@@ -439,8 +440,11 @@ TypeScript hilft: Die `switch`-Blöcke in `messageRouter.ts` und `gameClient.ts`
 
 ## 9. Match-Regeln ändern
 
-- Zahlen: `src/shared/match/matchConfig.ts` (Best-of-5 = `roundsToWin: 3`; Best-of-3 wäre
-  `roundsToWin: 2, maxRounds: 5`).
+- Rundenzahl und Rundenzeit gehören zum **Modus** (`roundsToWin`, `maxRounds`, `roundTicks` in
+  `src/shared/match/gameModes.ts`; Best-of-3 wäre `roundsToWin: 2, maxRounds: 5`). Timer, die
+  für alle Modi gleich sind (Countdown, Reconnect): `src/shared/match/matchConfig.ts`.
+  Ein Server, der mit eigener `matchConfig` gestartet wird (Tests: `FAST_MATCH_CONFIG`),
+  benutzt deren Rundenzahl statt der des Modus (`matchConfigForMode`).
 - Rematch: `voteRematch` in `match/lifecycle.ts`, ausgewertet in `stepMatchEnd`.
 - Pause bei Verbindungsabbruch: `pauseMatch` / `resumeMatch` in `match/lifecycle.ts`.
 - Ablauf (wann endet eine Runde, wer gewinnt): `src/shared/match/stepMatch.ts`.
@@ -604,3 +608,46 @@ Beispiel; der echte Code ist in `movement/locomotion.ts`.
 **Wie es weitergeht** (priorisiert, mit Schritt-für-Schritt-Plänen): siehe `STATUS.md`,
 Abschnitt „Offen“ – zuerst Replays/Killcam, dann Zeitrennen mit Geist, dann die
 lebendigere Bot-KI.
+
+---
+
+## 15. Neuer Spielmodus
+
+Ein Modus ist **nur Daten**: ein Eintrag in `MODES` (`src/shared/match/gameModes.ts`). Die
+Simulation liest die Regeln aus `ctx.mode` (Server) bzw. aus dem Modus des Raums (Client,
+Vorhersage). Was jede Zahl bewirkt, steht als Kommentar an `GameMode`.
+
+**Schritt 1 –** `ModeId` um die neue Id erweitern und einen Eintrag anlegen. Am einfachsten
+vom Duell ableiten und nur ändern, was anders ist:
+
+```ts
+export const TRAINING: GameMode = {
+  ...DUEL,
+  id: 'training',
+  name: 'Training',
+  description: 'Fünf Leben, kein Zeitdruck.',
+  lives: 5,
+  invulnerableTicks: secondsToTicks(1),
+  roundTicks: secondsToTicks(120),
+};
+export const MODES: Record<ModeId, GameMode> = { duel: DUEL, training: TRAINING };
+```
+
+Texte auf Deutsch. Das Menü zeigt jeden Modus aus `MODES` automatisch an (Solo und
+Mehrspieler), das HUD zeigt seinen Namen neben der Map.
+
+**Schritt 2 –** `PROTOCOL_VERSION` in `src/shared/config.ts` erhöhen (alte Clients kennen die
+neue Id nicht).
+
+**Schritt 3 –** Tests: `tests/unit/gameModes.test.ts` prüft jeden Modus in `MODES` automatisch
+(Texte, Schaden je Angriffsart, sinnvolle Zahlen). Für neue Regeln dort einen Test mit dem
+Test-Modus `RULES` schreiben. Danach `npm run check` (Bots) und `npm run tune`.
+
+**Neue Regel (nicht nur neue Zahlen)?** Feld in `GameMode` ergänzen (beim Duell so setzen,
+dass sich nichts ändert), dann einsortieren wie jede Logik:
+- hängt nur vom eigenen Spieler ab (z. B. Dash-Cooldown) → `stepPlayer` bekommt `mode` schon
+  übergeben (`movement/`, `combat/actions.ts`); der Client sagt es mit demselben Modus voraus.
+- Interaktion (z. B. Schaden, Unverwundbarkeit, Konter) → `resolveCombat` bekommt `mode`.
+- Zustand, der dazu gehört (Zähler wie `invulnerableTicks`, `counterTicks`), steht in
+  `PlayerState` – nie in einer Variablen außerhalb.
+

@@ -5,6 +5,7 @@
  * it. Everything that involves the OTHER player (hits, parries) is in resolveCombat.ts.
  */
 import { Button, wasPressed, type InputCmd } from '../input';
+import type { GameMode } from '../match/gameModes';
 import { MOVE } from '../movement/movementConfig';
 import type { ActionState, PlayerState } from '../sim/playerState';
 import { assertNever } from '../util/assertNever';
@@ -22,34 +23,42 @@ export function currentAttack(p: PlayerState): AttackProfile {
   return getWeapon(p.weaponId).attacks[p.attackKind];
 }
 
+/** Whole length of the current swing in this mode (a dash attack may recover longer). */
+export function swingTotalTicks(p: PlayerState, mode: GameMode): number {
+  const extra = p.attackKind === 'dash' ? mode.dashAttackExtraRecoveryTicks : 0;
+  return attackTotalTicks(currentAttack(p)) + extra;
+}
+
 /** True while dashing or shortly after: an attack started now becomes a dash attack. */
-export function isDashAttackReady(p: PlayerState): boolean {
+export function isDashAttackReady(p: PlayerState, mode: GameMode): boolean {
   if (p.dashTicks > 0) return true;
-  const ticksSinceDashStart = MOVE.dashCooldownTicks - p.dashCooldown;
+  const ticksSinceDashStart = mode.dashCooldownTicks - p.dashCooldown;
   return p.dashCooldown > 0 && ticksSinceDashStart <= MOVE.dashTicks + COMBAT.dashAttackGraceTicks;
 }
 
-function stepIdle(p: PlayerState, input: InputCmd): void {
+function stepIdle(p: PlayerState, input: InputCmd, mode: GameMode): void {
   if (wasPressed(input, p.prevButtons, Button.Attack) && p.attackCooldown === 0) {
     setAction(p, 'attack');
-    p.attackKind = isDashAttackReady(p) ? 'dash' : 'light';
+    p.attackKind = isDashAttackReady(p, mode) ? 'dash' : 'light';
   } else if (wasPressed(input, p.prevButtons, Button.Parry) && p.parryCooldown === 0) {
     setAction(p, 'parry');
   }
 }
 
 /** Advance the action state machine by one tick. */
-export function stepAction(p: PlayerState, input: InputCmd): void {
+export function stepAction(p: PlayerState, input: InputCmd, mode: GameMode): void {
   if (p.attackCooldown > 0) p.attackCooldown--;
   if (p.parryCooldown > 0) p.parryCooldown--;
+  if (p.invulnerableTicks > 0) p.invulnerableTicks--;
+  if (p.counterTicks > 0) p.counterTicks--;
 
   switch (p.action) {
     case 'idle':
-      stepIdle(p, input);
+      stepIdle(p, input, mode);
       return;
     case 'attack':
       p.actionTicks++;
-      if (p.actionTicks >= attackTotalTicks(currentAttack(p))) {
+      if (p.actionTicks >= swingTotalTicks(p, mode)) {
         setAction(p, 'idle');
         p.attackCooldown = getWeapon(p.weaponId).cooldownTicks;
       }

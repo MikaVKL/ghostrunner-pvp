@@ -12,9 +12,9 @@ export function tryStartDash(
   p: PlayerState,
   input: InputCmd,
   wish: { x: number; z: number },
-  canDash: boolean,
+  rules: { canDash: boolean; dashCooldownTicks: number },
 ): void {
-  if (!canDash || p.dashTicks > 0 || p.dashCooldown > 0) return;
+  if (!rules.canDash || p.dashTicks > 0 || p.dashCooldown > 0) return;
   if (!wasPressed(input, p.prevButtons, Button.Dash)) return;
 
   // Dash in the movement direction; if no direction is held, dash forward.
@@ -22,7 +22,7 @@ export function tryStartDash(
   p.dashDirX = dir.x;
   p.dashDirZ = dir.z;
   p.dashTicks = MOVE.dashTicks;
-  p.dashCooldown = MOVE.dashCooldownTicks;
+  p.dashCooldown = rules.dashCooldownTicks;
   if (p.wallRunning) endWallRun(p);
 }
 

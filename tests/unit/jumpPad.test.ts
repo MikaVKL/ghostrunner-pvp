@@ -6,6 +6,7 @@ import { padUnder } from '../../src/shared/movement/jumpPad';
 import { createPlayer, type PlayerState } from '../../src/shared/sim/playerState';
 import { stepPlayer } from '../../src/shared/sim/stepPlayer';
 import { Button } from '../helpers';
+import { DUEL } from '../../src/shared/match/gameModes';
 
 /** Two platforms with a 6 m gap; a pad on the left one throws you 12 m far, over to the right one. */
 const LAUNCH = { x: 12, y: 12, z: 0 };
@@ -25,7 +26,7 @@ const PAD_MAP: MapDef = {
 };
 
 function step(p: PlayerState, partial: Partial<InputCmd> = {}): void {
-  stepPlayer(p, { seq: 1, moveX: 0, moveZ: 0, yaw: p.yaw, pitch: 0, buttons: 0, viewTick: 0, ...partial }, PAD_MAP, 'playing');
+  stepPlayer(p, { seq: 1, moveX: 0, moveZ: 0, yaw: p.yaw, pitch: 0, buttons: 0, viewTick: 0, ...partial }, PAD_MAP, 'playing', DUEL);
 }
 
 function playerAt(x: number, z = 0): PlayerState {

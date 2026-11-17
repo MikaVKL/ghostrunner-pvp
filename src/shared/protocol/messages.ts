@@ -4,6 +4,7 @@
  * (client -> server only), and handle it (server: messageRouter.ts, client: gameClient.ts).
  */
 import type { InputCmd } from '../input';
+import type { ModeId } from '../match/gameModes';
 import type { GameEvent } from '../sim/events';
 import type { PlayerState } from '../sim/playerState';
 import type { MatchState } from '../sim/world';
@@ -11,9 +12,10 @@ import type { MatchState } from '../sim/world';
 // ---------- client -> server ----------
 
 export type ClientMessage =
-  | { type: 'createRoom'; name: string; mapId?: string }
+  | { type: 'createRoom'; name: string; mapId?: string; modeId?: ModeId }
   | { type: 'joinRoom'; code: string; name: string }
-  | { type: 'quickMatch'; name: string }
+  /** Quick match only pairs players who asked for the same mode. */
+  | { type: 'quickMatch'; name: string; modeId?: ModeId }
   /** Take the old seat again after a connection loss (see `roomJoined.token`). */
   | { type: 'rejoin'; code: string; token: string }
   | { type: 'leaveRoom' }
@@ -57,6 +59,8 @@ export type ServerMessage =
       code: string;
       slot: number;
       mapId: string;
+      /** The game mode of the room (rules, see match/gameModes.ts). */
+      modeId: ModeId;
       token: string;
       /** Round wins needed to win the match (3 = best-of-5), for the score display. */
       roundsToWin: number;

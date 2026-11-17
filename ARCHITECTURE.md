@@ -161,6 +161,23 @@ abweichenden Feldern, z. B. `tick 812, ack 790: vel.y: -0.4 vs -0.8`.
 Spieler werden nur in `waiting` und `playing` simuliert (`phaseAllowsAction`), sonst sind sie
 eingefroren und können sich nur umsehen. Kampf und Spieler-Kollision zählen nur in `playing`.
 
+## 4a. Spielmodi (`shared/match/gameModes.ts`)
+
+Ein Raum spielt genau einen **Modus**: die Spielregeln als Daten (`GameMode`): Leben pro
+Runde, Schaden je Angriffsart, Unverwundbarkeit nach einem Treffer, Konter-Bonus nach einem
+Parry, Dash-Cooldown, Extra-Erholung nach dem Dash-Angriff, Rundenzahl und -zeit. „Duell“ ist
+das Original (1 Leben, 1 Schaden, Best-of-5).
+
+- Der Ersteller wählt den Modus (`createRoom.modeId`), das schnelle Spiel bringt nur Spieler
+  mit demselben Modus zusammen (`quickMatch.modeId`), `roomJoined.modeId` sagt ihn allen.
+- Der Modus steht in `SimContext.mode`. `stepPlayer` bekommt ihn auch: Dash-Cooldown und
+  Dash-Angriff-Erholung sind vorhersagbar, deshalb braucht der Client (`GameClient.mode`)
+  denselben Modus – sonst Desync.
+- `hp` zählt Leben. Zähler für Modus-Regeln (`invulnerableTicks`, `counterTicks`) stehen in
+  `PlayerState` und laufen in `stepAction` herunter.
+- Rundenzahl/-zeit kommen aus dem Modus, außer der Server bekam eine eigene `matchConfig`
+  (Tests): `matchConfigForMode` in `gameModes.ts`.
+
 ## 4b. Lag-Kompensation (`shared/combat/lagCompensation.ts`, `resolveCombat.ts`)
 
 Jeder Client zeigt den Gegner leicht in der Vergangenheit (Interpolation 100 ms + Laufzeit).
@@ -170,7 +187,7 @@ Jeder Input trägt deshalb `viewTick`: den Server-Tick, den der Client gerade **
  Angreifer schlägt zu (Server-Tick H)
       │  Wo war das Ziel bei viewTick des Angreifers?  → world.history (letzte ~20 Ticks)
       ▼
- in Reichweite?  ──nein──► kein Treffer
+ in Reichweite und Ziel nicht unverwundbar?  ──nein──► kein Treffer
       │ ja
       ▼
  world.pendingHits += { attacker, target, tick: H }       (Treffer ist „unterwegs“)
@@ -179,7 +196,9 @@ Jeder Input trägt deshalb `viewTick`: den Server-Tick, den der Client gerade **
       ▼
  Ziel pariert gerade und schaut zum Angreifer?
       ├─ ja  → Parry: Angreifer 1 s betäubt + zurückgestoßen, Verteidiger sofort frei
-      └─ nein → Treffer: damage (100 = tot), Rückstoß
+      │        (+ Konter-Fenster, falls der Modus einen Bonus vorsieht)
+      └─ nein → Treffer: Schaden laut Modus (Duell: 1 = tot), Rückstoß,
+               kurze Unverwundbarkeit laut Modus
 ```
 
 Vor alledem wird geprüft, ob es ein **Klingen-Clash** ist: Schlägt das Ziel selbst gerade zu

@@ -4,6 +4,7 @@
  */
 import { sanitizeInput } from '../input';
 import { isMapId } from '../maps';
+import { isModeId, type ModeId } from '../match/gameModes';
 import type { ClientMessage, ServerMessage } from './messages';
 
 export const MAX_NAME_LENGTH = 16;
@@ -43,11 +44,24 @@ export function parseClientMessage(text: string): ClientMessage | null {
   const msg = raw as Record<string, unknown>;
 
   switch (msg.type) {
-    case 'createRoom':
-      if (msg.mapId === undefined) return { type: 'createRoom', name: sanitizeName(msg.name) };
-      return isMapId(msg.mapId) ? { type: 'createRoom', name: sanitizeName(msg.name), mapId: msg.mapId } : null;
+    case 'createRoom': {
+      // mapId and modeId are optional, but if present they must be known.
+      if (msg.mapId !== undefined && !isMapId(msg.mapId)) return null;
+      if (msg.modeId !== undefined && !isModeId(msg.modeId)) return null;
+      return {
+        type: 'createRoom',
+        name: sanitizeName(msg.name),
+        ...(msg.mapId !== undefined ? { mapId: msg.mapId as string } : {}),
+        ...(msg.modeId !== undefined ? { modeId: msg.modeId as ModeId } : {}),
+      };
+    }
     case 'quickMatch':
-      return { type: 'quickMatch', name: sanitizeName(msg.name) };
+      if (msg.modeId !== undefined && !isModeId(msg.modeId)) return null;
+      return {
+        type: 'quickMatch',
+        name: sanitizeName(msg.name),
+        ...(msg.modeId !== undefined ? { modeId: msg.modeId as ModeId } : {}),
+      };
     case 'joinRoom': {
       const code = parseRoomCode(msg.code);
       return code ? { type: 'joinRoom', code, name: sanitizeName(msg.name) } : null;

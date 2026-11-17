@@ -9,18 +9,20 @@
 import { actionSpeedFactor, stepAction } from '../combat/actions';
 import type { InputCmd } from '../input';
 import type { MapDef } from '../maps/mapTypes';
+import type { GameMode } from '../match/gameModes';
 import { stepMovement } from '../movement/stepMovement';
 import type { PlayerState } from './playerState';
 import { phaseAllowsAction, type MatchPhase } from './world';
 
 /** Full simulation step for an active player. */
-function stepActivePlayer(p: PlayerState, input: InputCmd, map: MapDef): void {
+function stepActivePlayer(p: PlayerState, input: InputCmd, map: MapDef, mode: GameMode): void {
   // Movement first: a dash started this tick already turns an attack into a dash attack.
   stepMovement(p, input, map, {
     speedFactor: actionSpeedFactor(p),
     canDash: p.action !== 'stunned',
+    dashCooldownTicks: mode.dashCooldownTicks,
   });
-  stepAction(p, input);
+  stepAction(p, input, mode);
   p.prevButtons = input.buttons;
 }
 
@@ -35,7 +37,13 @@ function stepFrozenPlayer(p: PlayerState, input: InputCmd): void {
  * Advance one player by one tick. THE function shared by server simulation and
  * client prediction - if both call it with the same arguments they get the same result.
  */
-export function stepPlayer(p: PlayerState, input: InputCmd, map: MapDef, phase: MatchPhase): void {
-  if (p.alive && phaseAllowsAction(phase)) stepActivePlayer(p, input, map);
+export function stepPlayer(
+  p: PlayerState,
+  input: InputCmd,
+  map: MapDef,
+  phase: MatchPhase,
+  mode: GameMode,
+): void {
+  if (p.alive && phaseAllowsAction(phase)) stepActivePlayer(p, input, map, mode);
   else stepFrozenPlayer(p, input);
 }

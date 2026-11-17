@@ -19,6 +19,10 @@ import { Session } from './net/session';
 const MAX_MESSAGES_PER_SECOND = 240;
 
 export interface GameServerOptions {
+  /**
+   * Timers and round rules. Leave it out to play with the real timers and the round
+   * rules of each room's game mode; tests pass FAST_MATCH_CONFIG for short matches.
+   */
   matchConfig?: MatchConfig;
   /** Force this map for every room (otherwise players choose / quick match rotates). */
   mapId?: string;
@@ -45,6 +49,7 @@ export class GameServer {
   constructor(options: GameServerOptions = {}) {
     this.lobby = new Lobby({
       matchConfig: options.matchConfig ?? DEFAULT_MATCH_CONFIG,
+      useModeRounds: options.matchConfig === undefined,
       forcedMapId: options.mapId,
       recordReplays: options.recordReplays ?? false,
     });

@@ -38,13 +38,13 @@ export function stepWorld(world: WorldState, inputs: InputsBySlot, ctx: SimConte
   // 1. Predictable part.
   for (const player of world.players) {
     const input = inputs[player.slot] ?? neutralInput(player.yaw, player.pitch);
-    stepPlayer(player, input, ctx.map, phaseBefore);
+    stepPlayer(player, input, ctx.map, phaseBefore, ctx.mode);
   }
   const predicted = world.players.map(clonePlayer);
 
   // 2. + 3. Interactions.
   if (phaseBefore === 'playing') {
-    resolveCombat(world, inputs, events);
+    resolveCombat(world, inputs, ctx.mode, events);
     separatePlayers(world.players, ctx.map);
   }
   stepMatch(world, ctx, events);

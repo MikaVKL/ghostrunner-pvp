@@ -18,6 +18,8 @@ export interface MovementModifiers {
   speedFactor: number;
   /** False while the player may not dash (e.g. stunned). */
   canDash: boolean;
+  /** Dash cooldown of the game mode (GameMode.dashCooldownTicks). */
+  dashCooldownTicks: number;
 }
 
 export function stepMovement(
@@ -35,7 +37,7 @@ export function stepMovement(
   const jumpPressed = wasPressed(input, p.prevButtons, Button.Jump);
 
   // 1) Decide the velocity for this tick (exactly one of: dash, wall-run, normal).
-  tryStartDash(p, input, wish, mods.canDash);
+  tryStartDash(p, input, wish, mods);
   if (p.dashTicks > 0) {
     stepDash(p);
   } else {

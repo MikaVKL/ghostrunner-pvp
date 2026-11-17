@@ -4,6 +4,7 @@ import { MOVE } from '../../src/shared/movement/movementConfig';
 import { createPlayer } from '../../src/shared/sim/playerState';
 import { stepPlayer } from '../../src/shared/sim/stepPlayer';
 import { Button, input, runPlayer, standingPlayer, TEST_MAP } from '../helpers';
+import { DUEL } from '../../src/shared/match/gameModes';
 
 const speed = (p: { vel: { x: number; z: number } }) => Math.hypot(p.vel.x, p.vel.z);
 
@@ -35,9 +36,9 @@ describe('jumping', () => {
     const p = standingPlayer(0, 5);
     const expectedHeight = MOVE.jumpSpeed ** 2 / (2 * MOVE.gravity);
     let maxY = 0;
-    stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing', DUEL);
     for (let i = 0; i < 120; i++) {
-      stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing');
+      stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing', DUEL);
       maxY = Math.max(maxY, p.pos.y);
     }
     expect(maxY).toBeGreaterThan(expectedHeight - 0.15);
@@ -59,7 +60,7 @@ describe('jumping', () => {
     const p = createPlayer(0, { pos: { x: 0, y: 5, z: 5 }, yaw: 0 });
     runPlayer(p, {}, 20);
     const before = p.vel.y;
-    stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing', DUEL);
     expect(p.vel.y).toBeLessThan(before);
   });
 
@@ -69,7 +70,7 @@ describe('jumping', () => {
     p.pos.y = 3;
     runPlayer(p, {}, 2);
     expect(p.grounded).toBe(false);
-    stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Jump }), TEST_MAP, 'playing', DUEL);
     expect(p.vel.y).toBeGreaterThan(0);
   });
 
@@ -85,7 +86,7 @@ describe('dash', () => {
   it('moves fast for a short time, then goes on cooldown', () => {
     const p = standingPlayer(0, 5, 0);
     const startZ = p.pos.z;
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
     expect(p.dashTicks).toBe(MOVE.dashTicks - 1);
     runPlayer(p, { buttons: Button.Dash }, MOVE.dashTicks - 1);
     const expected = ((MOVE.dashTicks - 1) * MOVE.dashSpeed + MOVE.dashExitSpeed) * TICK_DT;
@@ -96,26 +97,26 @@ describe('dash', () => {
 
   it('cannot dash again during the cooldown, but can afterwards', () => {
     const p = standingPlayer(0, 10, 0);
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
     runPlayer(p, {}, MOVE.dashTicks + 5);
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
     expect(p.dashTicks).toBe(0);
 
     runPlayer(p, {}, MOVE.dashCooldownTicks);
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
     expect(p.dashTicks).toBeGreaterThan(0);
   });
 
   it('dashes in the held movement direction', () => {
     const p = standingPlayer(0, 5, 0);
-    stepPlayer(p, input({ moveX: 1, buttons: Button.Dash }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ moveX: 1, buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
     expect(p.vel.x).toBeCloseTo(MOVE.dashSpeed);
     expect(p.vel.z).toBeCloseTo(0);
   });
 
   it('ignores gravity while dashing in the air', () => {
     const p = createPlayer(0, { pos: { x: 0, y: 4, z: 5 }, yaw: 0 });
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing');
+    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
     const y = p.pos.y;
     runPlayer(p, { buttons: Button.Dash }, MOVE.dashTicks - 2);
     expect(p.pos.y).toBe(y);
@@ -189,7 +190,7 @@ describe('frozen players', () => {
   it('do not move during the countdown but can look around', () => {
     const p = standingPlayer(0, 5, 0);
     for (let i = 0; i < 30; i++) {
-      stepPlayer(p, input({ moveZ: 1, yaw: 1, buttons: Button.Jump }), TEST_MAP, 'countdown');
+      stepPlayer(p, input({ moveZ: 1, yaw: 1, buttons: Button.Jump }), TEST_MAP, 'countdown', DUEL);
     }
     expect(p.pos).toEqual({ x: 0, y: 0, z: 5 });
     expect(p.yaw).toBe(1);

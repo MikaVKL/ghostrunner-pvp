@@ -73,6 +73,9 @@ test('Hauptmenü: deutsch, alle Maps, Steuerungshilfe', async (env) => {
   assertEqual(await a.page.locator('#difficulty-list button').allInnerTexts(), ['Leicht', 'Mittel', 'Schwer'], 'difficulty buttons');
   await a.page.click('#difficulty-list button[data-difficulty="schwer"]');
   await a.expectText('#difficulty-description', 'pariert die meisten Schläge');
+  assertEqual(await a.page.locator('#mode-list button').allInnerTexts(), ['Duell'], 'mode buttons');
+  await a.page.click('#mode-list button[data-mode="duel"]');
+  await a.expectText('#mode-description', 'Ein Treffer tötet');
   assert(await a.page.isEnabled('#quick-button'), 'multiplayer is enabled while a server is connected');
   assertEqual(await a.text('#online-status'), '', 'no warning while online');
 
@@ -96,7 +99,7 @@ test('Raum erstellen, per Code beitreten, 3D-Ansicht und HUD', async (env) => {
   await a.waitFor('practice mode', (s) => s.phase === 'waiting' && s.me !== null);
   assert(await a.page.isVisible('#hud'), 'HUD visible');
   assert(!(await a.page.isVisible('#lobby')), 'menu hidden');
-  await a.expectText('#map-name', 'Dächer');
+  await a.expectText('#map-name', 'Dächer · Duell');
   await a.expectText('#message', 'Warte auf Gegner');
   await a.screenshot('02-waiting');
 
@@ -262,7 +265,7 @@ test('Solo gegen Bot: ganzes Match im Browser, Bot kämpft, Rematch mit R', asyn
   const a = await openOne(env, env.url);
   await startSolo(a, 'schlucht', 'schwer');
   assert(await a.page.isVisible('#hud'), 'HUD visible');
-  await a.expectText('#solo-info', 'Solo · Schwer');
+  await a.expectText('#solo-info', 'Solo · Duell · Schwer');
   await a.expectText('#enemy-name', 'Bot Schwer');
   await a.expectText('#my-pips', '◇◇◇'); // the normal best-of-5 rules
   assertEqual(env.server.game.stats().rooms, 0, 'rooms on the real server (solo must not use it)');
@@ -324,7 +327,7 @@ test('Ohne Server (wie GitHub Pages): Mehrspieler deaktiviert, Solo läuft', asy
   await a.screenshot('11-pages-menu');
 
   await startSolo(a, 'daecher', 'mittel');
-  await a.expectText('#solo-info', 'Solo · Mittel');
+  await a.expectText('#solo-info', 'Solo · Duell · Mittel');
   await a.expectText('#map-name', 'Dächer');
   await jumpIntoAbyss(a);
   await a.waitFor('the bot gets the point', (s) => s.scores[1] === 1);

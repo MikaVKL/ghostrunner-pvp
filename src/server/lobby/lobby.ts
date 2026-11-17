@@ -6,6 +6,7 @@
  * - rejoin:     take a reserved seat again after a connection loss
  */
 import { DEFAULT_MAP_ID, getMap, MAP_ROTATION } from '../../shared/maps';
+import { DEFAULT_MODE_ID, getMode, matchConfigForMode, type ModeId } from '../../shared/match/gameModes';
 import type { MatchConfig } from '../../shared/match/matchConfig';
 import type { ErrorCode } from '../../shared/protocol/messages';
 import { Room } from '../game/room';
@@ -24,6 +25,11 @@ function createToken(): string {
 
 export interface LobbyOptions {
   matchConfig: MatchConfig;
+  /**
+   * True: rounds to win, round limit and round length come from the room's game mode.
+   * False: `matchConfig` decides them (tests run short matches in every mode).
+   */
+  useModeRounds: boolean;
   /**
    * If set, EVERY room uses this map (server started with MAP=...). Otherwise private
    * rooms use the map their creator picked and quick-match rooms rotate through MAP_ROTATION.
@@ -59,15 +65,17 @@ export class Lobby {
     return this.rooms.get(code);
   }
 
-  /** New private room. `mapId` is the creator's choice (already validated by the codec). */
-  createRoom(session: Session, mapId?: string): void {
+  /** New private room. Map and mode are the creator's choice (already validated by the codec). */
+  createRoom(session: Session, mapId?: string, modeId: ModeId = DEFAULT_MODE_ID): void {
     if (this.rejectIfInRoom(session)) return;
-    this.openRoom(session, this.options.forcedMapId ?? mapId ?? DEFAULT_MAP_ID, false);
+    this.openRoom(session, this.options.forcedMapId ?? mapId ?? DEFAULT_MAP_ID, modeId, false);
   }
 
-  private openRoom(session: Session, mapId: string, isPublic: boolean): void {
+  private openRoom(session: Session, mapId: string, modeId: ModeId, isPublic: boolean): void {
     const code = generateUniqueRoomCode((c) => this.rooms.has(c), this.random);
-    const ctx = { map: getMap(mapId), matchConfig: this.options.matchConfig };
+    const mode = getMode(modeId);
+    const matchConfig = matchConfigForMode(this.options.matchConfig, mode, this.options.useModeRounds);
+    const ctx = { map: getMap(mapId), matchConfig, mode };
     const room = new Room(code, ctx, isPublic, createToken, this.options.recordReplays ?? false);
     this.rooms.set(code, room);
     room.join(session);
@@ -81,13 +89,15 @@ export class Lobby {
     room.join(session);
   }
 
-  quickMatch(session: Session): void {
+  /** Join a waiting public room of the same mode, or open one. */
+  quickMatch(session: Session, modeId: ModeId = DEFAULT_MODE_ID): void {
     if (this.rejectIfInRoom(session)) return;
     for (const room of this.rooms.values()) {
-      if (room.isPublic && !room.isFull && !room.hasDisconnectedSeat) return room.join(session);
+      const free = room.isPublic && !room.isFull && !room.hasDisconnectedSeat;
+      if (free && room.modeId === modeId) return room.join(session);
     }
     const rotated = MAP_ROTATION[this.publicRoomsCreated++ % MAP_ROTATION.length];
-    this.openRoom(session, this.options.forcedMapId ?? rotated, true);
+    this.openRoom(session, this.options.forcedMapId ?? rotated, modeId, true);
   }
 
   /** Take a reserved seat again after a connection loss. */

@@ -7,6 +7,7 @@
  * calculates forward from there.
  */
 import { getMap } from '../maps';
+import { getMode } from '../match/gameModes';
 import type { GameEvent } from '../sim/events';
 import { hashState } from '../sim/stateDiff';
 import { stepWorld, type InputsBySlot } from '../sim/stepWorld';
@@ -29,7 +30,7 @@ export class ReplaySimulator {
   private readonly checkpoints: Map<number, number>;
 
   constructor(private readonly file: ReplayFile) {
-    this.ctx = { map: getMap(file.mapId), matchConfig: file.matchConfig };
+    this.ctx = { map: getMap(file.mapId), matchConfig: file.matchConfig, mode: getMode(file.modeId) };
     this.world = copyWorld(file.startWorld);
     this.firstTick = file.startWorld.tick;
     this.lastTick = this.firstTick + file.ticks.length;

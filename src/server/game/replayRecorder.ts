@@ -73,6 +73,7 @@ export class ReplayRecorder {
       version: REPLAY_VERSION,
       protocol: PROTOCOL_VERSION,
       mapId: this.ctx.map.id,
+      modeId: this.ctx.mode.id,
       matchConfig: this.ctx.matchConfig,
       seed: this.seed,
       players: this.players,

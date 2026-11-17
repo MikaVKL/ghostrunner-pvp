@@ -8,9 +8,13 @@
  *   1. findContacts:  a swing that reaches its target becomes a "pending hit"
  *   2. decideHits:    a pending hit is decided once the target has seen it:
  *                     clash (the target swings back at the same moment), parry, or hit
+ *
+ * How much a hit hurts, invulnerability after a hit and the parry counter bonus are rules
+ * of the game mode (match/gameModes.ts).
  */
 import { forwardFromYaw } from '../math/vec3';
 import type { InputCmd } from '../input';
+import type { GameMode } from '../match/gameModes';
 import type { GameEvent } from '../sim/events';
 import type { PlayerState } from '../sim/playerState';
 import type { PendingHit, WorldState } from '../sim/world';
@@ -29,10 +33,17 @@ function findContacts(world: WorldState, inputs: Inputs): PendingHit[] {
     if (!attacker.alive || attacker.attackConnected || !isAttackActive(attacker)) continue;
     const seenTick = effectiveViewTick(world, inputs[attacker.slot]?.viewTick);
     for (const target of world.players) {
-      if (target === attacker || !target.alive) continue;
+      // An invulnerable target is not hit; the swing may still land when that runs out.
+      if (target === attacker || !target.alive || target.invulnerableTicks > 0) continue;
       const seenPos = positionAt(world, target.slot, seenTick) ?? target.pos;
       if (!isInMeleeRange(attacker, target, currentAttack(attacker), seenPos)) continue;
-      contacts.push({ attacker: attacker.slot, target: target.slot, tick: world.tick, kind: attacker.attackKind });
+      contacts.push({
+        attacker: attacker.slot,
+        target: target.slot,
+        tick: world.tick,
+        kind: attacker.attackKind,
+        counter: attacker.counterTicks > 0,
+      });
     }
   }
   return contacts;
@@ -47,9 +58,18 @@ function directionBetween(from: PlayerState, to: PlayerState): { x: number; z: n
   return { x: dx / dist, z: dz / dist };
 }
 
-function applyHit(hit: PendingHit, attacker: PlayerState, target: PlayerState, events: GameEvent[]): void {
+function applyHit(
+  hit: PendingHit,
+  attacker: PlayerState,
+  target: PlayerState,
+  mode: GameMode,
+  events: GameEvent[],
+): void {
   const attack = getWeapon(attacker.weaponId).attacks[hit.kind];
-  target.hp = Math.max(0, target.hp - attack.damage);
+  const damage = mode.damage[hit.kind] + (hit.counter ? mode.parryCounterBonus : 0);
+  target.hp = Math.max(0, target.hp - damage);
+  if (target.hp > 0) target.invulnerableTicks = mode.invulnerableTicks;
+  if (hit.counter) attacker.counterTicks = 0; // the bonus is used up
   // Push the target away from the attacker.
   const dir = directionBetween(attacker, target);
   target.vel.x += dir.x * attack.knockback;
@@ -60,13 +80,17 @@ function applyHit(hit: PendingHit, attacker: PlayerState, target: PlayerState, e
     attacker: attacker.slot,
     target: target.slot,
     kind: hit.kind,
-    damage: attack.damage,
+    damage,
+    counter: hit.counter,
     hpLeft: target.hp,
   });
 }
 
-/** The attacker is stunned and pushed back; the defender may act again immediately. */
-function applyParry(attacker: PlayerState, target: PlayerState, events: GameEvent[]): void {
+/**
+ * The attacker is stunned and pushed back; the defender may act again immediately and
+ * (if the mode says so) its next hit within a short time does bonus damage.
+ */
+function applyParry(attacker: PlayerState, target: PlayerState, mode: GameMode, events: GameEvent[]): void {
   if (attacker.alive) {
     setAction(attacker, 'stunned');
     attacker.dashTicks = 0;
@@ -77,6 +101,7 @@ function applyParry(attacker: PlayerState, target: PlayerState, events: GameEven
   setAction(target, 'idle');
   target.parryCooldown = 0;
   target.attackCooldown = 0;
+  target.counterTicks = mode.parryCounterTicks;
   events.push({ type: 'parry', attacker: attacker.slot, defender: target.slot });
 }
 
@@ -111,7 +136,7 @@ function applyClash(a: PlayerState, b: PlayerState, events: GameEvent[]): void {
  * Step 2: decide every pending hit whose target has seen it by now.
  * Returns the hits that are still undecided.
  */
-function decideHits(world: WorldState, inputs: Inputs, events: GameEvent[]): PendingHit[] {
+function decideHits(world: WorldState, inputs: Inputs, mode: GameMode, events: GameEvent[]): PendingHit[] {
   const undecided: PendingHit[] = [];
   /** Players whose swing ended in a clash this tick: their own pending hits are void. */
   const clashed = new Set<number>();
@@ -128,8 +153,8 @@ function decideHits(world: WorldState, inputs: Inputs, events: GameEvent[]): Pen
       undecided.push(hit); // the target has not seen this swing land yet - it may still parry
       continue;
     }
-    if (isParryActive(target) && isFacing(target, attacker)) applyParry(attacker, target, events);
-    else applyHit(hit, attacker, target, events);
+    if (isParryActive(target) && isFacing(target, attacker)) applyParry(attacker, target, mode, events);
+    else applyHit(hit, attacker, target, mode, events);
   }
   // A clash also cancels hits that were decided to wait earlier in this loop.
   return undecided.filter((hit) => !clashed.has(hit.attacker));
@@ -140,11 +165,11 @@ function decideHits(world: WorldState, inputs: Inputs, events: GameEvent[]): Pen
  * All contacts are collected first and decided afterwards, so the result does not depend
  * on the order of the players (two simultaneous hits both count).
  */
-export function resolveCombat(world: WorldState, inputs: Inputs, events: GameEvent[]): void {
+export function resolveCombat(world: WorldState, inputs: Inputs, mode: GameMode, events: GameEvent[]): void {
   for (const contact of findContacts(world, inputs)) {
     const attacker = world.players.find((p) => p.slot === contact.attacker);
     if (attacker) attacker.attackConnected = true; // one result per swing
     world.pendingHits.push(contact);
   }
-  world.pendingHits = decideHits(world, inputs, events);
+  world.pendingHits = decideHits(world, inputs, mode, events);
 }

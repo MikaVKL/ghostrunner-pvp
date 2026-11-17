@@ -134,13 +134,13 @@ button:disabled:hover {
   border-color: var(--border);
 }
 
-#difficulty-list {
+.choice-list {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
 
-#difficulty-list button.selected {
+.choice-list button.selected {
   border-color: var(--pink);
   background: #3a1640;
   box-shadow: 0 0 10px rgba(255, 61, 154, 0.3);

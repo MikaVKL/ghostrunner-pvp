@@ -9,6 +9,7 @@
 import { MAX_PLAYERS_PER_ROOM, SNAPSHOT_EVERY_TICKS } from '../../shared/config';
 import type { InputCmd } from '../../shared/input';
 import { enterWaiting, pauseMatch, resumeMatch, startMatch, voteRematch } from '../../shared/match/lifecycle';
+import type { ModeId } from '../../shared/match/gameModes';
 import { encodeMessage } from '../../shared/protocol/codec';
 import type { RoomPlayerInfo, SnapshotMessage } from '../../shared/protocol/messages';
 import type { GameEvent } from '../../shared/sim/events';
@@ -36,6 +37,10 @@ export class Room {
     private readonly recordReplays = false,
   ) {
     this.world = createWorld(ctx.map.id);
+  }
+
+  get modeId(): ModeId {
+    return this.ctx.mode.id;
   }
 
   /** The replay of the running (or last) match, or null if this room does not record. */
@@ -66,7 +71,7 @@ export class Room {
     const seat = createSeat(slot, session, this.createToken());
     this.seats.push(seat);
     session.room = this;
-    addPlayer(this.world, slot, this.ctx.map);
+    addPlayer(this.world, slot, this.ctx);
     if (this.isFull) {
       startMatch(this.world, this.ctx);
       if (this.recordReplays) this.recorder = new ReplayRecorder(this.world, this.ctx, this.playerInfos(), 0);
@@ -199,6 +204,7 @@ export class Room {
       code: this.code,
       slot: seat.slot,
       mapId: this.ctx.map.id,
+      modeId: this.ctx.mode.id,
       token: seat.token,
       roundsToWin: this.ctx.matchConfig.roundsToWin,
       players: this.playerInfos(),
