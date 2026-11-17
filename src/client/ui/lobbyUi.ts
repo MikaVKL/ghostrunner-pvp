@@ -25,6 +25,8 @@ export type OnlineState = 'connecting' | 'online' | 'offline';
 
 export interface LobbyCallbacks {
   onSolo: (name: string, mapId: string, difficulty: Difficulty) => void;
+  /** Time trial alone on the chosen map. */
+  onTimeTrial: (name: string, mapId: string) => void;
   onQuickMatch: (name: string) => void;
   onCreateRoom: (name: string, mapId: string) => void;
   onJoinRoom: (code: string, name: string) => void;
@@ -57,6 +59,7 @@ export class LobbyUi {
     element('solo-button').addEventListener('click', () => {
       callbacks.onSolo(this.playerName(), this.selectedMap, this.selectedDifficulty);
     });
+    element('trial-button').addEventListener('click', () => callbacks.onTimeTrial(this.playerName(), this.selectedMap));
     element('quick-button').addEventListener('click', () => {
       this.setStatus('Suche einen Gegner …');
       callbacks.onQuickMatch(this.playerName());

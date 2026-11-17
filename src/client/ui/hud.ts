@@ -18,6 +18,14 @@ function element(id: string): HTMLElement {
   return el;
 }
 
+/** What the time trial wants to show (main/sub in the middle, label and timer at the top). */
+export interface TrialHudInfo {
+  main: string;
+  sub: string;
+  label: string;
+  timer: string;
+}
+
 export type FlashKind = 'damage' | 'parry';
 
 /** "◆◆◇" for 2 of 3 round wins. */
@@ -46,6 +54,8 @@ export class Hud {
   private readonly ping = element('ping');
   private readonly flashEl = element('flash');
   private readonly connectionLost = element('connection-lost');
+  /** While a time trial runs: what to show instead of the match info (see TimeTrialMode). */
+  private trial: TrialHudInfo | null = null;
   private toastText = '';
   private toastUntil = 0;
 
@@ -67,11 +77,16 @@ export class Hud {
     this.flashEl.className = `flash-${kind}`;
   }
 
+  /** Show the time trial info instead of the match info (null = normal match). */
+  setTrial(info: TrialHudInfo | null): void {
+    this.trial = info;
+  }
+
   /** In a solo match there is no room code: show this text instead (null = online match). */
-  setSoloLabel(label: string | null): void {
+  setSoloLabel(label: string | null, withReplay = label !== null): void {
     this.soloInfo.textContent = label ?? '';
     this.soloInfo.classList.toggle('hidden', label === null);
-    element('replay-button').classList.toggle('hidden', label === null); // replays exist in solo only
+    element('replay-button').classList.toggle('hidden', !withReplay); // replays exist in solo matches only
     this.roomInfo.classList.toggle('hidden', label !== null);
   }
 
@@ -108,9 +123,14 @@ export class Hud {
     this.timer.classList.toggle('low', playing && secondsLeft(match.phaseTicksLeft) <= 10);
 
     const toast = performance.now() < this.toastUntil ? this.toastText : '';
-    const center = centerMessage(match, room.slot, room.code, toast);
-    this.message.textContent = center.main;
+    const center = this.trial ?? centerMessage(match, room.slot, room.code, toast);
+    this.message.textContent = this.trial && toast ? toast : center.main;
     this.subMessage.textContent = center.sub;
+    if (this.trial) {
+      this.roundLabel.textContent = this.trial.label;
+      this.timer.textContent = this.trial.timer;
+      this.timer.classList.remove('low');
+    }
     this.message.classList.toggle('countdown', match.phase === 'countdown');
 
     this.updateAbilities(me);

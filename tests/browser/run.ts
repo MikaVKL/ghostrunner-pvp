@@ -406,6 +406,47 @@ test('Replay und Killcam: ansehen, Pause, Spulen, Kamera, Export, Import, Hash-P
   noErrors(a);
 });
 
+test('Zeitrennen: Uhr, Ziel, Bestzeit im Browser, Geist, Neustart', async (env) => {
+  const a = await openOne(env, env.url);
+  await a.page.click('.map-card[data-map="arena"]');
+  await a.page.click('#trial-button');
+  await a.waitFor('time trial running', (s) => s.inRoom && s.me !== null);
+  await a.expectText('#round-label', 'Zeitrennen');
+  await a.expectText('#message', 'Lauf los');
+  await a.expectText('#sub-message', 'leuchtende Strahl'); // no best time yet: explain the goal
+  assertEqual(env.server.game.stats().rooms, 0, 'the time trial runs in the browser, not on the server');
+
+  // The spawn looks along the bridge to the goal: just hold W.
+  const runToGoal = async () => {
+    await a.page.keyboard.down('KeyW');
+    await a.expectText('#message', 'ZIEL', 40_000);
+    await a.page.keyboard.up('KeyW');
+  };
+  await runToGoal();
+  await a.expectText('#sub-message', 'Neue Bestzeit');
+  const stored = await a.page.evaluate(() => localStorage.getItem('timetrial:arena'));
+  assert(stored !== null && JSON.parse(stored).ticks > 60, 'the best run is stored in the browser');
+  await a.screenshot('15-trial-goal');
+
+  // R starts over; now the ghost of the best run runs along.
+  await a.page.keyboard.press('KeyR');
+  await a.expectText('#message', 'Lauf los');
+  await a.expectText('#sub-message', 'Geist');
+  type TrialWindow = { gameTrial: { ghost(): unknown } };
+  assert(await a.page.evaluate(() => (window as unknown as TrialWindow).gameTrial.ghost() !== null), 'ghost exists');
+  await a.page.keyboard.down('KeyW');
+  await a.page.waitForTimeout(800);
+  await a.screenshot('16-trial-ghost');
+  await a.page.keyboard.up('KeyW');
+
+  // Leave and come back: the best time is still there.
+  await a.page.click('#leave-button');
+  await a.page.waitForSelector('#lobby', { state: 'visible' });
+  await a.page.click('#trial-button');
+  await a.expectText('#sub-message', 'Bestzeit');
+  noErrors(a);
+});
+
 // ---------- runner ----------
 
 const only = process.argv[2]; // optional: run only tests whose name contains this text

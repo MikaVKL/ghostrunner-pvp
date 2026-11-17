@@ -12,14 +12,15 @@ auf GitHub Pages veröffentlicht).
 
 ## 1. So prüfst du, ob alles funktioniert
 
-**Letzter Stand (17.11.):** `npm run check` grün, alle 10 Browser-Tests grün (nach dem
-Ausbau der Bot-KI), GitHub-Pages-Workflow grün (Lauf 10, Commit `b9a4d05`).
+**Letzter Stand (17.11., nach Replays und Zeitrennen):** `npm run check` grün (377 Tests,
+0 Desyncs), alle **12** Browser-Tests grün. GitHub-Pages-Workflow: grün bis Commit `b9a4d05`
+geprüft; spätere Läufe siehe Tab „Actions“.
 
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
 | `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 341) |
-| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (10 Tests). Einmalig vorher: `npx playwright install chromium` |
+| `npm run test:browser` | ~3 min | `RESULT: OK - all browser tests passed.` (12 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~1 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |
@@ -73,7 +74,7 @@ Mehrspieler-Knöpfe deaktiviert. `npm run build:pages` + Workflow veröffentlich
 | 1 | Browser-Tests nach dem Bot-KI-Ausbau, Pages-Workflow | ✅ 10/10 grün, Workflow grün |
 | 2 | Reaktor: Stufen machten kaum Unterschied → Ursache war ein tödlicher Spalt um die Grube (Details in Abschnitt 4, „Balance“). Behoben, neu getunt | ✅ |
 | 3 | Replays: Startwelt + Eingaben speichern, exakt nachrechnen (Hash-Vergleich), Ansicht im Browser mit Pause, Zeitlupe, Vor-/Zurückspulen, freier Kamera, Export/Import als Datei; Killcam nach einem Schwert-Kill im Solo-Modus | ✅ – **nur im Solo-Modus** (siehe Abschnitt 4) |
-| 4 | Zeitrennen mit Geist | siehe unten |
+| 4 | Zeitrennen mit Geist: allein vom eigenen Spawn zum gegnerischen (leuchtender Strahl), Uhr startet mit dem ersten Schritt, Bestzeit + Weg pro Map im Browser (`localStorage`), durchsichtiger Geist des besten Laufs, `R` = neu starten | ✅ |
 
 **So funktionieren Replays** (Code: `src/shared/replay/`, `src/server/game/replayRecorder.ts`,
 `src/client/replay/`, `src/client/app/replayWiring.ts`): Der Raum schreibt beim Matchstart
@@ -85,12 +86,20 @@ den ersten abweichenden Tick. Tests: `tests/sim/replay.test.ts` (Hash-Vergleich 
 Maps, Export/Import, Springen, Manipulation wird erkannt), `tests/unit/replayPlayback.test.ts`,
 Browser-Test „Replay und Killcam“.
 
+**So funktioniert das Zeitrennen** (Code: `src/solo/timeTrial.ts` = Uhr und Geist-Aufnahme,
+`src/solo/trialRun.ts` = Server-Kern im Tab mit nur einem Spieler, `src/client/app/
+timeTrialMode.ts` + `trialStorage.ts` = Anzeige und Speicher): Mit nur einem Spieler bleibt
+das Match im Übungsmodus (`waiting`); ein Sturz setzt an den Start zurück, die Uhr merkt den
+Sprung und beginnt neu. Der Geist ist pro Tick `[x, y, z, yaw]` des besten Laufs. Tests:
+`tests/sim/timeTrial.test.ts` (Uhr, Neustart, Geist, **jede Map ist als Strecke schaffbar**),
+Browser-Test „Zeitrennen“.
+
 ---
 
 ## 3. Offen (priorisiert)
 
 1. ~~Replays und Killcam~~ – fertig (nur Solo). Ausbau: Replays für Online-Matches (Abschnitt 5.1)
-2. **Zeitrennen mit Geist** – Plan in Abschnitt 5.2
+2. ~~Zeitrennen mit Geist~~ – fertig. Ideen für mehr in Abschnitt 5.2
 3. **Bot-KI weiter ausbauen** (Grundstufe F ist fertig) – Ideen in Abschnitt 5.3
 4. **Die neuen Mechaniken von einem Menschen spielen lassen** und Werte nachstellen
    (Rezept 1 in `HOW_TO_EXTEND.md`) – niemand hat Doppelsprung, Clash, Sprungfelder und die
@@ -165,6 +174,12 @@ Können-Werte (`SKILL`): leicht 0,05 · mittel 0,09 · schwer 0,55.
 
 **Technik:**
 
+- **Zeitrennen:** Die Bestzeit liegt nur im Browser (`localStorage`, Schlüssel
+  `timetrial:<map>`); privates Fenster oder gelöschte Website-Daten = weg. Die Uhr misst den
+  vorhergesagten Zustand des Clients (im Solo-Modus identisch mit dem Server). Der Geist ist
+  ausgeblendet, solange er weniger als 1,2 m vor der Kamera ist (sonst verdeckt er die Sicht).
+  Die Strecke ist immer „eigener Spawn → gegnerischer Spawn“.
+
 - **Replays nur im Solo-Modus.** Online-Matches werden nicht aufgezeichnet (Plan in 5.1).
   Die Aufnahme endet nach 20 Minuten (Dateigröße bis ~6 MB) und bei Verbindungsabbruch.
 - **Alte Replay-Dateien passen nach jeder Regel-/Spiellogik-Änderung nicht mehr** (die Ansicht
@@ -209,33 +224,17 @@ Aufzeichnung direkt lesen kann. Für Online-Matches:
    nicht nachgerechnet werden. Wer das ändern will: Pause/Fortsetzen als `ReplayAction`
    aufnehmen (wie `rematch`) und in `ReplaySimulator.applyActions` nachspielen.
 
-### 5.2 Zeitrennen mit Geist (Priorität 2)
+### 5.2 Zeitrennen ausbauen (Ideen)
 
-Ziel: Allein von einem Spawn zum anderen rennen, auf Zeit. Die beste eigene Fahrt läuft als
-durchsichtiger „Geist“ mit.
-
-1. **Grundlage ist der Übungsmodus.** Ein `SoloMatch` ohne Bot bleibt in der Phase
-   `waiting`: freie Bewegung, ein Sturz setzt an den Spawn zurück (`stepWaiting` in
-   `src/shared/match/stepMatch.ts`). In `src/solo/soloMatch.ts` eine Option `withBot: false`
-   ergänzen (dann `bot` nicht anlegen und in `start`/`step`/`dispose` überspringen).
-2. **Ziel und Uhr.** Neue Datei `src/solo/timeTrial.ts`: Klasse `TimeTrial` bekommt pro
-   Tick den `PlayerState` des Spielers. Start = erster Tick mit Bewegung; Ziel = Abstand
-   zum gegnerischen Spawn (`map.spawns[1].pos`) < 2 m. Zeit in Ticks zählen (Regel 3 in
-   `CLAUDE.md`), Anzeige `ticks / 60` Sekunden. Ein Sturz (Position springt zurück zum
-   Spawn) setzt die Uhr auf 0.
-   Test `tests/unit/timeTrial.test.ts` mit einem per `stepPlayer` gesteuerten Spieler.
-3. **Geist aufzeichnen.** In `TimeTrial` pro Tick `{ x, y, z, yaw }` speichern. Bei neuer
-   Bestzeit die Liste in `localStorage` unter `ghost:<mapId>` ablegen (im Client, nicht in
-   `src/solo` – dort kein `localStorage` benutzen, sonst laufen die Node-Tests nicht).
-4. **Geist zeichnen.** In `GameView` einen `PlayerAvatar` mit halb durchsichtigen Materialien
-   (`transparent: true, opacity: 0.35` in `fighterModel.ts`) und ihn pro Frame auf die
-   Position des Geist-Ticks setzen.
-5. **Menü und HUD.** Knopf „Zeitrennen“ in `index.html` + `ui/lobbyUi.ts` (Vorbild: der
-   Solo-Knopf, Callback `onSolo`), Zeit und Bestzeit im HUD (`ui/hud.ts`, Texte in
-   `hudTexts.ts`).
-6. **Tests.** `tests/sim/…`: Ein Bot-Brain läuft die Strecke (Vorbild:
-   „a default bot reaches the other spawn“ in `tests/unit/maps.test.ts`) und die Uhr stoppt.
-   Browser-Test: Knopf klicken, HUD zeigt eine laufende Zeit.
+1. **Eigene Strecken:** Statt „Spawn zu Spawn“ eine Liste von Kontrollpunkten pro Map
+   (`MapDef.trialCheckpoints?: Vec3[]`, freiwillig). `TimeTrial` prüft sie der Reihe nach
+   (`atGoal` für jeden Punkt), die Ziel-Markierung (`render/goalMarker.ts`) zeigt den nächsten.
+2. **Zwischenzeiten:** an jedem Kontrollpunkt die Differenz zum Geist anzeigen
+   („−0,42 s“): Tick des Geistes am selben Punkt merken.
+3. **Geist teilen:** Den Geist als Datei speichern/laden wie Replays (`client/replay/
+   replayFiles.ts` als Vorbild). Ein Geist ist nur eine Liste von Positionen – er passt auch
+   nach Regeländerungen noch (anders als ein Replay), kann aber geschummelt sein.
+4. **Rangliste:** braucht einen Server und Accounts – bewusst nicht eingebaut.
 
 ### 5.3 Bot-KI weiter ausbauen (Priorität 3)
 

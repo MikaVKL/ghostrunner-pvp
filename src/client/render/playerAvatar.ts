@@ -24,6 +24,19 @@ export class PlayerAvatar {
     this.baseColor = new THREE.Color(teamColor(slot));
   }
 
+  /** Turn this figure into a see-through "ghost" (used by the time trial). */
+  makeGhost(): void {
+    this.group.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.material) return;
+      const material = (mesh.material as THREE.Material).clone();
+      material.transparent = true;
+      material.opacity = 0.32;
+      material.depthWrite = false;
+      mesh.material = material;
+    });
+  }
+
   /** @param dt seconds since the last frame */
   update(player: PlayerState, dt: number): void {
     this.group.visible = player.alive;

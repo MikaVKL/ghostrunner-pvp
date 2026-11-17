@@ -9,6 +9,7 @@ import type { Vec3 } from '../../shared/math/vec3';
 import { EYE_HEIGHT } from '../../shared/physics/collision';
 import type { PlayerState } from '../../shared/sim/playerState';
 import { CameraFx } from './cameraFx';
+import { createGoalMarker } from './goalMarker';
 import { buildMapGroup } from './mapMesh';
 import { FX_COLORS, teamColor } from './palette';
 import { Particles } from './particles';
@@ -20,6 +21,9 @@ import { applySwordPose, swordPose } from './swordPose';
 
 /** Size of the first-person sword compared to the swords of the figures. */
 const VIEW_SWORD_SCALE = 0.6;
+
+/** The time trial ghost is hidden when it is closer than this to the camera. */
+const GHOST_HIDE_DISTANCE = 1.2;
 
 /** Everything the renderer needs to draw one frame. */
 export interface ViewState {
@@ -33,6 +37,8 @@ export interface ViewState {
   remotes: PlayerState[];
   /** Seconds since the last frame. */
   dt: number;
+  /** Time trial: the ghost of the best run, or null. */
+  ghost?: PlayerState | null;
 }
 
 export class GameView {
@@ -42,6 +48,8 @@ export class GameView {
   private mapGroup: THREE.Group | null = null;
   private readonly avatars = new Map<number, PlayerAvatar>();
   private readonly arcs = new Map<number, SlashArc>();
+  private ghostAvatar: PlayerAvatar | null = null;
+  private goal: THREE.Object3D | null = null;
   /** First-person sword, attached to the camera. */
   private viewSword: SwordModel = createSword(teamColor(0));
   private viewSwordSlot = 0;
@@ -51,6 +59,26 @@ export class GameView {
     this.viewSword.group.scale.setScalar(VIEW_SWORD_SCALE);
     this.parts.camera.add(this.viewSword.group);
     this.parts.scene.add(this.particles.points);
+  }
+
+  /** Show a glowing beam at the goal of a time trial (null = no goal). */
+  setGoal(pos: Vec3 | null): void {
+    if (this.goal) this.parts.scene.remove(this.goal);
+    this.goal = pos ? createGoalMarker(pos) : null;
+    if (this.goal) this.parts.scene.add(this.goal);
+  }
+
+  /** The ghost is hidden while it is (almost) inside the camera - it would cover the view. */
+  private updateGhost(ghost: PlayerState | null, cameraFeet: Vec3, dt: number): void {
+    if (ghost && !this.ghostAvatar) {
+      this.ghostAvatar = new PlayerAvatar(1);
+      this.ghostAvatar.makeGhost();
+      this.parts.scene.add(this.ghostAvatar.group);
+    }
+    if (!this.ghostAvatar) return;
+    if (ghost) this.ghostAvatar.update(ghost, dt);
+    const close = ghost !== null && Math.hypot(ghost.pos.x - cameraFeet.x, ghost.pos.z - cameraFeet.z) < GHOST_HIDE_DISTANCE;
+    this.ghostAvatar.group.visible = ghost !== null && !close;
   }
 
   /** Replace the displayed map. */
@@ -74,6 +102,7 @@ export class GameView {
 
     this.updateViewSword(state.local, state.dt);
     this.updateAvatars(state.remotes, state.dt);
+    this.updateGhost(state.ghost ?? null, state.localPos, state.dt);
     this.updateArcs(state.local ? [state.local, ...state.remotes] : state.remotes);
     this.particles.update(state.dt);
     renderer.render(scene, camera);
