@@ -32,6 +32,10 @@ const FOOTWORK_DISTANCE = 1.5;
 const LEDGE_LOOKAHEAD = 0.9;
 /** Seconds a normal jump stays in the air (up and down again). */
 const JUMP_AIR_TIME = (2 * MOVE.jumpSpeed) / MOVE.gravity;
+/** Height differences a single jump gets the bot onto (a jump rises ~1.5 m). */
+const isClimbable = (heightAbove: number) => heightAbove > 0.4 && heightAbove < 1.4;
+/** Jump this close to an enemy standing on something low (the edge is ~1 m in front of it). */
+const CLIMB_JUMP_DISTANCE = 2.6;
 /** A position change larger than this in one tick means "respawned". */
 const TELEPORT_DISTANCE = 3;
 
@@ -155,6 +159,12 @@ export class BotBrain {
     // the bot would slide past its target during the wind-up of its own swing.
     const footwork = closeCombat && isWalkable(map, me.pos, target.pos);
     if (footwork) wish = this.footwork(me, target, distance, range);
+    // The enemy stands a little higher on something the route does not know (e.g. the cover
+    // box on the tower roof): walk straight at it and jump up instead of waiting below.
+    if (fighting && !footwork && toWaypoint < 1 && me.grounded && isClimbable(target.pos.y - me.pos.y)) {
+      wish = directionTo(me.pos, target.pos);
+      if (distance < CLIMB_JUMP_DISTANCE) this.buttons.press(Button.Jump);
+    }
     let keys = keysFor(wish, this.yaw);
     if (!safeSpot) keys = this.avoidLedges(me, map, keys, fighting ? LEDGE_LOOKAHEAD : toWaypoint);
 

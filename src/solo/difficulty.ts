@@ -66,8 +66,8 @@ export function personalityForSkill(skill: number): BotPersonality {
  * changing the bot AI or the combat rules and copy the values it prints into this table.
  */
 export const SKILL: Record<ModeId, Record<Difficulty, number>> = {
-  duel: { leicht: 0.05, mittel: 0.08, schwer: 0.25 },
-  arena: { leicht: 0.05, mittel: 0.09, schwer: 0.45 },
+  duel: { leicht: 0.05, mittel: 0.11, schwer: 0.35 },
+  arena: { leicht: 0.05, mittel: 0.11, schwer: 0.47 },
 };
 
 /** The bot parameters of a difficulty level in a game mode. */

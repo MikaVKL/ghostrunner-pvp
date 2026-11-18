@@ -38,10 +38,51 @@ Ausweichen werden der Kern. Alles im geteilten Kern, Desync-Tests bleiben grün.
 | # | Schritt | Stand |
 |---|---|---|
 | 1 | Gefühl (nur Client) | ✅ – siehe unten; Schwertspur und Sounds von keinem Menschen gesehen/gehört |
-| 2 | Bewegung | ✅ – siehe unten; **wartet auf Playtest** (Checkpoint 1) |
-| 3–7 | Dash-Ladungen, Haltung, Shuriken, Maps, Bot-Stile | ⏸ nicht begonnen – erst nach deinem Feedback |
+| 2 | Bewegung | ✅ – Playtest 1 erledigt (18.11.): „gutes Tempo/Gefühl“, Dash und Wall-Run fühlen sich gut an |
+| 3 | Dash-Ladungen | ✅ – siehe unten |
+| 4 | Haltungsleiste, Block, Parry | 🔧 in Arbeit |
+| 5–7 | Shuriken, Maps, Bot-Stile | ⏸ nicht begonnen |
 
-### ⏸ PLAYTEST-CHECKPOINT 1 – bitte testen und Rückmeldung geben
+### Rückmeldung zu Playtest 1 (18.11.) und was daraus wurde
+
+- Standardtasten: **C = Slide/Ducken, V = Gehen (halten)**, Strg ist nicht mehr belegt (Strg+W).
+  Weil V bisher „Replay ansehen“ war, ist das Replay jetzt auf **B**. Wer seine Tasten schon
+  einmal umgelegt hat, behält die gespeicherte Belegung – „Standard wiederherstellen“ im Menü
+  holt die neuen Standardtasten.
+- Q = Block/Parry und rechte Maustaste = Shuriken kommen mit Schritt 4 bzw. 5.
+- „Falle oft ins Void“ – laut Besitzer eher eigene Schuld (ohne Maus gespielt). Nicht geändert;
+  Schritt 6 (Maps) kann mehr Geländer/Deckung bringen, falls es mit Maus auch so bleibt.
+
+**Schritt 3 – Dash-Ladungen, so funktioniert es** (`movement/dash.ts`, geteilter Kern):
+
+- `PlayerState.dashCharges` (max. `MOVE.dashMaxCharges` = 2), `dashRecharge`, `airDashUsed`.
+- Jede leere Ladung lädt **einzeln** nach `GameMode.dashRechargeTicks` nach (Duell 3 s, Arena
+  3,6 s – „Dash lädt langsamer“ bleibt so der Arena-Unterschied). Dash und Dash-Angriff kosten
+  je eine Ladung (ein Dash-Angriff ist ein Dash + Schlag, also eine Ladung).
+- Zwischen zwei Dashes liegen mindestens `dashCooldownTicks` (Duell 0,35 s, Arena 0,5 s) –
+  der frühere 1-s-Cooldown ist damit ersetzt.
+- In der Luft geht nur **ein** Dash, bis Boden oder Wand (Wall-Run) berührt wird; das setzt
+  nur das Limit zurück, nicht die Ladungen.
+- **Treffer** (Angreifer) und **gelungener Parry** (Verteidiger) geben eine Ladung zurück
+  (`refundDashCharge`, entscheidet der Server in `resolveCombat.ts`).
+- **Verfehlter Dash-Angriff:** +0,35 s Erholung (`COMBAT.dashAttackMissRecoveryTicks`). Ob er
+  „verfehlt“ hat, weiß erst der Server (`attackConnected`); der Client sagt die lange Erholung
+  voraus und wird bei einem Treffer korrigiert (normale Korrektur, kein Desync).
+- HUD: „Dash ●●“ (●○ = eine Ladung), der Balken zeigt auch das Nachladen.
+- Bots dashen nur mit Ladung (`canStartDash`), zufällige Dashes nur bei vollen Ladungen.
+- Tests: `tests/unit/dashCharges.test.ts`, `movement.test.ts` (zwei Dashes, dritter erst nach
+  dem Nachladen), `hudTexts.test.ts`. Im Desync-Abdeckungstest pariert der Testbot jetzt immer
+  (sonst waren es zu wenige Parrys, um den Pfad sicher abzudecken).
+- Balance (`npm run tune`): `SKILL` Duell 0,05/0,11/0,35, Arena 0,05/0,11/0,47. Gemessen:
+  Duell Mittel gegen Leicht **75 %**, Schwer gegen Mittel **92 %**; Arena 70 % / 93 % – damit
+  wieder im Ziel (nach Schritt 2 waren es 63 % / 91 %).
+- Gefundener Bot-Fehler (durch die neuen Stärkewerte sichtbar geworden): Stand der Gegner auf
+  der Deckungskiste auf dem Turmdach von „Dächer“ (1,2 m hoch, kein Navigationspunkt), blieb
+  der Bot 15 s darunter stehen. Jetzt läuft er im Kampf direkt auf einen leicht erhöhten
+  Gegner zu und springt hinauf (`isClimbable` in `bots/brain.ts`). Die Änderung kam nach dem
+  Tuning; sie betrifft nur diesen Sonderfall.
+
+### ✅ PLAYTEST-CHECKPOINT 1 (erledigt) – was getestet werden sollte
 
 Ich habe hier angehalten. Starte `npm run dev` → <http://localhost:5173> → „Solo gegen Bot“
 (oder die GitHub-Pages-Seite, sobald der Workflow durch ist). Bitte probiere, am besten
