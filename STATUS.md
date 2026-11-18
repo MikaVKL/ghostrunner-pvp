@@ -40,8 +40,88 @@ Ausweichen werden der Kern. Alles im geteilten Kern, Desync-Tests bleiben grün.
 | 1 | Gefühl (nur Client) | ✅ – siehe unten; Schwertspur und Sounds von keinem Menschen gesehen/gehört |
 | 2 | Bewegung | ✅ – Playtest 1 erledigt (18.11.): „gutes Tempo/Gefühl“, Dash und Wall-Run fühlen sich gut an |
 | 3 | Dash-Ladungen | ✅ – siehe unten |
-| 4 | Haltungsleiste, Block, Parry | 🔧 in Arbeit |
+| 4 | Haltungsleiste, Block, Parry | ✅ – siehe unten; **wartet auf Playtest** (Checkpoint 2) |
 | 5–7 | Shuriken, Maps, Bot-Stile | ⏸ nicht begonnen |
+
+### ⏸ PLAYTEST-CHECKPOINT 2 – bitte testen und Rückmeldung geben
+
+Ich habe nach Schritt 4 angehalten. `npm run dev` → <http://localhost:5173> → „Solo gegen Bot“
+(oder die GitHub-Pages-Seite). Wenn du früher schon Tasten umgelegt hast: im Menü unter
+„Tastenbelegung“ einmal **„Standard wiederherstellen“**, sonst fehlen die neuen Standardtasten.
+
+**Dash-Ladungen (Schritt 3):**
+1. Zwei Dashes hintereinander, dann ist leer (HUD „Dash ○○“); jede Ladung kommt nach 3 s
+   einzeln zurück. Reicht das für den Flow, oder fühlt es sich zu knapp an?
+2. In der Luft geht nur ein Dash, bis du Boden oder eine Wand (Wall-Run) berührst. Stört das
+   beim Parkour, z. B. Wandsprung → Dash → Wall-Run?
+3. Ein Treffer oder gelungener Parry gibt eine Ladung zurück – merkst du das?
+4. Ein verfehlter Dash-Angriff lässt dich ~0,8 s wehrlos (0,45 + 0,35 s). Zu hart, zu weich?
+
+**Haltung, Block, Parry (Schritt 4):**
+5. **Q kurz tippen = Parry**, kurz bevor der Schlag einschlägt (Fenster 0,15 s – sehr knapp).
+   Schaffst du Parrys gegen „Leicht“ und „Mittel“? Tipp: Die Angriffsanzeige (Menü) zeigt
+   das Ausholen; das Fenster öffnet sich *beim Drücken*, also eher spät drücken.
+6. **Q halten = Block:** sicher, aber deine Haltung (Leiste unten in der Mitte) füllt sich
+   (ein normaler Schlag 25 von 100, Dash-Angriff 35). Beim Blocken gehst du nur noch.
+7. **Volle Haltung = 1,5 s betäubt** (gelb, „HALTUNG GEBROCHEN“). Kommt das zu oft/zu selten?
+   Die gegnerische Leiste steht oben unter den Namen – füllst du sie mit Parrys (40 pro Parry)?
+8. Die Leiste baut sich nach 1 s ohne Druck mit 12 pro Sekunde ab. Zu schnell, zu langsam?
+9. Ein geparierter Angreifer ist nur noch 0,6 s betäubt (vorher 1 s) – reicht die Zeit für
+   einen Konter?
+10. **Das Kernproblem:** Läuft es jetzt weniger auf „beide rennen aufeinander zu, wer zuerst
+    dash-angreift, gewinnt“ hinaus? Was machst du, was macht der Bot?
+
+Am hilfreichsten wieder: Zahlen oder konkrete Momente. Die Werte stehen in
+`src/shared/combat/combatConfig.ts` (Parry-Fenster, Haltung, Betäubung),
+`src/shared/combat/weapons.ts` (`postureDamage` je Angriff) und
+`src/shared/movement/movementConfig.ts` / `src/shared/match/gameModes.ts` (Dash-Ladungen).
+
+**Schritt 4 – Haltung, Block, Parry, so funktioniert es** (geteilter Kern):
+
+- Neue Aktion **`guard`** ersetzt `parry` (`combat/guard.ts`): Ein Q-Druck startet sie. Ist das
+  Parry-Fenster bereit (`parryCooldown` 0), sind die ersten 0,15 s **Parry**, danach bei
+  gehaltenem Q **Block**; Loslassen beendet (ein Tippen bekommt trotzdem das ganze Fenster).
+  Das nächste Fenster öffnet frühestens 0,5 s nach dem letzten – Hämmern auf Q blockt nur.
+  Wer Q hält, während z. B. ein Schlag endet, geht direkt in den Block (ohne Fenster).
+- **Blocken** (`isBlocking`): Gehtempo, kein Schwung-Erhalt, kein Sprint, kein Dash (also auch
+  kein Dash-Angriff), kein Schlag. Das Parry-Fenster selbst bremst nicht.
+- **Haltung** (`combat/posture.ts`, Felder `posture`, `postureRegenDelay`): Block = Haltung des
+  Verteidigers + `postureDamage` des Angriffs (25/35/25), Parry = Haltung des Angreifers + 40
+  und 0,6 s Betäubung. Voll (100) = 1,5 s betäubt (`stunTicks`), danach leer. Abbau nach 1 s
+  ohne Druck mit 12/s. Füllen entscheidet der Server, Abbau ist vorhersagbar.
+- Ein ungeblockter Treffer tötet weiterhin (Duell). Block und Parry wirken nur nach vorn.
+- Ereignisse: `block` (neu, mit `broken`), `parry` hat jetzt `broken`. Effekte: dumpfer
+  Block-Klang, Funken, „GEBLOCKT“; Haltungsbruch mit Krachen, gelbem Funkenregen und Text.
+- HUD: Haltungsleisten (oben Gegner, unten du; rot ab 70 %), „Parry/Block“-Feld zeigt, ob das
+  nächste Q ein Parry-Fenster öffnet. Hilfe-Text erklärt Q tippen/halten und die Haltung.
+- **Q ist jetzt die einzige Block/Parry-Taste**, die rechte Maustaste ist frei für Schritt 5.
+- **Bots:** Persönlichkeitswert `blockChance` (wird von `npm run tune` mit eingestellt). Ein
+  geplanter Parry wird erst kurz vor dem Einschlag gedrückt (`parryWhenDue`), ein Block hält Q
+  bis zum Ende des Schwungs, und nah am Gegner heben sie manchmal vorab die Deckung
+  (`raiseGuard`). Bei mehr als 60 % Haltung blocken sie nicht mehr.
+  Dabei gefunden und behoben: `FightHabits.decide` hat die Haltedauer verworfen – Bots hätten
+  nie gehalten.
+- Tests: `tests/unit/posture.test.ts` (11), angepasst `combat.test.ts`, `botQuality.test.ts`,
+  neuer Netzwerk-Test „Haltung bricht ohne Desync“ (`botMatch.test.ts`, Arena, 60 ms Lag),
+  Browser-Test „Block und Haltung“ (16 Browser-Tests). `PROTOCOL_VERSION` 9.
+
+**Ehrliche Befunde aus Schritt 3 und 4:**
+
+- **Parry unter Lag ist für Bots schwer:** Ein Testbot, der *jeden* Schlag parieren will,
+  schafft ohne Lag ~82 %, mit 30–60 ms Lag nur ~45 % (der alte Parry mit 0,25-s-Fenster:
+  50–63 %). Bei 200 ms Lag parieren Bots fast nie – Lag-Kompensation schaut höchstens 0,3 s
+  zurück (`COMBAT.maxRewindTicks`), und Interpolation + 200 ms füllen das fast aus. Für
+  Menschen ist das 0,15-s-Fenster vermutlich ebenfalls knapp; deshalb Punkt 5 der Checkliste.
+- **Haltungsbrüche sind im Duell selten**, weil ein ungeblockter Treffer vorher tötet. In
+  Bot-Matches: 20 Matches (Duell + Arena) → 1 Haltungsbruch. Im Arena-Modus (3 Leben) kommen
+  sie öfter vor. Ob das im Duell gewollt ist, entscheidet der Playtest.
+- **Balance nach Schritt 4** (`npm run tune`, `BALANCE.md`): `SKILL` Duell 0,05/0,09/0,33,
+  Arena 0,05/0,11/0,44. Gemessen: Duell Mittel gegen Leicht **71 %**, Schwer gegen Mittel
+  **93 %**; Arena 77 % / 91 % – im Ziel. Die „Parry-Quote“ in `BALANCE.md` bleibt bei 0–1 %
+  (sie teilt durch alle Schwünge, auch die außer Reichweite; Blocks zählt sie nicht).
+- Neue Bot-Persönlichkeit `blockChance` ist Teil des Tunings; die Kampf-Stile (aggressiv,
+  Konter, Ausweicher) haben einen Block-Faktor bekommen. Die eigentlichen Stile aus Schritt 7
+  (Rusher, Konterer, Flanker, Shuriken-Kiter) gibt es noch nicht.
 
 ### Rückmeldung zu Playtest 1 (18.11.) und was daraus wurde
 
@@ -226,14 +306,14 @@ jedes Effekt im Menü unter „Grafik & Spielgefühl“ abschaltbar, `FxSettings
 
 ## 1. So prüfst du, ob alles funktioniert
 
-**Letzter Stand (17.11., nach Schritt 2 Flow):** `npm run check` grün (452 Tests), alle 15 Browser-Tests grün (mit Moduswahl,
+**Letzter Stand (18.11., nach Schritt 4 Flow):** `npm run check` grün (476 Tests), alle 16 Browser-Tests grün (mit Moduswahl,
 Angriffsanzeige und Arena), GitHub-Pages-Workflow grün.
 
 | Befehl | Dauer | Muss enden mit |
 |---|---|---|
 | `npm install` | einmalig | – |
 | `npm run check` | ~40 s | `RESULT: OK - no desyncs, no errors.` und `Tests … passed` (zuletzt 418) |
-| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (15 Tests). Einmalig vorher: `npx playwright install chromium` |
+| `npm run test:browser` | ~2,5 min | `RESULT: OK - all browser tests passed.` (16 Tests). Einmalig vorher: `npx playwright install chromium` |
 | `npm run bots` | ~20 s | `RESULT: OK - no desyncs, no errors.` |
 | `npm run tune -- --quick` | ~3 min | schreibt `BALANCE.md` neu (Gewinnquoten der Bot-Stufen je Modus) |
 | `npm run check:all` | ~4 min | alles oben außer `tune` |

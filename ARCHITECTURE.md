@@ -165,12 +165,12 @@ eingefroren und können sich nur umsehen. Kampf und Spieler-Kollision zählen nu
 
 Ein Raum spielt genau einen **Modus**: die Spielregeln als Daten (`GameMode`): Leben pro
 Runde, Schaden je Angriffsart, Unverwundbarkeit nach einem Treffer, Konter-Bonus nach einem
-Parry, Dash-Cooldown, Extra-Erholung nach dem Dash-Angriff, Rundenzahl und -zeit. „Duell“ ist
+Parry, Dash-Mindestabstand und -Nachladezeit, Extra-Erholung nach dem Dash-Angriff, Rundenzahl und -zeit. „Duell“ ist
 das Original (1 Leben, 1 Schaden, Best-of-5).
 
 - Der Ersteller wählt den Modus (`createRoom.modeId`), das schnelle Spiel bringt nur Spieler
   mit demselben Modus zusammen (`quickMatch.modeId`), `roomJoined.modeId` sagt ihn allen.
-- Der Modus steht in `SimContext.mode`. `stepPlayer` bekommt ihn auch: Dash-Cooldown und
+- Der Modus steht in `SimContext.mode`. `stepPlayer` bekommt ihn auch: Dash-Nachladezeit und
   Dash-Angriff-Erholung sind vorhersagbar, deshalb braucht der Client (`GameClient.mode`)
   denselben Modus – sonst Desync.
 - `hp` zählt Leben. Zähler für Modus-Regeln (`invulnerableTicks`, `counterTicks`) stehen in
@@ -391,15 +391,20 @@ Zufall für Optik (Partikel, Wackeln) darf `Math.random()` benutzen – er ist k
 | Snapshot-Rate | 30 Hz (alle 2 Ticks) | `shared/config.ts` |
 | Interpolations-Verzögerung | 6 Ticks = 100 ms | `netcode/interpolation.ts` |
 | Input-Puffer max. | 6 Inputs = 100 ms | `server/game/inputQueue.ts` |
-| Lauf-/Dash-Tempo, Sprung, Wall-Run | 7 / 22 m/s, 1,5 m hoch, 1,5 s | `shared/movement/movementConfig.ts` |
+| Sprint (Standard) / Gehen / Dash-Tempo, Sprung, Wall-Run | 8,5 / 4 / 22 m/s, 1,5 m hoch, 1,5 s | `shared/movement/movementConfig.ts` |
+| Slide / Ducken | mind. 12,5 m/s, 0,7 s / 3,5 m/s, 1,1 m hoch | `shared/movement/movementConfig.ts` |
+| Dash-Ladungen | 2, je 3 s Nachladen (Arena 3,6 s), Abstand 0,35 s, 1 Luft-Dash | `movementConfig.ts`, `match/gameModes.ts` |
+| Tasten-Puffer | 9 Ticks (0,15 s) | `shared/config.ts` |
 | Doppelsprung | 1 zusätzlicher Sprung in der Luft, +1,2 m | `shared/movement/movementConfig.ts` |
 | Klingen-Clash: Zeitfenster / Rückstoß / Cooldown | 6 Ticks (0,1 s) / 7 m/s / 21 Ticks | `shared/combat/combatConfig.ts` |
 | Sprungfelder | je Feld eigene Abwurf-Geschwindigkeit | `shared/maps/*.ts` (`pads`) |
 | Bot-Stufen (Können) | siehe `BALANCE.md` | `solo/difficulty.ts` (`SKILL`) |
-| Schwert normal: Schaden / Reichweite / Phasen | 100 / 2,4 m / 12+6+18 Ticks | `shared/combat/weapons.ts` |
-| Schwert Dash-Angriff | 100 / 3,2 m / 6+6+27 Ticks | `shared/combat/weapons.ts` |
+| Schwert normal: Reichweite / Phasen / Haltungsschaden | 2,4 m / 12+6+18 Ticks / 25 | `shared/combat/weapons.ts` |
+| Schwert Dash-Angriff | 3,2 m / 6+6+27 Ticks (+21 bei Fehlschlag) / 35 | `shared/combat/weapons.ts` |
+| Luftschlag | 2,4 m, Höhe 2,6 m / 9+7+18 Ticks / 25 | `shared/combat/weapons.ts` |
 | Angriffs-Cooldown | 15 Ticks (0,25 s) | `shared/combat/weapons.ts` |
-| Parry: Fenster / Erholung / Cooldown / Stun | 15 / 18 / 30 / 60 Ticks | `shared/combat/combatConfig.ts` |
+| Parry: Fenster / Abstand zwischen Fenstern / Stun des Angreifers | 9 / 30 / 36 Ticks | `shared/combat/combatConfig.ts` |
+| Haltung: Maximum / Parry-Schaden / Bruch-Betäubung / Abbau | 100 / 40 / 90 Ticks / 12 pro s nach 1 s | `shared/combat/combatConfig.ts` |
 | Lag-Kompensation max. | 18 Ticks (0,3 s) | `shared/combat/combatConfig.ts` |
 | Match | Best-of-5 (3 Siege), 60 s pro Runde, 3 s Countdown | `shared/match/matchConfig.ts` |
 | Reconnect-Zeit | 20 s | `shared/match/matchConfig.ts` |
@@ -408,7 +413,7 @@ Zufall für Optik (Partikel, Wackeln) darf `Math.random()` benutzen – er ist k
 
 | Ordner | Prüft | Beispiele |
 |---|---|---|
-| `tests/unit` | einzelne Funktionen und Klassen | Sprunghöhe, Doppelsprung, Sprungfelder, Klingen-Clash, One-Hit-Kill, Parry-Fenster und -Cooldown, Dash-Angriff, Best-of-5, Rematch, Lag-Kompensation, Spieler-Kollision, Reconnect, Raumcodes, Input-Validierung, Predictor |
+| `tests/unit` | einzelne Funktionen und Klassen | Sprunghöhe, Doppelsprung, Sprungfelder, Klingen-Clash, One-Hit-Kill, Parry-Fenster, Block und Haltung, Dash-Ladungen, Dash-Angriff, Best-of-5, Rematch, Lag-Kompensation, Spieler-Kollision, Reconnect, Raumcodes, Input-Validierung, Predictor |
 | `tests/unit/maps.test.ts` | jede registrierte Map | Spawns, Abgrund, sicherer Fußweg, jeder Parkour-Link wird durchgespielt, Bots erreichen den Gegner |
 | `tests/unit/architecture.test.ts` | die Projektregeln selbst | keine verbotenen Imports zwischen Ordnern, kein `Math.random()`/`Date.now()` in der Simulation |
 | `tests/sim` | ganze Bot-Matches über simuliertes Netz | 0 Desyncs auf allen Maps bei 0/80/300 ms Lag, Verbindungsabbruch mitten im Match, „Bots benutzen alle Mechaniken“, „Detektor schlägt bei Manipulation an“ |

@@ -412,6 +412,28 @@ test('Spielgefühl: Bloom, Treffer-Funke; Bloom schaltet sich bei zu langsamer G
   noErrors(a);
 });
 
+test('Block und Haltung: Q halten blockt, die Haltungsleiste füllt sich', async (env) => {
+  const a = await openOne(env, env.staticUrl, false);
+  await a.page.uncheck('#killcam-checkbox');
+  await a.page.click('#mode-list button[data-mode="arena"]'); // 3 lives: time for several blocks
+  await startSolo(a, 'arena', 'schwer');
+  await a.page.keyboard.down('KeyQ');
+  // Hold the guard and keep looking at the bot until one of its swings is blocked.
+  const blocked = "(window.gameEvents || []).some((e) => e.type === 'block' && e.defender === window.game.room.slot)";
+  for (let i = 0; i < 600 && !(await a.page.evaluate(blocked)); i++) {
+    const s = await a.state();
+    if (s.me && s.enemy) await a.look(yawToward(s.me.pos, s.enemy.pos));
+    // Q must be held again after a death or a new round (the key stays down, the guard restarts).
+    await a.page.waitForTimeout(100);
+  }
+  assert(await a.page.evaluate(blocked), 'a swing of the bot was blocked');
+  const width = Number(await a.page.evaluate("parseFloat(document.querySelector('#my-posture .fill').style.width)"));
+  assert(width > 0, `own posture bar shows the block (width ${width} %)`);
+  await a.screenshot('17-block-posture');
+  await a.page.keyboard.up('KeyQ');
+  noErrors(a);
+});
+
 test('Angriffsanzeige: roter Ring und Ton, wenn der Bot ausholt', async (env) => {
   const a = await openOne(env, env.url);
   await a.page.selectOption('#windup-select', 'on');

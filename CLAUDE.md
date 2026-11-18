@@ -162,6 +162,15 @@ Wenn du eine davon brichst, entstehen Desyncs. Die Bots finden sie – also Bots
   des Clients (`contactWatcher.ts`) muss dieselbe Prüfung benutzen.
 - **Dash geht durch den Gegner, Dash-Angriff nicht** (`passesThrough` in
   `physics/playerCollision.ts`) – sonst überfliegt der Dash-Angriff sein Ziel und verfehlt.
+- **Parry und Block sind EINE Aktion `guard`** (`combat/guard.ts`): Q-Druck öffnet ein
+  Parry-Fenster (`COMBAT.parryWindowTicks`, nur wenn `parryCooldown` 0 ist), gehaltenes Q blockt
+  danach. `isParryActive`/`isBlocking` benutzen, nie `p.action === 'parry'` (gibt es nicht mehr).
+  Das Fenster ist kürzer als das Ausholen: Bots/Tests müssen kurz vor dem Einschlag drücken.
+- **Haltung (`posture`) füllt nur der Server** (`addPosture` in `resolveCombat.ts`), abbauen tut
+  sie sich vorhersagbar in `stepAction` (`drainPosture`). Betäubung immer über `stun(p, ticks)`
+  (`combat/actionState.ts`) – die Dauer steht in `p.stunTicks`.
+- **Dash-Ladungen** (`movement/dash.ts`): Ob ein Dash geht, sagt `canStartDash(p)` (Ladung,
+  Mindestabstand, Luft-Limit) – nie nur `dashCooldown` prüfen.
 - **Vorwärtsdrang:** Jeder Schlag schiebt nach vorn (`lungeSpeed`/`lungeTicks` im
   Angriffsprofil). Tests, die genaue Abstände brauchen, müssen das einrechnen.
 - **Spielmodi:** Regeln stehen in `GameMode` (`match/gameModes.ts`), nicht in Waffen oder

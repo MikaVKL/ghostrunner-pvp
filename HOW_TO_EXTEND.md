@@ -43,8 +43,10 @@ Kein Code nötig, nur Zahlen:
 |---|---|
 | Lauftempo, Sprungkraft, Schwerkraft, Dash, Wall-Run | `src/shared/movement/movementConfig.ts` |
 | Reichweite, Schwung-Phasen, Knockback (je Angriffsart `light`/`dash`), Angriffs-Cooldown | `src/shared/combat/weapons.ts` |
-| **Spielregeln je Modus:** Leben, Schaden je Angriffsart, Unverwundbarkeit nach Treffer, Parry-Konter-Bonus, Dash-Cooldown, längere Erholung nach Dash-Angriff, Rundenzahl, Rundenzeit, Angriffsanzeige an/aus | `src/shared/match/gameModes.ts` (Rezept 15) |
-| Parry-Fenster, Parry-Cooldown, Stun-Dauer, Rückstoß, Dash-Angriff-Zeitfenster, Lag-Kompensation | `src/shared/combat/combatConfig.ts` |
+| **Spielregeln je Modus:** Leben, Schaden je Angriffsart, Unverwundbarkeit nach Treffer, Parry-Konter-Bonus, Dash-Mindestabstand und Nachladezeit der Dash-Ladungen, längere Erholung nach Dash-Angriff, Rundenzahl, Rundenzeit, Angriffsanzeige an/aus | `src/shared/match/gameModes.ts` (Rezept 15) |
+| Parry-Fenster, Abstand zwischen Parry-Fenstern, Stun-Dauer, Haltung (Maximum, Parry-Schaden, Bruch-Dauer, Abbau), Rückstoß, Dash-Angriff-Zeitfenster, Lag-Kompensation | `src/shared/combat/combatConfig.ts` |
+| Haltungsschaden eines geblockten Schlags (`postureDamage`), Vorwärtsdrang, Höhenreichweite je Angriff | `src/shared/combat/weapons.ts` |
+| Anzahl Dash-Ladungen, Standard-Nachladezeit | `src/shared/movement/movementConfig.ts` |
 | Countdown, Pause nach der Runde, Rematch, Reconnect-Zeit (für alle Modi gleich) | `src/shared/match/matchConfig.ts` |
 | Spielergröße, Augenhöhe | `src/shared/physics/collision.ts` |
 | Doppelsprung (Anzahl, Kraft) | `airJumps`, `airJumpSpeed` in `src/shared/movement/movementConfig.ts` |
@@ -652,7 +654,7 @@ Test-Modus `RULES` schreiben. Danach `npm run check` (Bots) und `npm run tune`.
 
 **Neue Regel (nicht nur neue Zahlen)?** Feld in `GameMode` ergänzen (beim Duell so setzen,
 dass sich nichts ändert), dann einsortieren wie jede Logik:
-- hängt nur vom eigenen Spieler ab (z. B. Dash-Cooldown) → `stepPlayer` bekommt `mode` schon
+- hängt nur vom eigenen Spieler ab (z. B. Dash-Nachladezeit) → `stepPlayer` bekommt `mode` schon
   übergeben (`movement/`, `combat/actions.ts`); der Client sagt es mit demselben Modus voraus.
 - Interaktion (z. B. Schaden, Unverwundbarkeit, Konter) → `resolveCombat` bekommt `mode`.
 - Zustand, der dazu gehört (Zähler wie `invulnerableTicks`, `counterTicks`), steht in
