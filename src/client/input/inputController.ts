@@ -91,7 +91,7 @@ export class InputController {
 
   private onKeyDown = (event: KeyboardEvent): void => {
     if (!this.enabled) return;
-    // Ctrl is the slide key: stop browser shortcuts like Ctrl+D (bookmark) or Ctrl+S.
+    // Ctrl may be bound (menu): stop browser shortcuts like Ctrl+D (bookmark) or Ctrl+S.
     // Ctrl+W (close tab) cannot be stopped by a web page - gameApp.ts asks before leaving.
     if (event.ctrlKey) event.preventDefault();
     if (event.code === 'Space' || event.code.startsWith('Arrow')) event.preventDefault();

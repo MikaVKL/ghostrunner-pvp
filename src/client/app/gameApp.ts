@@ -90,8 +90,8 @@ export function startGameApp(options: AppOptions): void {
     if (event.target instanceof HTMLButtonElement) playSound(audio, 'click');
   });
 
-  // Ctrl is the slide key, and Ctrl+W closes the tab - a web page cannot stop that. During a
-  // match the browser asks "leave this page?" first, so a slide with W held does not end the game.
+  // A player may bind Ctrl (e.g. as slide key), and Ctrl+W closes the tab - a web page cannot
+  // stop that. During a match the browser asks "leave this page?" first.
   let inMatch = false;
   window.addEventListener('beforeunload', (event) => {
     if (inMatch) event.preventDefault();

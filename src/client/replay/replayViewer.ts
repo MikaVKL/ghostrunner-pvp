@@ -173,7 +173,7 @@ export class ReplayViewer {
       BracketLeft: () => this.playback?.changeSpeed(-1),
       BracketRight: () => this.playback?.changeSpeed(1),
       KeyC: () => this.nextCamera(),
-      KeyV: () => this.close(),
+      KeyB: () => this.close(),
     };
     actions[event.code]?.();
   };

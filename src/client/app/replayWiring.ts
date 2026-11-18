@@ -1,6 +1,6 @@
 /**
  * Connects the replay viewer to the rest of the app:
- *   - V or the "Replay" button during a solo match: watch the match so far
+ *   - B or the "Replay" button during a solo match: watch the match so far
  *   - after a sword kill in solo: the killcam (can be switched off in the menu)
  *   - "Replay laden …" in the menu: watch a replay file
  * While a replay is shown, the solo match is frozen (the game loop does not tick it).

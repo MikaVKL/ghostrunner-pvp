@@ -11,8 +11,9 @@ describe('key bindings', () => {
     expect(actionFor(DEFAULT_KEYMAP, 'KeyQ')).toBe('parry');
     expect(actionFor(DEFAULT_KEYMAP, 'ShiftLeft')).toBe('dash');
     expect(actionFor(DEFAULT_KEYMAP, 'Space')).toBe('jump');
-    expect(actionFor(DEFAULT_KEYMAP, 'ControlLeft')).toBe('crouch');
-    expect(actionFor(DEFAULT_KEYMAP, 'KeyC')).toBe('walk');
+    expect(actionFor(DEFAULT_KEYMAP, 'KeyC')).toBe('crouch');
+    expect(actionFor(DEFAULT_KEYMAP, 'KeyV')).toBe('walk');
+    expect(actionFor(DEFAULT_KEYMAP, 'ControlLeft')).toBeNull(); // Ctrl+W would close the tab
     expect(actionFor(DEFAULT_KEYMAP, 'KeyW')).toBe('forward');
   });
 
@@ -24,7 +25,7 @@ describe('key bindings', () => {
     expect(DEFAULT_KEYMAP.parry[0]).toBe('KeyQ'); // the defaults are not changed
   });
 
-  it('Escape and the menu keys (R, M, H, V) cannot be bound', () => {
+  it('Escape and the menu keys (R, M, H, B) cannot be bound', () => {
     expect(bind(DEFAULT_KEYMAP, 'jump', 1, 'Escape').jump[1]).toBe('');
     expect(bind(DEFAULT_KEYMAP, 'jump', 1, 'KeyR').jump[1]).toBe('');
   });

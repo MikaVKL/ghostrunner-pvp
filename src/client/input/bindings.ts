@@ -24,8 +24,9 @@ export const DEFAULT_KEYMAP: Keymap = {
   parry: ['KeyQ', 'Mouse2'],
   dash: ['ShiftLeft', 'ShiftRight'],
   jump: ['Space', ''],
-  crouch: ['ControlLeft', 'ControlRight'],
-  walk: ['KeyC', ''],
+  // C, not Ctrl: Ctrl+W (with W held) closes the browser tab and a web page cannot stop that.
+  crouch: ['KeyC', ''],
+  walk: ['KeyV', ''],
 };
 
 /** German names in the menu. */
@@ -58,7 +59,7 @@ export const UI_KEYS = {
   mute: 'KeyM',
   help: 'KeyH',
   /** Solo: watch the replay of the match so far (also closes the replay). */
-  replay: 'KeyV',
+  replay: 'KeyB',
 };
 
 /** Radians of rotation per pixel of mouse movement (at sensitivity 1.0 in the settings). */

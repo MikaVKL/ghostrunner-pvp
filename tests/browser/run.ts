@@ -342,7 +342,7 @@ test('Ohne Server (wie GitHub Pages): Mehrspieler deaktiviert, Solo läuft', asy
   noErrors(a);
 });
 
-test('Tastenbelegung: Schlag auf K umlegen, gespeichert; Slide mit Strg', async (env) => {
+test('Tastenbelegung: Schlag auf K umlegen, gespeichert; Slide mit C', async (env) => {
   const a = await openOne(env, env.staticUrl, false);
   await a.page.click('#keymap-settings summary');
   await a.page.click('.keymap-slot[data-action="attack"][data-slot="0"]');
@@ -356,13 +356,13 @@ test('Tastenbelegung: Schlag auf K umlegen, gespeichert; Slide mit Strg', async 
   // K now swings.
   await a.page.keyboard.press('KeyK');
   await a.waitFor('swing with K', (s) => s.me !== null && s.me.action === 'attack');
-  // Ctrl while sprinting slides.
+  // C while sprinting slides.
   await a.page.waitForTimeout(800);
   await a.page.keyboard.down('KeyW');
   await a.page.waitForTimeout(500);
-  await a.page.keyboard.down('ControlLeft');
+  await a.page.keyboard.down('KeyC');
   await a.waitFor('slide', (s) => s.me !== null && (s.me.slideTicks > 0 || !s.me.alive || s.phase !== 'playing'));
-  await a.page.keyboard.up('ControlLeft');
+  await a.page.keyboard.up('KeyC');
   await a.page.keyboard.up('KeyW');
   noErrors(a);
 });
@@ -448,12 +448,12 @@ test('Arena gegen Bot: Leben im HUD, ein Treffer kostet ein Leben, Angriffsanzei
   assertEqual((await a.state()).desyncs, 0, 'desyncs');
 
   // The replay knows the mode: title and lives of both fighters.
-  await a.page.keyboard.press('KeyV');
+  await a.page.keyboard.press('KeyB');
   await a.page.waitForSelector('#replay:not(.killcam)', { state: 'visible' });
   await a.expectText('#replay-title', '· Arena · Arena');
   await a.expectText('#replay-lives', 'Bot Schwer ♥');
   await a.screenshot('16-arena-replay');
-  await a.page.keyboard.press('KeyV');
+  await a.page.keyboard.press('KeyB');
   await a.page.waitForSelector('#replay', { state: 'hidden' });
   noErrors(a);
 });
@@ -470,7 +470,7 @@ test('Replay und Killcam: ansehen, Pause, Spulen, Kamera, Export, Import, Hash-P
   assert(await a.page.isVisible('#hud'), 'back in the match after the killcam');
 
   // Watch the whole match so far.
-  await a.page.keyboard.press('KeyV');
+  await a.page.keyboard.press('KeyB');
   await a.page.waitForSelector('#replay:not(.killcam)', { state: 'visible' });
   await a.expectText('#replay-title', 'Bot Schwer');
   assertEqual(await a.text('#replay-lives'), '', 'no lives display in the duel');
@@ -509,7 +509,7 @@ test('Replay und Killcam: ansehen, Pause, Spulen, Kamera, Export, Import, Hash-P
     s.seekTo(s.sim.lastTick);
   });
   await a.expectText('#replay-check', 'identisch mit der Aufnahme', 20_000);
-  await a.page.keyboard.press('KeyV');
+  await a.page.keyboard.press('KeyB');
   await a.page.waitForSelector('#replay', { state: 'hidden' });
   assert(await a.page.isVisible('#hud'), 'back in the match after closing the replay');
 
