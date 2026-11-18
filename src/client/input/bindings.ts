@@ -20,8 +20,8 @@ export const DEFAULT_KEYMAP: Keymap = {
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
   attack: ['Mouse0', 'KeyJ'],
-  // Block/parry. The right mouse button parries until the shuriken (step 5) takes it over.
-  parry: ['KeyQ', 'Mouse2'],
+  // Block/parry (tap = parry, hold = block). The right mouse button is kept free for the shuriken.
+  parry: ['KeyQ', ''],
   dash: ['ShiftLeft', 'ShiftRight'],
   jump: ['Space', ''],
   // C, not Ctrl: Ctrl+W (with W held) closes the browser tab and a web page cannot stop that.

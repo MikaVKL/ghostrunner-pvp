@@ -189,11 +189,13 @@ describe('parry', () => {
   it('a parry that is too early does not block', () => {
     const world = playingWorld();
     const [a, b] = world.players;
-    // The defender parries, then waits until the window is over before the attack comes.
+    // The defender taps parry, then the window is over before the attack comes.
+    // (Holding the key would be a block - see posture.test.ts.)
     stepWorld(world, { 0: hold(a), 1: hold(b, { buttons: Button.Parry }) }, TEST_CTX);
-    runWorld(world, { 0: hold(a), 1: hold(b, { buttons: Button.Parry }) }, COMBAT.parryWindowTicks);
+    runWorld(world, { 0: hold(a), 1: hold(b) }, COMBAT.parryWindowTicks);
     expect(isParryActive(b)).toBe(false);
-    const events = swing(world, Button.Parry);
+    expect(b.action).toBe('idle');
+    const events = swing(world);
     expect(events.some((e) => e.type === 'hit')).toBe(true);
   });
 
@@ -204,18 +206,19 @@ describe('parry', () => {
     expect(events.some((e) => e.type === 'hit')).toBe(true);
   });
 
-  it('a parry that blocked nothing has a cooldown (no parry spam)', () => {
+  it('mashing does not parry: a second press within the cooldown only blocks', () => {
     const world = playingWorld();
     const b = world.players[1];
     stepWorld(world, { 1: hold(b, { buttons: Button.Parry }) }, TEST_CTX);
-    runWorld(world, { 1: hold(b) }, COMBAT.parryWindowTicks + COMBAT.parryRecoveryTicks);
-    expect(b.action).toBe('idle');
-    expect(b.parryCooldown).toBe(COMBAT.parryCooldownTicks);
+    expect(isParryActive(b)).toBe(true);
+    runWorld(world, { 1: hold(b) }, COMBAT.parryWindowTicks);
+    expect(b.action).toBe('idle'); // a tap ends after its window
     stepWorld(world, { 1: hold(b, { buttons: Button.Parry }) }, TEST_CTX);
-    expect(b.action).toBe('idle');
+    expect(b.action).toBe('guard');
+    expect(isParryActive(b)).toBe(false); // too soon: block only
     runWorld(world, { 1: hold(b) }, COMBAT.parryCooldownTicks);
     stepWorld(world, { 1: hold(b, { buttons: Button.Parry }) }, TEST_CTX);
-    expect(b.action).toBe('parry');
+    expect(isParryActive(b)).toBe(true);
   });
 
   it('the stun ends after the configured time', () => {

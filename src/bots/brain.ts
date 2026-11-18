@@ -48,7 +48,9 @@ export interface BotPersonality {
   dashAttackChance: number;
   /** Chance to try a parry when the enemy starts a swing. */
   parryChance: number;
-  /** Chance to dash out of the way instead (only if the parry roll failed). */
+  /** Chance to block instead (press and HOLD the guard key until the swing is over). */
+  blockChance: number;
+  /** Chance to dash out of the way instead (only if the parry and block rolls failed). */
   dodgeChance: number;
   /** Chance per tick to hit an opponent that is stunned or recovering from a missed swing. */
   punishChance: number;
@@ -68,6 +70,7 @@ export const DEFAULT_PERSONALITY: BotPersonality = {
   attackChance: 0.12,
   dashAttackChance: 0.05,
   parryChance: 0.4,
+  blockChance: 0.3,
   dodgeChance: 0.15,
   punishChance: 0.3,
   reactionTicks: 6,
@@ -172,7 +175,7 @@ export class BotBrain {
       const aimError = Math.abs(angleDifference(this.yaw, yawToward(me.pos, target.pos)));
       const pathIsSafe = () => isWalkable(map, me.pos, target.pos);
       const plan = this.fight.decide({ me, enemy: target, distance, aimError, pathIsSafe, tactics: tacticsFor(mode) });
-      this.buttons.press(plan.buttons);
+      this.buttons.press(plan.buttons, plan.holdTicks);
       // A dash goes where the movement keys point: a dash attack must point at the enemy
       // (during footwork the keys may point backward - straight over an edge).
       if (plan.buttons & Button.Dash) keys = keysFor(directionTo(me.pos, target.pos), this.yaw);

@@ -7,7 +7,10 @@
  * Two steps per tick (lag compensation, see lagCompensation.ts):
  *   1. findContacts:  a swing that reaches its target becomes a "pending hit"
  *   2. decideHits:    a pending hit is decided once the target has seen it:
- *                     clash (the target swings back at the same moment), parry, or hit
+ *                     clash (the target swings back at the same moment), parry, block, or hit
+ *
+ * Parry and block need the defender to roughly face the attacker. A parry fills the
+ * attacker's posture, a block the defender's own (combat/posture.ts); a full bar breaks.
  *
  * How much a hit hurts, invulnerability after a hit and the parry counter bonus are rules
  * of the game mode (match/gameModes.ts).
@@ -18,7 +21,9 @@ import type { GameMode } from '../match/gameModes';
 import type { GameEvent } from '../sim/events';
 import type { PlayerState } from '../sim/playerState';
 import type { PendingHit, WorldState } from '../sim/world';
-import { currentAttack, isAttackActive, isParryActive, setAction } from './actions';
+import { currentAttack, isAttackActive, isBlocking, isParryActive, setAction } from './actions';
+import { stun } from './actionState';
+import { addPosture } from './posture';
 import { COMBAT } from './combatConfig';
 import { isFacing, isInMeleeRange } from './hitDetection';
 import { effectiveViewTick, positionAt } from './lagCompensation';
@@ -95,21 +100,35 @@ function applyHit(
  * (if the mode says so) its next hit within a short time does bonus damage.
  */
 function applyParry(attacker: PlayerState, target: PlayerState, mode: GameMode, events: GameEvent[]): void {
+  let broken = false;
   if (attacker.alive) {
-    setAction(attacker, 'stunned');
-    attacker.dashTicks = 0;
-    const away = directionBetween(target, attacker);
-    attacker.vel.x = away.x * COMBAT.parryPushback;
-    attacker.vel.z = away.z * COMBAT.parryPushback;
-    attacker.vel.y = Math.max(attacker.vel.y, COMBAT.parryLift);
-    attacker.lungeTicks = 0;
+    stun(attacker, COMBAT.parryStunTicks);
+    broken = addPosture(attacker, COMBAT.parryPostureDamage); // a full bar stuns much longer
+    pushAway(attacker, target, COMBAT.parryPushback);
   }
   setAction(target, 'idle');
   refundDashCharge(target); // a successful parry gives a dash charge back
   target.parryCooldown = 0;
   target.attackCooldown = 0;
   target.counterTicks = mode.parryCounterTicks;
-  events.push({ type: 'parry', attacker: attacker.slot, defender: target.slot });
+  events.push({ type: 'parry', attacker: attacker.slot, defender: target.slot, broken });
+}
+
+/** Push `p` away from `from` with a small hop (so that ground friction does not eat the push). */
+function pushAway(p: PlayerState, from: PlayerState, speed: number): void {
+  const away = directionBetween(from, p);
+  p.vel.x = away.x * speed;
+  p.vel.z = away.z * speed;
+  p.vel.y = Math.max(p.vel.y, COMBAT.parryLift);
+  p.lungeTicks = 0;
+}
+
+/** Blocked: nobody is hurt, but the defender's posture fills; the attacker bounces off. */
+function applyBlock(hit: PendingHit, attacker: PlayerState, target: PlayerState, events: GameEvent[]): void {
+  const attack = getWeapon(attacker.weaponId).attacks[hit.kind];
+  const broken = addPosture(target, attack.postureDamage);
+  if (attacker.alive) pushAway(attacker, target, COMBAT.blockPushback);
+  events.push({ type: 'block', attacker: attacker.slot, defender: target.slot, broken });
 }
 
 /**
@@ -160,7 +179,9 @@ function decideHits(world: WorldState, inputs: Inputs, mode: GameMode, events: G
       undecided.push(hit); // the target has not seen this swing land yet - it may still parry
       continue;
     }
-    if (isParryActive(target) && isFacing(target, attacker)) applyParry(attacker, target, mode, events);
+    const facing = isFacing(target, attacker);
+    if (isParryActive(target) && facing) applyParry(attacker, target, mode, events);
+    else if (isBlocking(target) && facing) applyBlock(hit, attacker, target, events);
     else applyHit(hit, attacker, target, mode, events);
   }
   // A clash also cancels hits that were decided to wait earlier in this loop.

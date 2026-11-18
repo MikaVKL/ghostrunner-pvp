@@ -6,7 +6,7 @@
  * predict its own player before the server answers. Keep it deterministic:
  * no Math.random(), no Date.now(), no state outside of PlayerState.
  */
-import { actionSpeedFactor, stepAction } from '../combat/actions';
+import { actionSpeedFactor, isBlocking, stepAction } from '../combat/actions';
 import type { InputCmd } from '../input';
 import type { MapDef } from '../maps/mapTypes';
 import type { GameMode } from '../match/gameModes';
@@ -21,11 +21,13 @@ function stepActivePlayer(p: PlayerState, input: InputCmd, map: MapDef, mode: Ga
   // Movement first: a dash started this tick already turns an attack into a dash attack.
   const moved = stepMovement(p, input, map, {
     speedFactor: actionSpeedFactor(p),
-    canDash: p.action !== 'stunned',
+    // Guarding: no dash (and so no dash attack); blocking: walk speed, no sprint.
+    canDash: p.action !== 'stunned' && p.action !== 'guard',
+    blocking: isBlocking(p),
     dashCooldownTicks: mode.dashCooldownTicks,
     dashRechargeTicks: mode.dashRechargeTicks,
   });
-  stepAction(p, mode, moved);
+  stepAction(p, mode, input, moved);
   p.prevButtons = input.buttons;
 }
 

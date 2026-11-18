@@ -120,7 +120,7 @@ describe('fight habits: the bot reacts like a fighter, not like a dice', () => {
   }
   const habits = (overrides: Partial<typeof DEFAULT_PERSONALITY>) => {
     const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, ...overrides });
-    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 }; // neutral style for exact chances
+    h.style = { name: 'counter', attack: 1, parry: 1, block: 0, dodge: 1 }; // neutral style for exact chances
     return h;
   };
 
@@ -143,7 +143,8 @@ describe('fight habits: the bot reacts like a fighter, not like a dice', () => {
   it('answers a swing only after its reaction time', () => {
     const reactionTicks = 8;
     const h = habits({ attackChance: 0, parryChance: 1, reactionTicks });
-    const swing = situation((e) => (e.action = 'attack'));
+    // The blade is about to land (a planned parry is pressed only then, see the test below).
+    const swing = situation((e) => ((e.action = 'attack'), (e.actionTicks = light.startupTicks - 5)));
     for (let tick = 0; tick < reactionTicks; tick++) expect(h.decide(swing).buttons, `tick ${tick}`).toBe(0);
     expect(h.decide(swing).buttons).toBe(Button.Parry);
     expect(h.decide(swing).buttons).toBe(0); // one answer per swing
@@ -153,7 +154,31 @@ describe('fight habits: the bot reacts like a fighter, not like a dice', () => {
     // The parry must start before the blade lands (lag compensation gives no extra time here).
     expect(habits({ reactionTicks: 16 })['personality'].reactionTicks).toBeGreaterThan(light.startupTicks);
     expect(habits({ reactionTicks: 3 })['personality'].reactionTicks).toBeLessThan(light.startupTicks);
-    expect(COMBAT.parryWindowTicks).toBeGreaterThan(light.startupTicks - 3);
+  });
+
+  it('the parry window is shorter than a wind-up, so the bot waits until the blade is about to land', () => {
+    expect(COMBAT.parryWindowTicks).toBeLessThan(light.startupTicks);
+    const h = habits({ attackChance: 0, parryChance: 1, blockChance: 0, reactionTicks: 0 });
+    const early = h.decide(situation((e) => ((e.action = 'attack'), (e.actionTicks = 1))));
+    expect(early.buttons & Button.Parry).toBe(0); // decided, but too early to press
+    const due = h.decide(situation((e) => ((e.action = 'attack'), (e.actionTicks = light.startupTicks - 5))));
+    expect(due.buttons & Button.Parry).toBe(Button.Parry);
+  });
+
+  it('blocks by pressing and HOLDING the guard key until the swing is over', () => {
+    const h = habits({ attackChance: 0, parryChance: 0, blockChance: 1, dodgeChance: 0, reactionTicks: 0 });
+    h.style = { ...h.style, block: 1 };
+    const plan = h.decide(situation((e) => (e.action = 'attack')));
+    expect(plan.buttons & Button.Parry).toBe(Button.Parry);
+    expect(plan.holdTicks).toBeGreaterThan(light.startupTicks);
+    expect(h.stats.blocks).toBe(1);
+  });
+
+  it('does not block with an almost broken posture', () => {
+    const h = habits({ attackChance: 0, parryChance: 0, blockChance: 1, dodgeChance: 0, reactionTicks: 0 });
+    h.style = { ...h.style, block: 1 };
+    const plan = h.decide(situation((e, me) => ((e.action = 'attack'), (me.posture = COMBAT.postureMax * 0.8))));
+    expect(plan.buttons).toBe(0);
   });
 
   it('dodges instead of parrying when its style says so', () => {
@@ -196,7 +221,7 @@ describe('fight tactics per game mode', () => {
   }
   const eagerHabits = () => {
     const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 1, punishChance: 1, parryChance: 1 });
-    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 };
+    h.style = { name: 'counter', attack: 1, parry: 1, block: 0, dodge: 1 };
     return h;
   };
 
@@ -220,7 +245,7 @@ describe('fight tactics per game mode', () => {
 
   it('arena: uses its parry counter like a free hit', () => {
     const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 0, punishChance: 1 });
-    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 };
+    h.style = { name: 'counter', attack: 1, parry: 1, block: 0, dodge: 1 };
     expect(h.decide(situation(() => {})).buttons & Button.Attack).toBe(0);
     expect(h.decide(situation((_e, me) => (me.counterTicks = 30))).buttons & Button.Attack).toBe(Button.Attack);
   });
@@ -229,11 +254,11 @@ describe('fight tactics per game mode', () => {
     const swinging = (invulnerable: number) =>
       situation((e, me) => {
         e.action = 'attack';
-        e.actionTicks = 1;
+        e.actionTicks = light.startupTicks - 5; // the blade is about to land
         me.invulnerableTicks = invulnerable;
       });
     const h = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 0, parryChance: 1, reactionTicks: 0 });
-    h.style = { name: 'counter', attack: 1, parry: 1, dodge: 1 };
+    h.style = { name: 'counter', attack: 1, parry: 1, block: 0, dodge: 1 };
     expect(h.decide(swinging(40)).buttons & Button.Parry).toBe(0);
     const fresh = new FightHabits(createRng(3), { ...DEFAULT_PERSONALITY, attackChance: 0, parryChance: 1, reactionTicks: 0 });
     fresh.style = h.style;

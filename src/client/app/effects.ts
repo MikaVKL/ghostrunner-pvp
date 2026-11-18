@@ -164,6 +164,20 @@ export class Effects {
         this.hud.flash('parry');
         this.view.cameraFx.shake(0.18);
         this.hud.toast(event.attacker === mySlot ? TEXT.gotParried : TEXT.parried, 1100);
+        if (event.broken) this.postureBroken(event.attacker, mySlot, find(event.attacker), listener);
+        return;
+      }
+      case 'block': {
+        const a = find(event.attacker);
+        const d = find(event.defender);
+        const where = a && d ? { x: (a.pos.x + d.pos.x) / 2, y: (a.pos.y + d.pos.y) / 2 + 1.2, z: (a.pos.z + d.pos.z) / 2 } : listener.pos;
+        this.view.particles.burst({ pos: where, count: 35, color: FX_COLORS.dust, speed: 6, life: 0.35, gravity: 9 });
+        this.view.particles.burst({ pos: where, count: 12, color: FX_COLORS.hitCore, speed: 3, life: 0.2 });
+        playSound(this.audio, 'block', this.place(listener, where));
+        this.view.cameraFx.shake(event.defender === mySlot ? 0.12 : 0.06);
+        this.hitstop.trigger(HITSTOP_MS.contact);
+        if (event.broken) this.postureBroken(event.defender, mySlot, d, listener);
+        else this.hud.toast(event.defender === mySlot ? TEXT.blocked : TEXT.enemyBlocked, 600);
         return;
       }
       case 'clash': {
@@ -198,6 +212,16 @@ export class Effects {
         if (event.winner >= 0) playSound(this.audio, event.winner === mySlot ? 'matchWon' : 'matchLost');
         return;
     }
+  }
+
+  /** Someone's posture broke: big flash, crack, message - the moment for a free hit. */
+  private postureBroken(slot: number, mySlot: number, who: PlayerState | null, listener: Listener): void {
+    const where = who ? chest(who) : listener.pos;
+    this.view.particles.burst({ pos: where, count: 90, color: FX_COLORS.stun, speed: 8, life: 0.6, gravity: 6 });
+    playSound(this.audio, 'postureBreak', this.place(listener, where));
+    this.view.cameraFx.shake(0.25);
+    this.hud.flash('parry');
+    this.hud.toast(slot === mySlot ? TEXT.myPostureBroken : TEXT.enemyPostureBroken, 1400);
   }
 
   /** Continuous effects. Call once per frame. */

@@ -13,6 +13,8 @@ export type SoundName =
   | 'draw'
   | 'slide'
   | 'contact'
+  | 'block'
+  | 'postureBreak'
   | 'hit'
   | 'parry'
   | 'dash'
@@ -61,6 +63,18 @@ const RECIPES: Record<SoundName, Recipe> = {
   slide: (a, p) => {
     a.noise({ filter: 'bandpass', from: 900, to: 300, q: 1.4, duration: 0.45, gain: 0.45 }, p);
     a.tone({ type: 'sawtooth', from: 90, to: 60, duration: 0.3, gain: 0.05 }, p);
+  },
+  // Blocked: a dull, heavy clank (steel on steel, but no ringing like a parry).
+  block: (a, p) => {
+    a.noise({ filter: 'bandpass', from: 1800, to: 900, q: 3, duration: 0.12, gain: 0.5 }, p);
+    a.tone({ type: 'square', from: 420, to: 300, duration: 0.1, gain: 0.1 }, p);
+    a.tone({ type: 'sine', from: 120, to: 70, duration: 0.15, gain: 0.4 }, p);
+  },
+  // Posture broken: a cracking boom and a falling, wobbling tone.
+  postureBreak: (a, p) => {
+    a.noise({ filter: 'lowpass', from: 3000, to: 200, duration: 0.4, gain: 0.7 }, p);
+    a.tone({ type: 'sawtooth', from: 520, to: 110, duration: 0.5, gain: 0.16 }, p);
+    a.tone({ type: 'sine', from: 90, to: 40, duration: 0.5, gain: 0.6 }, p);
   },
   // Our blade reaches the enemy (before the server has decided): a short bright "tick".
   contact: (a, p) => {

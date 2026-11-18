@@ -32,8 +32,12 @@ export interface BotUsage {
   dashes: number;
   swings: number;
   dashAttacks: number;
-  /** Parries of this bot that blocked a swing. */
+  /** Parries of this bot that deflected a swing. */
   parries: number;
+  /** Swings this bot blocked (guard held, outside the parry window). */
+  blocks: number;
+  /** Times this bot broke the ENEMY's posture (by a parry or by attacking a blocker). */
+  postureBreaks: number;
   kills: number;
   /** Hits of this bot that did not kill (only in modes with several lives). */
   wounds: number;
@@ -50,7 +54,7 @@ export class Bot {
   /** Exceptions thrown inside the bot's own tick. */
   readonly errors: string[] = [];
   readonly usage: BotUsage = {
-    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dodges: 0, punishes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0, wounds: 0, counters: 0,
+    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dodges: 0, punishes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, blocks: 0, postureBreaks: 0, kills: 0, wounds: 0, counters: 0,
   };
   private readonly brain: BotBrain;
   /** Own state one tick ago, to notice when something starts. */
@@ -65,6 +69,9 @@ export class Bot {
       if (event.type === 'roundEnd') this.roundsPlayed++;
       if (event.type === 'matchEnd') this.matchWinner = event.winner;
       if (event.type === 'parry' && event.defender === mySlot) this.usage.parries++;
+      if (event.type === 'block' && event.defender === mySlot) this.usage.blocks++;
+      const brokeEnemy = (event.type === 'parry' && event.defender === mySlot) || (event.type === 'block' && event.attacker === mySlot);
+      if (brokeEnemy && event.broken) this.usage.postureBreaks++;
       if (event.type === 'clash' && (event.a === mySlot || event.b === mySlot)) this.usage.clashes++;
       if (event.type === 'hit' && event.attacker === mySlot) {
         if (event.hpLeft === 0) this.usage.kills++;

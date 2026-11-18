@@ -5,15 +5,13 @@
 import { secondsToTicks } from '../config';
 
 export const COMBAT = {
-  // --- parry ---
-  /** The parry blocks attacks during the first N ticks after pressing the button. */
-  parryWindowTicks: secondsToTicks(0.25),
-  /** After the window the player is vulnerable and cannot act for N ticks (punishes spam). */
-  parryRecoveryTicks: secondsToTicks(0.3),
-  /** After a parry that blocked nothing, the next parry may start only after N ticks. */
+  // --- guard: parry + block (combat/guard.ts) ---
+  /** A new press of the guard key parries during the first N ticks. */
+  parryWindowTicks: secondsToTicks(0.15),
+  /** The next parry window is ready N ticks after the last one started (mashing only blocks). */
   parryCooldownTicks: secondsToTicks(0.5),
-  /** An attacker whose swing was parried is stunned for N ticks. */
-  parryStunTicks: secondsToTicks(1),
+  /** An attacker whose swing was parried is stunned for N ticks (unless its posture breaks). */
+  parryStunTicks: secondsToTicks(0.6),
   /** Horizontal speed (m/s) that pushes a parried attacker away from the defender. */
   parryPushback: 5,
   /** Upward speed (m/s) of the parry push: a small hop, so that ground friction does not eat it. */
@@ -35,8 +33,20 @@ export const COMBAT = {
   // --- movement while acting ---
   /** Run speed multiplier while stunned. */
   stunnedSpeedFactor: 0.35,
-  /** Run speed multiplier while holding a parry. */
-  parrySpeedFactor: 0.6,
+
+  // --- posture (combat/posture.ts) ---
+  /** A full bar breaks the posture. */
+  postureMax: 100,
+  /** A parry adds this much to the ATTACKER's posture (blocking adds AttackProfile.postureDamage to the defender's). */
+  parryPostureDamage: 40,
+  /** A broken posture stuns this long; afterwards the bar is empty. */
+  postureBreakTicks: secondsToTicks(1.5),
+  /** Without new posture damage for this long, the bar starts to drain ... */
+  postureRegenDelayTicks: secondsToTicks(1),
+  /** ... at this rate (points per second). */
+  postureRegenPerSecond: 12,
+  /** Speed (m/s) that pushes a blocked attacker back. */
+  blockPushback: 3,
 
   // --- dash attack ---
   /** An attack started while dashing, or up to N ticks after the dash ended, is a dash attack. */

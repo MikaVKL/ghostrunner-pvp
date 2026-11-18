@@ -19,12 +19,14 @@ import { stepWallRun, updateWallRun } from './wallRun';
 export interface MovementModifiers extends DashRules {
   /** Multiplier on run speed (e.g. < 1 while stunned). */
   speedFactor: number;
+  /** Blocking: walk speed at most, and extra speed is braked normally (no momentum). */
+  blocking: boolean;
 }
 
 /** Running speed for this tick: crouching, walking (walk key) or the default sprint. */
-function topSpeed(p: PlayerState, input: InputCmd): number {
+function topSpeed(p: PlayerState, input: InputCmd, blocking: boolean): number {
   if (p.crouching && p.grounded) return MOVE.crouchSpeed;
-  return isDown(input, Button.Walk) ? MOVE.walkSpeed : MOVE.runSpeed;
+  return blocking || isDown(input, Button.Walk) ? MOVE.walkSpeed : MOVE.runSpeed;
 }
 
 /** What the movement did this tick (a jump or dash can cancel the recovery of a swing). */
@@ -64,7 +66,7 @@ export function stepMovement(
       updateWallRun(p, input, map);
       if (p.wallRunning) jumped = stepWallRun(p, jumpPressed);
       else {
-        jumped = stepLocomotion(p, wish, jumpPressed, topSpeed(p, input) * mods.speedFactor);
+        jumped = stepLocomotion(p, wish, jumpPressed, topSpeed(p, input, mods.blocking) * mods.speedFactor, !mods.blocking);
         applyLunge(p);
       }
     }

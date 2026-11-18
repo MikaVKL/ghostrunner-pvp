@@ -21,6 +21,10 @@
         <div class="side enemy"><span class="pips" id="enemy-pips"></span><span class="name" id="enemy-name"></span><span class="lives" id="enemy-lives"></span></div>
       </div>
 
+      <!-- Haltungsleisten (Sekiro-Prinzip): oben die des Gegners, unten deine. Voll = betäubt. -->
+      <div id="enemy-posture" class="posture" title="Haltung des Gegners"><div class="fill"></div></div>
+      <div id="my-posture" class="posture" title="Deine Haltung"><div class="fill"></div></div>
+
       <div id="center">
         <div id="message"></div>
         <div id="sub-message"></div>
@@ -28,7 +32,7 @@
 
       <div id="abilities">
         <div class="ability"><div class="key" id="key-attack">Maus links</div><div class="bar"><div class="fill" id="attack-bar"></div></div><div class="label">Schlag</div></div>
-        <div class="ability"><div class="key" id="key-parry">Q</div><div class="bar"><div class="fill" id="parry-bar"></div></div><div class="label">Parry</div></div>
+        <div class="ability"><div class="key" id="key-parry">Q</div><div class="bar"><div class="fill" id="parry-bar"></div></div><div class="label">Parry/Block</div></div>
         <div class="ability"><div class="key" id="key-dash">Shift links</div><div class="bar"><div class="fill" id="dash-bar"></div></div><div class="label">Dash <span id="dash-charges">●●</span></div></div>
       </div>
 
@@ -155,7 +159,8 @@
           <tr><td><kbd>Shift</kbd></td><td>Dash in Laufrichtung – geht durch den Gegner hindurch. 2 Ladungen (●● im HUD), jede lädt in 3 s nach; in der Luft nur 1 Dash, bis du Boden oder Wand berührst. Treffer oder Parry geben eine Ladung zurück</td></tr>
           <tr><td><kbd>C</kbd></td><td>Beim Sprinten: Slide (schnell und flach, Sprung behält den Schwung) · sonst Ducken</td></tr>
           <tr><td>Linke Maustaste / <kbd>J</kbd></td><td>Schwertschlag mit Vorwärtsdrang · in der Luft: Luftschlag (trifft weiter nach oben/unten)</td></tr>
-          <tr><td><kbd>Q</kbd> / rechte Maustaste</td><td>Parry (Abwehr)</td></tr>
+          <tr><td><kbd>Q</kbd> kurz drücken</td><td>Parry – im richtigen Moment (0,15 s Fenster) lenkt die Klinge ab und füllt die Haltung des Angreifers stark</td></tr>
+          <tr><td><kbd>Q</kbd> halten</td><td>Block – sicher, aber füllt deine eigene Haltung; nur Gehtempo, kein Sprint, Dash oder Schlag</td></tr>
           <tr><td><kbd>Shift</kbd> + Schlag</td><td>Dash-Angriff (größere Reichweite, kostet eine Ladung; verfehlt er, bist du lange wehrlos)</td></tr>
           <tr><td>Dash / Sprung nach einem Schlag</td><td>bricht die Erholung des Schlags ab</td></tr>
           <tr><td><kbd>R</kbd></td><td>Rematch nach dem Match</td></tr>
@@ -165,7 +170,8 @@
         <h2>Regeln</h2>
         <ul>
           <li><b>Duell: Ein Treffer tötet.</b> Der leuchtende Bogen vor dir zeigt genau, wie weit dein Schlag reicht.</li>
-          <li><b>Parry:</b> Kurz bevor dich der Schlag trifft, Parry drücken und den Gegner ansehen. Er ist dann 1 Sekunde betäubt (leuchtet gelb) – dein freier Treffer. Ein Parry ins Leere macht dich kurz wehrlos.</li>
+          <li><b>Parry und Block (Q):</b> Kurz drücken, kurz bevor dich der Schlag trifft, und den Gegner ansehen = Parry: Er ist kurz betäubt (leuchtet gelb) und seine Haltung füllt sich stark. Hältst du Q weiter, blockst du: Du überlebst, aber deine eigene Haltung füllt sich. Ein neues Parry-Fenster gibt es erst 0,5 s nach dem letzten – Hämmern auf Q blockt nur.</li>
+          <li><b>Haltung</b> (Leisten in der Bildmitte: oben der Gegner, unten du): Ist sie voll, bist du 1,5 s betäubt – ein freier Treffer für den Gegner. Ohne Druck leert sie sich langsam wieder. Ein ungeblockter Treffer tötet weiterhin.</li>
           <li><b>Modus Arena:</b> 3 Leben pro Runde (Herzen oben), nach einem Treffer kurz unverwundbar (blinkt weiß). Nach einem gelungenen Parry trifft dein nächster Schlag doppelt. Der Dash-Angriff trifft doppelt, erholt sich aber länger; Dash-Ladungen laden langsamer nach (3,6 s). Best-of-3.</li>
           <li><b>Angriffsanzeige</b> (Einstellung im Menü): Holt der Gegner aus, leuchtet ein roter Ring um ihn und es piept kurz – jetzt parieren oder ausweichen. „Nach Modus“: im Duell aus.</li>
           <li><b>Klingen-Clash:</b> Schlagt ihr im selben Moment zu, prallen die Klingen ab – niemand stirbt, beide werden zurückgeworfen.</li>

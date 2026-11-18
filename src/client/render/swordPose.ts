@@ -57,7 +57,7 @@ export function swordPose(p: PlayerState): SwordPose {
     if (afterStartup < attack.activeTicks) return mix(from, to, (afterStartup + 1) / attack.activeTicks);
     return mix(to, REST, ease((afterStartup - attack.activeTicks) / attack.recoveryTicks));
   }
-  if (p.action === 'parry') return isParryActive(p) ? GUARD : mix(GUARD, REST, 0.6);
+  if (p.action === 'guard') return isParryActive(p) ? GUARD : mix(GUARD, REST, 0.25);
   if (p.action === 'stunned') return STUNNED;
   return REST;
 }

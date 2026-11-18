@@ -52,12 +52,14 @@ describe('bot matches in the arena mode', () => {
 
 describe('the bots really use the mechanics (so the desync check covers them)', () => {
   const PARRYING_BOT = { ...DEFAULT_PERSONALITY, parryChance: 1, dodgeChance: 0, reactionTicks: 2 };
-  it('wall-run, wall-jump, dash, dash attack, parry and kills all happen', () => {
+  // botA blocks a lot (guard up), so blocks and broken postures are covered too.
+  const BLOCKING_BOT = { ...DEFAULT_PERSONALITY, blockChance: 1, parryChance: 0.1 };
+  it('wall-run, wall-jump, dash, dash attack, parry, block and kills all happen', () => {
     const reports = Object.keys(MAPS).flatMap((mapId) =>
       // botB parries eagerly: since the faster sprint (flow update) default bots rarely parry,
       // and the desync check must still cover parries.
       [1, 2, 3, 4, 5].map((seed) =>
-        runSimulatedMatch({ seed, mapId, latencyMs: 40, jitterMs: 20, personalities: [undefined, PARRYING_BOT] }),
+        runSimulatedMatch({ seed, mapId, latencyMs: 40, jitterMs: 20, personalities: [BLOCKING_BOT, PARRYING_BOT] }),
       ),
     );
     const usage = totalUsage(reports);
@@ -66,7 +68,26 @@ describe('the bots really use the mechanics (so the desync check covers them)', 
     expect(usage.dashes).toBeGreaterThan(10);
     expect(usage.dashAttacks).toBeGreaterThan(5);
     expect(usage.parries).toBeGreaterThan(3);
+    expect(usage.blocks).toBeGreaterThan(3);
     expect(usage.kills).toBeGreaterThan(20);
+  });
+
+  it('a posture breaks over the network without desync (relentless attacker against a pure parrier)', () => {
+    const RELENTLESS = { ...DEFAULT_PERSONALITY, attackChance: 1, dashAttackChance: 0, parryChance: 0, blockChance: 0, dodgeChance: 0 };
+    const PARRIER = { ...DEFAULT_PERSONALITY, attackChance: 0, dashAttackChance: 0, punishChance: 0, parryChance: 1, blockChance: 0, dodgeChance: 0, reactionTicks: 2 };
+    // Arena mode (3 lives): enough exchanges for the attacker's posture to fill up.
+    const report = runSimulatedMatch({
+      seed: 1,
+      mapId: 'arena',
+      modeId: 'arena',
+      latencyMs: 60,
+      jitterMs: 20,
+      maxSeconds: 60,
+      personalities: [RELENTLESS, PARRIER],
+    });
+    expect(report.bots[1].usage.postureBreaks).toBeGreaterThan(0);
+    for (const bot of report.bots) expect(bot.desyncs).toBe(0);
+    expect(findProblems({ matches: [report], server: null })).toEqual([]);
   });
 });
 

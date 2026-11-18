@@ -19,6 +19,7 @@ export type Moment =
   | 'swing'
   | 'swingDash'
   | 'parry'
+  | 'block'
   | 'wallRunStart'
   | 'wallRunEnd'
   | 'stunned'
@@ -41,7 +42,7 @@ export function detectMoments(before: PlayerState, after: PlayerState): Moment[]
   if (before.wallRunning && !after.wallRunning) moments.push('wallRunEnd');
   if (before.action !== after.action) {
     if (after.action === 'attack') moments.push(after.attackKind === 'dash' ? 'swingDash' : 'swing');
-    if (after.action === 'parry') moments.push('parry');
+    if (after.action === 'guard') moments.push(after.guardParry ? 'parry' : 'block');
     if (after.action === 'stunned') moments.push('stunned');
   }
   return moments;

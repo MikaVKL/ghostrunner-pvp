@@ -20,7 +20,7 @@ describe('key bindings', () => {
   it('a key does exactly one thing: binding it elsewhere frees its old place', () => {
     const map = bind(DEFAULT_KEYMAP, 'dash', 0, 'KeyQ');
     expect(map.dash[0]).toBe('KeyQ');
-    expect(map.parry).toEqual(['', 'Mouse2']);
+    expect(map.parry).toEqual(['', '']);
     expect(actionFor(map, 'KeyQ')).toBe('dash');
     expect(DEFAULT_KEYMAP.parry[0]).toBe('KeyQ'); // the defaults are not changed
   });
@@ -43,6 +43,7 @@ describe('key bindings', () => {
     expect(keyLabel('ControlLeft')).toBe('Strg links');
     expect(keyLabel('Space')).toBe('Leertaste');
     expect(keyLabel('')).toBe('–');
-    expect(primaryLabel(bind(DEFAULT_KEYMAP, 'parry', 0, ''), 'parry')).toBe('Maus rechts');
+    expect(primaryLabel(bind(DEFAULT_KEYMAP, 'parry', 1, 'Mouse2'), 'parry')).toBe('Q');
+    expect(primaryLabel(bind(DEFAULT_KEYMAP, 'parry', 0, ''), 'parry')).toBe('–');
   });
 });

@@ -13,6 +13,7 @@
  * First time on your own computer: `npx playwright install chromium`.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { WEAPONS } from '../../src/shared/combat/weapons';
 import { yawToward } from '../../src/shared/math/vec3';
 import { parseReplay } from '../../src/shared/replay/replayFormat';
 import { assert, assertEqual, openOne, openTwo, SCREENSHOT_DIR, startDuel, startEnv, type GamePage, type TestEnv } from './harness';
@@ -21,19 +22,22 @@ const YAW_MINUS_Z = 0; // from spawn 0 on "schlucht" this looks along the platfo
 
 /**
  * Runs inside the page (as text, so the build tool does not rewrite it): press the parry
- * key in the very frame in which the opponent's swing becomes VISIBLE. It watches the
- * interpolated opponent (what is drawn on screen), not the newest snapshot - parry timing
- * is judged by what the defender saw (lag compensation), so that is what a player reacts to.
+ * key when the opponent's blade is ABOUT TO LAND as it is shown on screen. The parry window
+ * is only 0.15 s (shorter than the 0.2 s wind-up), so pressing at the first sight of the
+ * swing would be too early. It watches the interpolated opponent (what is drawn), not the
+ * newest snapshot - parry timing is judged by what the defender saw (lag compensation).
  */
+const LIGHT = WEAPONS.sword.attacks.light;
 const PARRY_ON_SIGHT = `(() => {
   const started = performance.now();
-  (function watch() {
+  const timer = setInterval(() => {
     const shown = window.game.room ? window.game.sampleRemote(1 - window.game.room.slot) : null;
-    if (shown && shown.action === 'attack') {
+    if (shown && shown.action === 'attack' && shown.actionTicks >= ${LIGHT.startupTicks - 6}) {
+      clearInterval(timer);
       window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' }));
       setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ' })), 80);
-    } else if (performance.now() - started < 4000) requestAnimationFrame(watch);
-  })();
+    } else if (performance.now() - started > 4000) clearInterval(timer);
+  }, 4);
 })()`;
 
 type TestFn = (env: TestEnv) => Promise<void>;

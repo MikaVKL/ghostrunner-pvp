@@ -15,7 +15,7 @@ import { DUEL } from '../match/gameModes';
 import { MOVE } from '../movement/movementConfig';
 
 /** What the player is currently doing in combat. See src/shared/combat/actions.ts. */
-export type ActionState = 'idle' | 'attack' | 'parry' | 'stunned';
+export type ActionState = 'idle' | 'attack' | 'guard' | 'stunned';
 
 export interface PlayerState {
   /** Seat in the room: 0 or 1. Also selects the spawn point. */
@@ -76,8 +76,16 @@ export interface PlayerState {
   attackCooldown: number;
   /** Ticks left in which the swing pushes the attacker forward (AttackProfile.lungeSpeed). */
   lungeTicks: number;
-  /** Ticks until the next parry may start. */
+  /** Ticks until the next parry window is ready (a guard started earlier only blocks). */
   parryCooldown: number;
+  /** True if the current guard started with a parry window (see combat/guard.ts). */
+  guardParry: boolean;
+  /** Length of the current stun in ticks (parried: short, posture broken: long). */
+  stunTicks: number;
+  /** Posture ("Haltung") 0..COMBAT.postureMax; full = broken (see combat/posture.ts). */
+  posture: number;
+  /** Ticks until the posture starts to drain again. */
+  postureRegenDelay: number;
   /** Ticks left in which hits do nothing (after being hit, see GameMode.invulnerableTicks). */
   invulnerableTicks: number;
   /** Ticks left in which the next own hit does bonus damage (after a successful parry). */
@@ -133,6 +141,10 @@ export function createPlayer(
     attackCooldown: 0,
     lungeTicks: 0,
     parryCooldown: 0,
+    guardParry: false,
+    stunTicks: 0,
+    posture: 0,
+    postureRegenDelay: 0,
     invulnerableTicks: 0,
     counterTicks: 0,
     bufferAttack: 0,

@@ -52,6 +52,7 @@ export function stepLocomotion(
   wish: { x: number; z: number },
   jumpPressed: boolean,
   topSpeed: number,
+  keepMomentum = true,
 ): boolean {
   const hasInput = wish.x !== 0 || wish.z !== 0;
   const targetX = wish.x * topSpeed;
@@ -59,7 +60,7 @@ export function stepLocomotion(
 
   if (p.grounded) {
     const accel = (hasInput ? MOVE.groundAccel : MOVE.groundFriction) * TICK_DT;
-    const kept = hasInput ? keptMomentum(p, wish, topSpeed) : 0;
+    const kept = hasInput && keepMomentum ? keptMomentum(p, wish, topSpeed) : 0;
     p.vel.x = moveToward(p.vel.x, kept > 0 ? wish.x * kept : targetX, accel);
     p.vel.z = moveToward(p.vel.z, kept > 0 ? wish.z * kept : targetZ, accel);
   } else if (hasInput) {

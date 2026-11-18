@@ -78,7 +78,7 @@ export function findProblems(report: RunReport): string[] {
 /** Sum of the mechanics counters of all bots in all matches. */
 export function totalUsage(matches: MatchReport[]): BotUsage {
   const total: BotUsage = {
-    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dodges: 0, punishes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, kills: 0, wounds: 0, counters: 0,
+    wallRunTicks: 0, wallJumps: 0, doubleJumps: 0, padLaunches: 0, clashes: 0, dodges: 0, punishes: 0, dashes: 0, swings: 0, dashAttacks: 0, parries: 0, blocks: 0, postureBreaks: 0, kills: 0, wounds: 0, counters: 0,
   };
   for (const bot of matches.flatMap((m) => m.bots)) {
     for (const key of Object.keys(total) as (keyof BotUsage)[]) total[key] += bot.usage[key];
@@ -108,7 +108,8 @@ export function printReport(report: RunReport): void {
   console.log(
     `\nmechanics used by the bots: wall-run ${total.wallRunTicks} ticks, wall-jumps ${total.wallJumps}, ` +
       `double jumps ${total.doubleJumps}, pad launches ${total.padLaunches}, dashes ${total.dashes}, ` +
-      `swings ${total.swings} (dash attacks ${total.dashAttacks}), parries ${total.parries}, ` +
+      `swings ${total.swings} (dash attacks ${total.dashAttacks}), parries ${total.parries}, blocks ${total.blocks}, ` +
+      `posture breaks ${total.postureBreaks}, ` +
       `dodges ${total.dodges}, punishes ${total.punishes}, clashes ${total.clashes}, kills ${total.kills}, ` +
       `wounds ${total.wounds}, counters ${total.counters}`,
   );

@@ -37,6 +37,8 @@ export interface AttackProfile {
   lungeTicks: number;
   /** Largest height difference (m) between the two fighters' feet at which the swing still hits. */
   verticalReach: number;
+  /** Posture a BLOCKED swing adds to the defender (see combat/posture.ts, max 100). */
+  postureDamage: number;
 }
 
 export interface WeaponDef {
@@ -63,6 +65,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
         lungeSpeed: 5.5,
         lungeTicks: 8,
         verticalReach: 1.8,
+        postureDamage: 25,
       },
       dash: {
         range: 3.2,
@@ -74,6 +77,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
         lungeSpeed: 0, // the dash itself carries it
         lungeTicks: 0,
         verticalReach: 1.8,
+        postureDamage: 35,
       },
       air: {
         range: 2.4,
@@ -85,6 +89,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
         lungeSpeed: 3,
         lungeTicks: 6,
         verticalReach: 2.6,
+        postureDamage: 25,
       },
     },
     cooldownTicks: secondsToTicks(0.25),

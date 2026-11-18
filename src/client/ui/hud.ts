@@ -11,8 +11,12 @@ import { canStartDash } from '../../shared/movement/dash';
 import { MOVE } from '../../shared/movement/movementConfig';
 import type { PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
+import { postureFraction } from '../../shared/combat/posture';
 import { teamColor } from '../render/palette';
 import { centerMessage, dashChargeDots, livesText, secondsLeft } from './hudTexts';
+
+/** From this fraction on, the posture bar is red (one more block may break it). */
+const POSTURE_DANGER = 0.7;
 
 function element(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -43,6 +47,8 @@ export class Hud {
   private readonly parryBar = element('parry-bar');
   private readonly dashBar = element('dash-bar');
   private readonly dashCharges = element('dash-charges');
+  private readonly myPosture = element('my-posture');
+  private readonly enemyPosture = element('enemy-posture');
   private readonly hint = element('hint');
   private readonly roomCode = element('room-code');
   private readonly roomInfo = element('room-info');
@@ -111,6 +117,8 @@ export class Hud {
     const enemy = snapshot.players.find((p) => p.slot === enemySlot);
     this.myLives.textContent = inMatch ? livesText(me.hp, mode.lives) : '';
     this.enemyLives.textContent = inMatch && enemy ? livesText(enemy.hp, mode.lives) : '';
+    showPosture(this.myPosture, me);
+    showPosture(this.enemyPosture, enemy ?? null);
     this.roundLabel.textContent = inMatch ? `Runde ${match.round}` : 'Übungsmodus';
     const playing = match.phase === 'playing';
     this.timer.textContent = playing ? String(secondsLeft(match.phaseTicksLeft)) : '';
@@ -136,7 +144,9 @@ export class Hud {
       bar.parentElement!.parentElement!.classList.toggle('ready', ready >= 1);
     };
     set(this.attackBar, busy ? 0 : 1 - me.attackCooldown / weapon.cooldownTicks);
-    set(this.parryBar, busy ? 0 : 1 - me.parryCooldown / COMBAT.parryCooldownTicks);
+    // Parry/block: full = the next press opens a parry window (otherwise it only blocks).
+    const cannotGuard = me.action === 'attack' || me.action === 'stunned';
+    set(this.parryBar, cannotGuard ? 0 : 1 - me.parryCooldown / COMBAT.parryCooldownTicks);
     // Dash: the bar fills over both charges, the dots show the charges ready to use.
     const refilling = me.dashCharges < MOVE.dashMaxCharges ? 1 - me.dashRecharge / mode.dashRechargeTicks : 0;
     set(this.dashBar, me.action === 'stunned' || !canStartDash(me) ? 0 : 1);
@@ -145,3 +155,9 @@ export class Hud {
   }
 }
 
+/** Fill a posture bar (see combat/posture.ts); it turns red shortly before breaking. */
+function showPosture(bar: HTMLElement, p: PlayerState | null): void {
+  const fraction = p && p.alive ? postureFraction(p) : 0;
+  (bar.firstElementChild as HTMLElement).style.width = `${fraction * 100}%`;
+  bar.classList.toggle('danger', fraction >= POSTURE_DANGER);
+}

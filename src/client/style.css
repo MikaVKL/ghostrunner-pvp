@@ -596,7 +596,39 @@ body.stunned #vignette {
 }
 
 #hint {
-  bottom: 104px;
+  bottom: 122px;
+}
+
+/* Posture bars: they grow from the middle outward; red when close to breaking. */
+.posture {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 8px;
+  background: #1a2148;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.posture .fill {
+  height: 100%;
+  width: 0;
+  margin: 0 auto;
+  background: linear-gradient(90deg, #ff8a3c, #ffd34d, #ff8a3c);
+}
+
+.posture.danger .fill {
+  background: #ff3c3c;
+}
+
+#enemy-posture {
+  top: 66px;
+}
+
+#my-posture {
+  bottom: 100px;
 }
 
 #connection-lost {

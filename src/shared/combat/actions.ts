@@ -1,22 +1,23 @@
 /**
- * Per-player combat state machine: idle -> attack / parry -> idle, or stunned -> idle.
+ * Per-player combat state machine: idle -> attack / guard -> idle, or stunned -> idle.
+ * Guard = parry window + block (guard.ts); posture drains here (posture.ts).
  *
  * This part depends only on the player's OWN state and input, so the client can predict
  * it. Everything that involves the OTHER player (hits, parries) is in resolveCombat.ts.
  */
+import type { InputCmd } from '../input';
 import type { GameMode } from '../match/gameModes';
 import type { MovementResult } from '../movement/stepMovement';
 import { MOVE } from '../movement/movementConfig';
-import type { ActionState, PlayerState } from '../sim/playerState';
+import type { PlayerState } from '../sim/playerState';
 import { assertNever } from '../util/assertNever';
+import { setAction } from './actionState';
 import { COMBAT } from './combatConfig';
+import { isBlocking, isParryActive, stepGuard, tryStartGuard } from './guard';
+import { drainPosture } from './posture';
 import { attackTotalTicks, getWeapon, type AttackProfile } from './weapons';
 
-export function setAction(p: PlayerState, action: ActionState): void {
-  p.action = action;
-  p.actionTicks = 0;
-  p.attackConnected = false;
-}
+export { isBlocking, isParryActive, setAction };
 
 /** The attack profile (light or dash) of the swing the player is doing / did last. */
 export function currentAttack(p: PlayerState): AttackProfile {
@@ -38,17 +39,16 @@ export function isDashAttackReady(p: PlayerState, mode: GameMode): boolean {
   return p.dashCooldown > 0 && ticksSinceDashStart <= MOVE.dashTicks + COMBAT.dashAttackGraceTicks;
 }
 
-/** Start a swing or a parry if one was pressed recently (input buffer, see sim/inputBuffer.ts). */
-function stepIdle(p: PlayerState, mode: GameMode): void {
+/** Start a swing or a guard if one was pressed recently (input buffer, see sim/inputBuffer.ts). */
+function stepIdle(p: PlayerState, mode: GameMode, input: InputCmd): void {
   if (p.bufferAttack > 0 && p.attackCooldown === 0) {
     p.bufferAttack = 0;
     setAction(p, 'attack');
     p.attackKind = isDashAttackReady(p, mode) ? 'dash' : p.grounded ? 'light' : 'air';
     p.lungeTicks = currentAttack(p).lungeTicks;
     if (p.attackKind === 'air') p.vel.y = Math.max(p.vel.y, COMBAT.airAttackHop);
-  } else if (p.bufferParry > 0 && p.parryCooldown === 0) {
-    p.bufferParry = 0;
-    setAction(p, 'parry');
+  } else {
+    tryStartGuard(p, input);
   }
 }
 
@@ -66,7 +66,13 @@ export function canCancelRecovery(p: PlayerState): boolean {
  * Advance the action state machine by one tick.
  * @param moved what the movement did this tick (a dash or jump may cancel a recovery)
  */
-export function stepAction(p: PlayerState, mode: GameMode, moved: MovementResult = { jumped: false, dashed: false }): void {
+export function stepAction(
+  p: PlayerState,
+  mode: GameMode,
+  input: InputCmd,
+  moved: MovementResult = { jumped: false, dashed: false },
+): void {
+  drainPosture(p);
   if (p.attackCooldown > 0) p.attackCooldown--;
   if (p.parryCooldown > 0) p.parryCooldown--;
   if (p.invulnerableTicks > 0) p.invulnerableTicks--;
@@ -74,7 +80,7 @@ export function stepAction(p: PlayerState, mode: GameMode, moved: MovementResult
 
   switch (p.action) {
     case 'idle':
-      stepIdle(p, mode);
+      stepIdle(p, mode, input);
       return;
     case 'attack':
       if ((moved.dashed || moved.jumped) && canCancelRecovery(p)) {
@@ -88,16 +94,12 @@ export function stepAction(p: PlayerState, mode: GameMode, moved: MovementResult
         p.attackCooldown = getWeapon(p.weaponId).cooldownTicks;
       }
       return;
-    case 'parry':
-      p.actionTicks++;
-      if (p.actionTicks >= COMBAT.parryWindowTicks + COMBAT.parryRecoveryTicks) {
-        setAction(p, 'idle');
-        p.parryCooldown = COMBAT.parryCooldownTicks;
-      }
+    case 'guard':
+      stepGuard(p, input);
       return;
     case 'stunned':
       p.actionTicks++;
-      if (p.actionTicks >= COMBAT.parryStunTicks) setAction(p, 'idle');
+      if (p.actionTicks >= p.stunTicks) setAction(p, 'idle');
       return;
     default:
       assertNever(p.action);
@@ -111,14 +113,7 @@ export function isAttackActive(p: PlayerState): boolean {
   return p.actionTicks >= attack.startupTicks && p.actionTicks < attack.startupTicks + attack.activeTicks;
 }
 
-/** True while the parry blocks incoming attacks. */
-export function isParryActive(p: PlayerState): boolean {
-  return p.action === 'parry' && p.actionTicks < COMBAT.parryWindowTicks;
-}
-
-/** Run speed multiplier caused by the current action. */
+/** Run speed multiplier caused by the current action (blocking caps the speed instead, see stepPlayer). */
 export function actionSpeedFactor(p: PlayerState): number {
-  if (p.action === 'stunned') return COMBAT.stunnedSpeedFactor;
-  if (p.action === 'parry') return COMBAT.parrySpeedFactor;
-  return 1;
+  return p.action === 'stunned' ? COMBAT.stunnedSpeedFactor : 1;
 }

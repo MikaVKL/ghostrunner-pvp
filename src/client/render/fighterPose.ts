@@ -108,9 +108,9 @@ function poseSwordArm(m: FighterModel, p: PlayerState, anim: FighterAnim, big: b
     }
     return;
   }
-  if (p.action === 'parry') {
-    // Sword held across the body; it drops again once the parry window is over.
-    const guard = isParryActive(p) ? 1 : 0.4;
+  if (p.action === 'guard') {
+    // Sword held across the body: high and tight in the parry window, a bit lower when blocking.
+    const guard = isParryActive(p) ? 1 : 0.8;
     arm.x = lerp(ARM_REST, 1.25, guard);
     arm.z = 0.75 * guard;
     sword.x = SWORD_REST_TILT;
