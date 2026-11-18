@@ -25,8 +25,10 @@ export function currentAttack(p: PlayerState): AttackProfile {
 
 /** Whole length of the current swing in this mode (a dash attack may recover longer). */
 export function swingTotalTicks(p: PlayerState, mode: GameMode): number {
-  const extra = p.attackKind === 'dash' ? mode.dashAttackExtraRecoveryTicks : 0;
-  return attackTotalTicks(currentAttack(p)) + extra;
+  if (p.attackKind !== 'dash') return attackTotalTicks(currentAttack(p));
+  // A dash attack that hit nothing (no contact, decided by the server) recovers longer.
+  const missed = p.attackConnected ? 0 : COMBAT.dashAttackMissRecoveryTicks;
+  return attackTotalTicks(currentAttack(p)) + mode.dashAttackExtraRecoveryTicks + missed;
 }
 
 /** True while dashing or shortly after: an attack started now becomes a dash attack. */

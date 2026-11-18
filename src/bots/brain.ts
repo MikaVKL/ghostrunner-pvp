@@ -284,7 +284,8 @@ export class BotBrain {
       const flight = Math.hypot(me.vel.x, me.vel.z) * JUMP_AIR_TIME;
       if (landsSafely(flight) && landsSafely(flight + 1)) this.buttons.press(Button.Jump);
     }
-    if (moveZ > 0 && this.rng() < this.personality.dashChance) {
+    // Random dashes only with both charges full: one is always kept for the fight.
+    if (moveZ > 0 && this.rng() < this.personality.dashChance && me.dashCharges === MOVE.dashMaxCharges) {
       const forward = forwardFromYaw(this.yaw);
       const safe = [2, 3.5, 5].every((d) => canStandAt(map, me.pos.x + forward.x * d, me.pos.z + forward.z * d, me.pos.y));
       if (safe) this.buttons.press(Button.Dash);

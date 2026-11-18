@@ -108,3 +108,9 @@ export function centerMessage(match: MatchState, mySlot: number, roomCode: strin
       };
   }
 }
+
+/** Dash charges as dots: "●●" = both ready, "●○" = one, "○○" = none. */
+export function dashChargeDots(charges: number, max: number): string {
+  const full = Math.max(0, Math.min(max, charges));
+  return '●'.repeat(full) + '○'.repeat(max - full);
+}

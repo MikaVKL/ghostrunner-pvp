@@ -1,6 +1,6 @@
 /** German HUD texts that depend on the game state. */
 import { describe, expect, it } from 'vitest';
-import { livesText } from '../../src/client/ui/hudTexts';
+import { dashChargeDots, livesText } from '../../src/client/ui/hudTexts';
 
 describe('lives display', () => {
   it('shows filled and empty hearts in modes with several lives', () => {
@@ -16,5 +16,13 @@ describe('lives display', () => {
   it('never shows more hearts than lives, even with odd values', () => {
     expect(livesText(5, 3)).toBe('♥♥♥');
     expect(livesText(-1, 3)).toBe('♡♡♡');
+  });
+});
+
+describe('dash charge dots', () => {
+  it('shows ready charges as filled dots', () => {
+    expect(dashChargeDots(2, 2)).toBe('●●');
+    expect(dashChargeDots(1, 2)).toBe('●○');
+    expect(dashChargeDots(0, 2)).toBe('○○');
   });
 });

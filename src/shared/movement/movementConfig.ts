@@ -56,7 +56,11 @@ export const MOVE = {
   dashTicks: secondsToTicks(0.15),
   /** Horizontal speed kept when the dash ends (above run speed: the momentum carries on). */
   dashExitSpeed: 12,
-  dashCooldownTicks: secondsToTicks(1),
+  /** Smallest time between the starts of two dashes (the real limit are the charges). */
+  dashCooldownTicks: secondsToTicks(0.35),
+  /** Dash charges: at most this many, each one refills after dashRechargeTicks. */
+  dashMaxCharges: 2,
+  dashRechargeTicks: secondsToTicks(3),
 
   // --- wall-run ---
   /** A wall counts as "touching" if it is at most this far from the player's side. */

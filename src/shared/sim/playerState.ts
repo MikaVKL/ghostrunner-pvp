@@ -12,6 +12,7 @@ import { DEFAULT_WEAPON_ID, type AttackKind } from '../combat/weapons';
 import { cloneVec3, type Vec3 } from '../math/vec3';
 import type { SpawnPoint } from '../maps/mapTypes';
 import { DUEL } from '../match/gameModes';
+import { MOVE } from '../movement/movementConfig';
 
 /** What the player is currently doing in combat. See src/shared/combat/actions.ts. */
 export type ActionState = 'idle' | 'attack' | 'parry' | 'stunned';
@@ -37,8 +38,14 @@ export interface PlayerState {
   airJumpsLeft: number;
   /** Ticks left in the current dash (0 = not dashing). */
   dashTicks: number;
-  /** Ticks until the next dash is allowed. */
+  /** Ticks until the next dash is allowed (short gap between two dashes). */
   dashCooldown: number;
+  /** Dash charges left (0..MOVE.dashMaxCharges), see movement/dash.ts. */
+  dashCharges: number;
+  /** Ticks until the next empty charge is refilled (0 = all full). */
+  dashRecharge: number;
+  /** True after a dash in the air; reset by touching the ground or a wall. */
+  airDashUsed: boolean;
   dashDirX: number;
   dashDirZ: number;
   wallRunning: boolean;
@@ -105,6 +112,9 @@ export function createPlayer(
     airJumpsLeft: 0,
     dashTicks: 0,
     dashCooldown: 0,
+    dashCharges: MOVE.dashMaxCharges,
+    dashRecharge: 0,
+    airDashUsed: false,
     dashDirX: 0,
     dashDirZ: 0,
     wallRunning: false,

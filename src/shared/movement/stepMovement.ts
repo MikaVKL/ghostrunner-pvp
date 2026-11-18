@@ -8,7 +8,7 @@ import type { MapDef } from '../maps/mapTypes';
 import { moveAndCollide } from '../physics/collision';
 import { heightOf } from '../physics/playerCollision';
 import type { PlayerState } from '../sim/playerState';
-import { stepDash, tryStartDash } from './dash';
+import { rechargeDash, stepDash, tryStartDash, type DashRules } from './dash';
 import { applyJumpPads } from './jumpPad';
 import { stepLocomotion, wishDirection } from './locomotion';
 import { applyLunge } from './lunge';
@@ -16,13 +16,9 @@ import { MOVE } from './movementConfig';
 import { endSlide, stepSlide, tryStartSlide, updateCrouch } from './slide';
 import { stepWallRun, updateWallRun } from './wallRun';
 
-export interface MovementModifiers {
+export interface MovementModifiers extends DashRules {
   /** Multiplier on run speed (e.g. < 1 while stunned). */
   speedFactor: number;
-  /** False while the player may not dash (e.g. stunned). */
-  canDash: boolean;
-  /** Dash cooldown of the game mode (GameMode.dashCooldownTicks). */
-  dashCooldownTicks: number;
 }
 
 /** Running speed for this tick: crouching, walking (walk key) or the default sprint. */
@@ -46,6 +42,7 @@ export function stepMovement(
   p.yaw = input.yaw;
   p.pitch = input.pitch;
   if (p.dashCooldown > 0) p.dashCooldown--;
+  rechargeDash(p, mods.dashRechargeTicks);
   if (p.wallCooldown > 0) p.wallCooldown--;
   if (p.slideCooldown > 0) p.slideCooldown--;
 
@@ -79,7 +76,8 @@ export function stepMovement(
   p.grounded = result.grounded;
   updateCrouch(p, crouchHeld, map);
 
-  // 3) Ground contact refills the air abilities.
+  // 3) Ground or wall contact refills the air abilities (not the dash charges, only the air limit).
+  if (p.grounded || p.wallRunning) p.airDashUsed = false;
   if (p.grounded) {
     p.coyoteTicks = MOVE.coyoteTicks;
     p.airJumpsLeft = MOVE.airJumps;

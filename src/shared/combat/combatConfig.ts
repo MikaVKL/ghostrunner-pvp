@@ -41,6 +41,8 @@ export const COMBAT = {
   // --- dash attack ---
   /** An attack started while dashing, or up to N ticks after the dash ended, is a dash attack. */
   dashAttackGraceTicks: secondsToTicks(0.1),
+  /** A dash attack that hit nothing recovers this much longer (the price of missing). */
+  dashAttackMissRecoveryTicks: secondsToTicks(0.35),
 
   // --- lag compensation (see combat/lagCompensation.ts) ---
   /**

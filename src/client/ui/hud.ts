@@ -7,10 +7,12 @@ import { getWeapon } from '../../shared/combat/weapons';
 import { COMBAT } from '../../shared/combat/combatConfig';
 import { getMap } from '../../shared/maps';
 import { getMode, type GameMode } from '../../shared/match/gameModes';
+import { canStartDash } from '../../shared/movement/dash';
+import { MOVE } from '../../shared/movement/movementConfig';
 import type { PlayerState } from '../../shared/sim/playerState';
 import type { GameClient } from '../../netcode/gameClient';
 import { teamColor } from '../render/palette';
-import { centerMessage, livesText, secondsLeft } from './hudTexts';
+import { centerMessage, dashChargeDots, livesText, secondsLeft } from './hudTexts';
 
 function element(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -40,6 +42,7 @@ export class Hud {
   private readonly attackBar = element('attack-bar');
   private readonly parryBar = element('parry-bar');
   private readonly dashBar = element('dash-bar');
+  private readonly dashCharges = element('dash-charges');
   private readonly hint = element('hint');
   private readonly roomCode = element('room-code');
   private readonly roomInfo = element('room-info');
@@ -134,7 +137,11 @@ export class Hud {
     };
     set(this.attackBar, busy ? 0 : 1 - me.attackCooldown / weapon.cooldownTicks);
     set(this.parryBar, busy ? 0 : 1 - me.parryCooldown / COMBAT.parryCooldownTicks);
-    set(this.dashBar, me.action === 'stunned' ? 0 : 1 - me.dashCooldown / mode.dashCooldownTicks);
+    // Dash: the bar fills over both charges, the dots show the charges ready to use.
+    const refilling = me.dashCharges < MOVE.dashMaxCharges ? 1 - me.dashRecharge / mode.dashRechargeTicks : 0;
+    set(this.dashBar, me.action === 'stunned' || !canStartDash(me) ? 0 : 1);
+    this.dashBar.style.width = `${((me.dashCharges + refilling) / MOVE.dashMaxCharges) * 100}%`;
+    this.dashCharges.textContent = dashChargeDots(me.dashCharges, MOVE.dashMaxCharges);
   }
 }
 

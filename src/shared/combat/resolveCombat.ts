@@ -22,6 +22,7 @@ import { currentAttack, isAttackActive, isParryActive, setAction } from './actio
 import { COMBAT } from './combatConfig';
 import { isFacing, isInMeleeRange } from './hitDetection';
 import { effectiveViewTick, positionAt } from './lagCompensation';
+import { refundDashCharge } from '../movement/dash';
 import { getWeapon } from './weapons';
 
 type Inputs = Record<number, InputCmd | undefined>;
@@ -72,6 +73,7 @@ function applyHit(
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp > 0) target.invulnerableTicks = mode.invulnerableTicks;
   if (hit.counter) attacker.counterTicks = 0; // the bonus is used up
+  refundDashCharge(attacker); // a hit gives a dash charge back
   // Push the target away from the attacker.
   const dir = directionBetween(attacker, target);
   target.vel.x += dir.x * attack.knockback;
@@ -103,6 +105,7 @@ function applyParry(attacker: PlayerState, target: PlayerState, mode: GameMode, 
     attacker.lungeTicks = 0;
   }
   setAction(target, 'idle');
+  refundDashCharge(target); // a successful parry gives a dash charge back
   target.parryCooldown = 0;
   target.attackCooldown = 0;
   target.counterTicks = mode.parryCounterTicks;

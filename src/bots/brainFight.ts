@@ -16,6 +16,7 @@ import { getWeapon } from '../shared/combat/weapons';
 import { TICK_DT } from '../shared/config';
 import { Button } from '../shared/input';
 import type { Rng } from '../shared/math/rng';
+import { canStartDash } from '../shared/movement/dash';
 import { MOVE } from '../shared/movement/movementConfig';
 import type { PlayerState } from '../shared/sim/playerState';
 import type { BotPersonality } from './brain';
@@ -117,7 +118,7 @@ export class FightHabits {
     // Dash attack: close a gap of a few meters, but never dash into the void.
     const dashReach = DASH_DISTANCE + dash.range - 0.5;
     const sameLevel = Math.abs(enemy.pos.y - me.pos.y) < 1;
-    if (aimError < 0.2 && distance < dashReach && me.dashCooldown === 0 && me.grounded && sameLevel) {
+    if (aimError < 0.2 && distance < dashReach && canStartDash(me) && me.grounded && sameLevel) {
       const normal = this.personality.dashAttackChance * this.style.attack * tactics.dashAttack * eager;
       const chance = open ? this.personality.punishChance : normal;
       if (this.rng() < chance && pathIsSafe()) {
@@ -151,7 +152,7 @@ export class FightHabits {
     if (roll < parry) {
       return me.action === 'idle' && me.parryCooldown === 0 ? { buttons: Button.Parry, dodge: false } : nothing;
     }
-    if (roll < parry + dodge && me.dashCooldown === 0 && me.action !== 'stunned') {
+    if (roll < parry + dodge && canStartDash(me) && me.action !== 'stunned') {
       this.stats.dodges++;
       return { buttons: 0, dodge: true };
     }

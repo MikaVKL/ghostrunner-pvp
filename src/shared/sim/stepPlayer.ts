@@ -23,6 +23,7 @@ function stepActivePlayer(p: PlayerState, input: InputCmd, map: MapDef, mode: Ga
     speedFactor: actionSpeedFactor(p),
     canDash: p.action !== 'stunned',
     dashCooldownTicks: mode.dashCooldownTicks,
+    dashRechargeTicks: mode.dashRechargeTicks,
   });
   stepAction(p, mode, moved);
   p.prevButtons = input.buttons;

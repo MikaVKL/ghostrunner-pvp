@@ -27,8 +27,10 @@ export interface GameMode {
   /** After a successful parry: the defender's next hit within this time does bonus damage. */
   parryCounterTicks: number;
   parryCounterBonus: number;
-  /** Time from the start of one dash until the next dash is possible. */
+  /** Smallest time from the start of one dash until the next (the real limit are the charges). */
   dashCooldownTicks: number;
+  /** Time to refill one empty dash charge (see movement/dash.ts). */
+  dashRechargeTicks: number;
   /** Added to the recovery of a dash attack (more risk for its higher damage). */
   dashAttackExtraRecoveryTicks: number;
   /** Round wins needed to take the match, hard round limit, maximum round length. */
@@ -50,6 +52,7 @@ export const DUEL: GameMode = {
   parryCounterTicks: 0,
   parryCounterBonus: 0,
   dashCooldownTicks: MOVE.dashCooldownTicks,
+  dashRechargeTicks: MOVE.dashRechargeTicks,
   dashAttackExtraRecoveryTicks: 0,
   roundsToWin: 3,
   maxRounds: 9,
@@ -73,7 +76,8 @@ export const ARENA_MODE: GameMode = {
   invulnerableTicks: secondsToTicks(0.75),
   parryCounterTicks: secondsToTicks(1.5),
   parryCounterBonus: 1,
-  dashCooldownTicks: secondsToTicks(1.6),
+  dashCooldownTicks: secondsToTicks(0.5),
+  dashRechargeTicks: secondsToTicks(3.6),
   dashAttackExtraRecoveryTicks: secondsToTicks(0.2),
   roundsToWin: 2,
   maxRounds: 5,

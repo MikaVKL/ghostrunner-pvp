@@ -95,15 +95,20 @@ describe('dash', () => {
     expect(p.dashCooldown).toBeGreaterThan(0);
   });
 
-  it('cannot dash again during the cooldown, but can afterwards', () => {
+  it('two charges: two dashes in a row, the third only after a charge refilled', () => {
     const p = standingPlayer(0, 10, 0);
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
-    runPlayer(p, {}, MOVE.dashTicks + 5);
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
-    expect(p.dashTicks).toBe(0);
-
+    const dash = () => stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
+    dash();
     runPlayer(p, {}, MOVE.dashCooldownTicks);
-    stepPlayer(p, input({ buttons: Button.Dash }), TEST_MAP, 'playing', DUEL);
+    dash();
+    expect(p.dashTicks).toBeGreaterThan(0);
+    expect(p.dashCharges).toBe(0);
+    runPlayer(p, {}, MOVE.dashCooldownTicks);
+    dash();
+    expect(p.dashTicks).toBe(0); // no charge left
+
+    runPlayer(p, {}, MOVE.dashRechargeTicks);
+    dash();
     expect(p.dashTicks).toBeGreaterThan(0);
   });
 

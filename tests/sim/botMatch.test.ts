@@ -51,7 +51,7 @@ describe('bot matches in the arena mode', () => {
 });
 
 describe('the bots really use the mechanics (so the desync check covers them)', () => {
-  const PARRYING_BOT = { ...DEFAULT_PERSONALITY, parryChance: 0.9, reactionTicks: 3 };
+  const PARRYING_BOT = { ...DEFAULT_PERSONALITY, parryChance: 1, dodgeChance: 0, reactionTicks: 2 };
   it('wall-run, wall-jump, dash, dash attack, parry and kills all happen', () => {
     const reports = Object.keys(MAPS).flatMap((mapId) =>
       // botB parries eagerly: since the faster sprint (flow update) default bots rarely parry,

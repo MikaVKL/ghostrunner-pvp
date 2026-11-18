@@ -200,6 +200,7 @@ describe('arena mode', () => {
     expect(ARENA_MODE.invulnerableTicks).toBeGreaterThan(0);
     expect(ARENA_MODE.parryCounterBonus).toBeGreaterThan(0);
     expect(ARENA_MODE.dashCooldownTicks).toBeGreaterThan(DUEL.dashCooldownTicks); // against endless kiting
+    expect(ARENA_MODE.dashRechargeTicks).toBeGreaterThan(DUEL.dashRechargeTicks);
     expect(ARENA_MODE.windupCueByDefault).toBe(true);
     // The counter window outlasts the stun, so the stunned attacker can really be punished.
     expect(ARENA_MODE.parryCounterTicks).toBeGreaterThanOrEqual(60);
